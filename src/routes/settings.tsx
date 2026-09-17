@@ -20,7 +20,7 @@ export const Route = createFileRoute("/settings")({
 });
 
 function SettingsScreen() {
-  const { status, interfaces } = useDataset();
+  const { status, interfaces, mailboxes } = useDataset();
   const mode = useDataMode();
 
   const inputCls =
@@ -60,10 +60,14 @@ function SettingsScreen() {
           </Row>
           <Row label="DEFAULT AUTONOMY">
             <select className={inputCls} defaultValue={status.autonomy}>
-              <option value="MANUAL">MANUAL</option>
-              <option value="SUGGEST">SUGGEST</option>
-              <option value="SEMI_AUTO">SEMI_AUTO</option>
-              <option value="AUTO">AUTO</option>
+              <option value="OBSERVE">OBSERVE — research only</option>
+              <option value="DRAFT">DRAFT — you approve every send</option>
+              <option value="GUARDED" disabled>
+                GUARDED — not available in v1
+              </option>
+              <option value="DELEGATED" disabled>
+                DELEGATED — not available in v1
+              </option>
             </select>
           </Row>
         </Panel>
@@ -74,30 +78,47 @@ function SettingsScreen() {
           <Line label="SCHEMA" value="v1" ok />
         </Panel>
 
-        <Panel title="EMAIL CONNECTOR" bodyClassName="px-4 py-4">
-          <div className="flex items-center justify-between">
-            <span className="text-[13px]">Outbound email account</span>
-            <Tag tone={status.emailConnected ? "signal" : "neutral"}>
-              {status.emailConnected ? "CONNECTED" : "NOT CONNECTED"}
-            </Tag>
-          </div>
-          <p className="mt-2 text-[13px] text-muted-foreground">
-            Until an account is connected, approved messages are exported rather than sent.
-          </p>
-          <div className="mt-3">
+        <Panel
+          title="MAILBOXES"
+          meta={<MachineLabel>CAPS ARE SHARED BY EVERY ENDEAVOUR ON A MAILBOX</MachineLabel>}
+          bodyClassName="divide-y divide-border"
+        >
+          {mailboxes.length === 0 ? (
+            <div className="px-4 py-6">
+              <p className="text-[13px] text-muted-foreground">
+                No mailbox connected. Each endeavour sends through a mailbox you choose; connect one to start.
+              </p>
+            </div>
+          ) : (
+            mailboxes.map((m) => (
+              <div key={m.id} className="px-4 py-3" data-testid="mailbox-row">
+                <div className="flex items-center justify-between gap-3">
+                  <span className="min-w-0">
+                    <span className="block truncate text-[13px]">{m.displayName}</span>
+                    <span className="machine block truncate">{m.address}</span>
+                  </span>
+                  <Tag tone={m.status === "connected" ? "signal" : m.status === "needs_reauth" ? "warn" : "neutral"}>
+                    {m.status.replace("_", " ").toUpperCase()}
+                  </Tag>
+                </div>
+                <div className="machine mt-2 flex flex-wrap gap-x-4 gap-y-1">
+                  <span>
+                    SENT TODAY {m.sentToday}/{m.capToday}
+                    {m.warmingUp ? ` · WARMING UP TO ${m.dailyCap}` : ""}
+                  </span>
+                  <span>QUIET {m.quietHours}</span>
+                  <span>
+                    {m.endeavourIds.length} {m.endeavourIds.length === 1 ? "ENDEAVOUR" : "ENDEAVOURS"}
+                  </span>
+                </div>
+              </div>
+            ))
+          )}
+          <div className="px-4 py-3">
             <Button variant="primary" size="sm">
-              Connect email
+              Connect Google mailbox
             </Button>
           </div>
-        </Panel>
-
-        <Panel title="SEND CAPS / QUIET HOURS" bodyClassName="space-y-3 px-4 py-4">
-          <Row label="DAILY SEND CAP">
-            <input className={`${inputCls} numeral`} defaultValue={status.sendCapPerDay} />
-          </Row>
-          <Row label="QUIET HOURS">
-            <input className={inputCls} defaultValue={status.quietHours} />
-          </Row>
         </Panel>
 
         <Panel title="RESEARCH SOURCES" bodyClassName="px-4 py-4">
