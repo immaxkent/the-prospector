@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useRouteContext } from "@tanstack/react-router";
 import { useAppMode, useDataset, setDataMode, useDataMode } from "@/data/store";
+import { MailboxRow } from "@/components/os/MailboxRow";
 import {
   Button,
   MachineLabel,
@@ -12,7 +13,23 @@ import {
 import { stamp } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
+const MAILBOX_ERRORS: Record<string, string> = {
+  demo_mode: "Demo mode has no database, so mailboxes cannot be connected.",
+  google_not_configured: "Google OAuth is not configured on this server.",
+  encryption_key_missing: "TOKEN_ENCRYPTION_KEY is not set, so tokens cannot be stored safely.",
+  access_denied: "Google access was not granted.",
+  state_mismatch: "The connection request expired or was tampered with. Try again.",
+  email_unverified: "Google has not verified that address.",
+  scopes_missing: "Gmail send and read access are both required.",
+  no_offline_access: "Google did not grant offline access. Remove the app in your Google account permissions and connect again.",
+  provider_error: "Google could not complete the connection. Try again.",
+};
+
 export const Route = createFileRoute("/settings")({
+  validateSearch: (search: Record<string, unknown>) => ({
+    mailbox: typeof search["mailbox"] === "string" ? search["mailbox"] : undefined,
+    mailboxError: typeof search["mailboxError"] === "string" ? search["mailboxError"] : undefined,
+  }),
   head: () => ({
     meta: [
       { title: "Settings — CBO OS" },
@@ -30,6 +47,7 @@ export const Route = createFileRoute("/settings")({
 
 function SettingsScreen() {
   const { status, interfaces, mailboxes } = useDataset();
+  const { mailbox: connected, mailboxError } = Route.useSearch();
   const mode = useDataMode();
   const appMode = useAppMode();
   const user = useRouteContext({ from: "__root__", select: (c) => c.session?.user ?? null });
@@ -127,6 +145,16 @@ function SettingsScreen() {
           meta={<MachineLabel>CAPS ARE SHARED BY EVERY ENDEAVOUR ON A MAILBOX</MachineLabel>}
           bodyClassName="divide-y divide-border"
         >
+          {connected && (
+            <p role="status" className="px-4 py-2 text-[13px] text-signal">
+              Connected {connected}.
+            </p>
+          )}
+          {mailboxError && (
+            <p role="alert" className="px-4 py-2 text-[13px] text-warn">
+              {MAILBOX_ERRORS[mailboxError] ?? "The mailbox could not be connected."}
+            </p>
+          )}
           {mailboxes.length === 0 ? (
             <div className="px-4 py-6">
               <p className="text-[13px] text-muted-foreground">
@@ -135,43 +163,15 @@ function SettingsScreen() {
               </p>
             </div>
           ) : (
-            mailboxes.map((m) => (
-              <div key={m.id} className="px-4 py-3" data-testid="mailbox-row">
-                <div className="flex items-center justify-between gap-3">
-                  <span className="min-w-0">
-                    <span className="block truncate text-[13px]">{m.displayName}</span>
-                    <span className="machine block truncate">{m.address}</span>
-                  </span>
-                  <Tag
-                    tone={
-                      m.status === "connected"
-                        ? "signal"
-                        : m.status === "needs_reauth"
-                          ? "warn"
-                          : "neutral"
-                    }
-                  >
-                    {m.status.replace("_", " ").toUpperCase()}
-                  </Tag>
-                </div>
-                <div className="machine mt-2 flex flex-wrap gap-x-4 gap-y-1">
-                  <span>
-                    SENT TODAY {m.sentToday}/{m.capToday}
-                    {m.warmingUp ? ` · WARMING UP TO ${m.dailyCap}` : ""}
-                  </span>
-                  <span>QUIET {m.quietHours}</span>
-                  <span>
-                    {m.endeavourIds.length}{" "}
-                    {m.endeavourIds.length === 1 ? "ENDEAVOUR" : "ENDEAVOURS"}
-                  </span>
-                </div>
-              </div>
-            ))
+            mailboxes.map((m) => <MailboxRow key={m.id} mailbox={m} />)
           )}
           <div className="px-4 py-3">
-            <Button variant="primary" size="sm">
+            <a
+              href="/mailboxes/google/connect"
+              className="inline-flex h-7 items-center justify-center rounded-full bg-ink px-3 font-mono text-[10px] uppercase tracking-[0.14em] text-ink-foreground hover:bg-primary"
+            >
               Connect Google mailbox
-            </Button>
+            </a>
           </div>
         </Panel>
 
