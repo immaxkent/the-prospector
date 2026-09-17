@@ -13,7 +13,8 @@ const CI = !!process.env["CI"];
 
 export default defineConfig({
   testDir: "tests/e2e",
-  fullyParallel: true,
+  // Live specs share one database, so specs run one at a time. The whole suite still takes seconds.
+  workers: 1,
   retries: CI ? 1 : 0,
   reporter: CI ? "github" : "list",
   use: {
@@ -31,8 +32,6 @@ export default defineConfig({
     {
       name: "live",
       testMatch: "live/**/*.spec.ts",
-      // Live specs share one database.
-      fullyParallel: false,
       use: { ...devices["Desktop Chrome"], baseURL: `http://localhost:${LIVE_PORT}` },
     },
   ],
