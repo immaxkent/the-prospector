@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
 import { useDataset } from "@/data/store";
+import { OpportunityActions } from "@/components/os/OpportunityActions";
 import {
   Button,
   EmptyState,
@@ -172,6 +173,7 @@ function PipelineScreen() {
               <Th align="right">Probability</Th>
               <Th>Next action</Th>
               <Th align="right">Updated</Th>
+              <Th>Actions</Th>
             </tr>
           </thead>
           <tbody>
@@ -196,6 +198,9 @@ function PipelineScreen() {
                 <Td className="text-muted-foreground">{o.nextAction}</Td>
                 <Td align="right" mono className="text-muted-foreground">
                   {stamp(o.updatedAt)}
+                </Td>
+                <Td>
+                  <OpportunityActions opportunity={o} />
                 </Td>
               </Tr>
             ))}
