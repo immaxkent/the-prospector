@@ -1,0 +1,9 @@
+# Caddy gets and renews the certificate itself; set APP_DOMAIN in .env.production.
+{$APP_DOMAIN} {
+	encode zstd gzip
+	reverse_proxy web:3000
+	log {
+		output stdout
+		format console
+	}
+}
