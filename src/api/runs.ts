@@ -15,6 +15,7 @@ export const runNowFn = createServerFn({ method: "POST" })
       import("../server/jobs/queue"),
       import("../server/jobs/worker"),
     ]);
+    const { createAgentDeps } = await import("../server/agent/deps");
     const config = getConfig();
     if (config.mode !== "live") throw new Error("Demo mode has no worker. Connect a database to run the loop.");
     const db = getDb();
@@ -39,7 +40,11 @@ export const runNowFn = createServerFn({ method: "POST" })
     }
 
     if (config.workerMode === "inline") {
-      await worker.tick(db, { workerId: "inline", scheduleHour: config.dailyRunHour });
+      await worker.tick(db, {
+        workerId: "inline",
+        scheduleHour: config.dailyRunHour,
+        agent: await createAgentDeps(config, db),
+      });
     }
     return { queued, endeavours: targets.length, executedInline: config.workerMode === "inline" };
   });
