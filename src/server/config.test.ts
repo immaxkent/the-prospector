@@ -15,8 +15,8 @@ const prod = {
 describe("loadConfig", () => {
   it("runs in demo mode without a database", () => {
     const c = loadConfig({});
-    expect(c).toMatchObject({ mode: "demo", production: false, appUrl: "http://localhost:3000", google: null, model: "claude-sonnet-5" });
-    expect(loadConfig({ ANTHROPIC_MODEL: "claude-opus-5" }).model).toBe("claude-opus-5");
+    expect(c).toMatchObject({ mode: "demo", production: false, appUrl: "http://localhost:3000", google: null, model: "claude-opus-5" });
+    expect(loadConfig({ ANTHROPIC_MODEL: "claude-sonnet-5" }).model).toBe("claude-sonnet-5");
   });
 
   it("runs live with a database and trims the app url", () => {
