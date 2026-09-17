@@ -6,9 +6,11 @@
  * coverage gap in the brief. Nothing is ever reported as done when it did not run.
  */
 import { and, eq, gte, inArray, lt } from "drizzle-orm";
+import { draftOutreach, type ProofItemRef } from "../agent/draft";
 import { qualifyProspect, type EvidenceForQualification } from "../agent/qualify";
 import { researchCandidates } from "../agent/research";
 import type { AgentDeps } from "../agent/deps";
+import { createOutreachDraft } from "../commands/outreach";
 import { applyQualification, knownTargetNames, storeCandidates } from "../commands/research";
 import type { Database } from "../db/client";
 import { activities, companies, dailyRuns, endeavours, evidence, messages, people, prospects, runLog, segments, triggers } from "../db/schema";
@@ -226,7 +228,97 @@ export const DAILY_RUN_STEPS: RunStep[] = [
       await ctx.log("info", `${dueToday.length} action(s) queued for today`);
     },
   },
-  pending("draft", "W9", "Drafting personalised outreach"),
+  {
+    name: "draft",
+    run: async (ctx) => {
+      if (!ctx.agent) {
+        await ctx.log("warn", "Claude is not configured (ANTHROPIC_API_KEY), so nothing was drafted");
+        ctx.gaps.push("Drafting did not run: Claude is not configured");
+        return;
+      }
+      const { endeavour, offering, pricing, proof, dailyNewTarget } = await endeavourBrief(ctx);
+      const today = startOfLocalDay(ctx.now);
+      const alreadyToday = await ctx.db
+        .select({ id: messages.id })
+        .from(messages)
+        .where(
+          and(
+            eq(messages.endeavourId, ctx.endeavourId),
+            eq(messages.direction, "outbound"),
+            eq(messages.messageClass, "new_outreach"),
+            gte(messages.createdAt, today),
+          ),
+        );
+      const room = Math.max(0, dailyNewTarget - alreadyToday.length);
+      if (room === 0) {
+        await ctx.log("info", `today's outreach target of ${dailyNewTarget} is already prepared`);
+        return;
+      }
+
+      const ready = await ctx.db
+        .select()
+        .from(prospects)
+        .where(and(eq(prospects.endeavourId, ctx.endeavourId), eq(prospects.reviewStatus, "qualified"), eq(prospects.stage, "qualified")))
+        .limit(room);
+      if (ready.length === 0) {
+        await ctx.log("info", "no qualified prospect is waiting for a first email");
+        return;
+      }
+
+      let drafted = 0;
+      let refused = 0;
+      for (const prospect of ready) {
+        const [company] = prospect.companyId ? await ctx.db.select().from(companies).where(eq(companies.id, prospect.companyId)) : [];
+        const [person] = prospect.personId ? await ctx.db.select().from(people).where(eq(people.id, prospect.personId)) : [];
+        const [segment] = prospect.segmentId ? await ctx.db.select().from(segments).where(eq(segments.id, prospect.segmentId)) : [];
+        const claims = await ctx.db.select().from(evidence).where(eq(evidence.entityId, prospect.id));
+        if (!person?.email) {
+          await ctx.log("warn", `${company?.name ?? prospect.id}: no email address, so no draft was written`);
+          continue;
+        }
+
+        const result = await draftOutreach(
+          { ...ctx.agent, runId: ctx.runId },
+          {
+            prospect: { company: company?.name ?? "unknown company", person: person.name, role: person.role },
+            segment: { name: segment?.name ?? "unspecified", painHypothesis: segment?.painHypothesis ?? "unknown" },
+            offering,
+            pricing,
+            evidence: claims.map((c) => ({ id: c.id, claim: c.claim, sourceRef: c.sourceRef })),
+            proof,
+            senderName: endeavour.name,
+            messageClass: "new_outreach",
+            history: [],
+            today: localDate(ctx.now),
+          },
+        );
+
+        if (!result.ok) {
+          refused += 1;
+          await ctx.log("warn", `${company?.name ?? prospect.id}: draft refused — ${result.violations.map((v) => v.detail).join("; ")}`);
+          continue;
+        }
+        const created = await createOutreachDraft(ctx.db, {
+          prospectId: prospect.id,
+          subject: result.draft.subject,
+          body: result.draft.body,
+          evidenceIds: result.citedEvidenceIds,
+          messageClass: "new_outreach",
+          templateVersion: "outreach.draft/2026-09-17.1",
+          why: prospect.scoreReason ?? "",
+          runId: ctx.runId,
+        });
+        if (created.created) {
+          drafted += 1;
+          await ctx.log("info", `${company?.name ?? prospect.id}: draft ready for approval`);
+        } else {
+          await ctx.log("info", `${company?.name ?? prospect.id}: no draft (${created.reason})`);
+        }
+      }
+      ctx.metrics["drafted"] = drafted;
+      if (refused > 0) ctx.gaps.push(`${refused} draft(s) were refused because their claims were not supported by evidence`);
+    },
+  },
   pending("send", "W10", "Sending approved messages"),
   {
     name: "escalate",
@@ -273,11 +365,15 @@ async function endeavourBrief(ctx: RunContext) {
   const offering = value<{ summary: string; deliverables: string[] }>(e.spec.offering);
   const exclusions = value<{ rule: string }[]>(e.spec.exclusions) ?? [];
   const cadence = value<{ dailyNewTarget: number }>(e.spec.cadence);
+  const pricing = value<{ model: string; amount?: number; currency?: string }>(e.spec.pricing);
+  const proofItems = value<{ kind: string; title: string; claim: string; url?: string }[]>(e.spec.proof) ?? [];
   return {
     endeavour: e,
     offering: offering ? [offering.summary, ...offering.deliverables].join(" · ") : e.name,
     exclusions: exclusions.map((x) => x.rule),
     dailyNewTarget: cadence?.dailyNewTarget ?? 0,
+    pricing: pricing?.amount ? `${pricing.currency ?? ""} ${pricing.amount} (${pricing.model})`.trim() : null,
+    proof: proofItems.map((p, i): ProofItemRef => ({ id: `proof_${i + 1}`, title: p.title, claim: p.claim, url: p.url })),
   };
 }
 
