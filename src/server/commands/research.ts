@@ -5,8 +5,10 @@
 import { and, eq, inArray, sql } from "drizzle-orm";
 import type { Database } from "../db/client";
 import { companies, evidence, people, prospects, suppressions, triggers } from "../db/schema";
+import type { ScoreFactor } from "../db/schema";
 import type { Candidate } from "../agent/research";
 import { newId } from "../ids";
+import { notFound } from "./errors";
 import { recordEvent, type Executor } from "./events";
 
 export interface StoreResult {
@@ -155,4 +157,41 @@ export async function knownTargetNames(db: Database, endeavourId: string, limit 
     .orderBy(sql`${prospects.createdAt} desc`)
     .limit(limit);
   return rows.map((r) => r.name);
+}
+
+export interface QualificationUpdate {
+  prospectId: string;
+  score: number;
+  factors: ScoreFactor[];
+  reason: string;
+  outcome: "qualified" | "needs_review" | "rejected";
+}
+
+/** Writes a qualification result: the score, its factors and the outcome, with the reason kept. */
+export async function applyQualification(db: Database, input: QualificationUpdate) {
+  return db.transaction(async (tx) => {
+    const [prospect] = await tx.select().from(prospects).where(eq(prospects.id, input.prospectId)).for("update");
+    if (!prospect) throw notFound("prospect");
+
+    const qualified = input.outcome === "qualified";
+    await tx
+      .update(prospects)
+      .set({
+        qualificationScore: input.score,
+        scoreFactors: input.factors,
+        scoreReason: input.reason,
+        reviewStatus: input.outcome,
+        ...(qualified ? { stage: "qualified", nextAction: "First outreach due", nextActionAt: new Date() } : {}),
+        ...(input.outcome === "rejected" ? { rejectionReason: input.reason, nextAction: null, nextActionAt: null } : {}),
+      })
+      .where(eq(prospects.id, prospect.id));
+
+    await recordEvent(tx, {
+      eventType: qualified ? "prospect.qualified" : input.outcome === "rejected" ? "prospect.rejected" : "prospect.needs_review",
+      entityType: "prospect",
+      entityId: prospect.id,
+      endeavourId: prospect.endeavourId,
+      detail: `${input.score}/100 · ${input.reason}`,
+    });
+  });
 }
