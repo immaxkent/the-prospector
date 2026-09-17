@@ -3,6 +3,8 @@ import { randomBytes } from "node:crypto";
 export const ID_PREFIXES = {
   endeavour: "end",
   specVersion: "spv",
+  user: "usr",
+  session: "ses",
   intake: "int",
   mailbox: "mbx",
   segment: "seg",
