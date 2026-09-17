@@ -221,6 +221,8 @@ export interface RunLogLine {
 export interface AgentRun {
   id: string;
   endeavourId: string;
+  /** Step the run is on, e.g. "research" or "done". */
+  phase: string;
   startedAt: string;
   durationMs: number;
   state: "OK" | "FAILED" | "RUNNING";
