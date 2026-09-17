@@ -74,16 +74,28 @@ test.describe("intake", () => {
     expect(await query("select count(*)::int as n from endeavour_spec_versions")).toEqual([{ n: 1 }]);
   });
 
-  test("an invalid value is refused with the reason", async ({ page }) => {
+  test("an invalid value is refused and never saved", async ({ page }) => {
     await signIn(page, "/endeavours/new");
     await page.getByLabel("Brief").fill(BRIEF);
     await page.getByRole("button", { name: "Plan this endeavour" }).click();
     const cadence = page.getByTestId("intake-field-cadence");
+    await expect(cadence).toContainText("STATED");
+
     await cadence.getByRole("button", { name: "Edit" }).click();
     await cadence.getByLabel("Value for Daily cadence").fill('{"dailyNewTarget":-4,"dailyFollowupTarget":8}');
     await cadence.getByRole("button", { name: "Save value" }).click();
-    // The first server call in CI loads modules lazily, so the toast can take a while to appear.
-    await expect(page.getByText(/dailyNewTarget/)).toBeVisible({ timeout: 20_000 });
+
+    // The draft must keep the planner's value: a rejected edit is never stored.
+    await expect
+      .poll(async () => {
+        const [row] = await query<{ cadence: { state: string; value: { dailyNewTarget: number } } }>(
+          "select draft_spec -> 'cadence' as cadence from intake_sessions order by created_at desc limit 1",
+        );
+        return row?.cadence;
+      }, { timeout: 20_000 })
+      .toMatchObject({ state: "stated", value: { dailyNewTarget: 10 } });
     await expect(cadence).toContainText("STATED");
+    // Scoped to the toast: the field summary also mentions the field name.
+    await expect(page.locator("[data-sonner-toast]").getByText(/dailyNewTarget/)).toBeVisible({ timeout: 20_000 });
   });
 });
