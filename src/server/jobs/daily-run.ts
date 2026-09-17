@@ -6,8 +6,12 @@
  * coverage gap in the brief. Nothing is ever reported as done when it did not run.
  */
 import { and, eq, gte, inArray, lt } from "drizzle-orm";
+import { qualifyProspect, type EvidenceForQualification } from "../agent/qualify";
+import { researchCandidates } from "../agent/research";
+import type { AgentDeps } from "../agent/deps";
+import { applyQualification, knownTargetNames, storeCandidates } from "../commands/research";
 import type { Database } from "../db/client";
-import { activities, dailyRuns, endeavours, messages, prospects, runLog } from "../db/schema";
+import { activities, companies, dailyRuns, endeavours, evidence, messages, people, prospects, runLog, segments, triggers } from "../db/schema";
 import { PROGRESSION } from "../domain/pipeline";
 import { newId } from "../ids";
 import { localDate, OPERATOR_TIMEZONE } from "../read/rows";
@@ -16,6 +20,8 @@ import { recordEvent } from "../commands/events";
 
 export interface RunContext {
   db: Database;
+  /** Null when Claude is not configured: agent steps then report themselves as skipped. */
+  agent: AgentDeps | null;
   runId: string;
   endeavourId: string;
   now: Date;
@@ -82,8 +88,132 @@ export const DAILY_RUN_STEPS: RunStep[] = [
       await ctx.log("info", `pipeline recalculated from ${active.length} active prospect(s)`);
     },
   },
-  pending("research", "W9", "Researching new candidates"),
-  pending("qualify", "W9", "Scoring and qualifying candidates"),
+  {
+    name: "research",
+    run: async (ctx) => {
+      if (!ctx.agent) {
+        await ctx.log("warn", "Claude is not configured (ANTHROPIC_API_KEY), so no research ran");
+        ctx.gaps.push("Research did not run: Claude is not configured");
+        return;
+      }
+      const { offering, exclusions, dailyNewTarget } = await endeavourBrief(ctx);
+      const found = await ctx.db
+        .select({ id: prospects.id })
+        .from(prospects)
+        .where(and(eq(prospects.endeavourId, ctx.endeavourId), gte(prospects.createdAt, startOfLocalDay(ctx.now))));
+      const wanted = Math.max(0, dailyNewTarget - found.length);
+      if (wanted === 0) {
+        await ctx.log("info", `today's target of ${dailyNewTarget} new prospect(s) is already met`);
+        return;
+      }
+
+      const active = await ctx.db
+        .select()
+        .from(segments)
+        .where(and(eq(segments.endeavourId, ctx.endeavourId), eq(segments.status, "active")));
+      if (active.length === 0) {
+        await ctx.log("warn", "no active segment to research");
+        ctx.gaps.push("Research did not run: the endeavour has no active segment");
+        return;
+      }
+      const known = await knownTargetNames(ctx.db, ctx.endeavourId);
+      let created = 0;
+      for (const segment of active.sort((a, b) => a.priority - b.priority)) {
+        if (created >= wanted) break;
+        const result = await researchCandidates(
+          { ...ctx.agent, runId: ctx.runId },
+          {
+            segment: { name: segment.name, definition: segment.definition, signals: segment.signals, painHypothesis: segment.painHypothesis },
+            offering,
+            exclusions,
+            knownTargets: known,
+            wanted: wanted - created,
+            today: localDate(ctx.now),
+          },
+        );
+        const stored = await storeCandidates(ctx.db, {
+          endeavourId: ctx.endeavourId,
+          segmentId: segment.id,
+          candidates: result.candidates,
+          runId: ctx.runId,
+        });
+        created += stored.created.length;
+        await ctx.log(
+          "info",
+          `${segment.name}: ${result.proposed} proposed · ${result.droppedCandidates} unverifiable · ${stored.suppressed} suppressed · ${stored.duplicates} already known · ${stored.created.length} added`,
+        );
+        if (result.droppedClaims > 0) {
+          await ctx.log("warn", `${result.droppedClaims} claim(s) cited a page search never returned and were dropped`);
+        }
+      }
+      ctx.metrics["discovered"] = created;
+      if (created < wanted) ctx.gaps.push(`Research found ${created} of ${wanted} new prospect(s) wanted today`);
+    },
+  },
+  {
+    name: "qualify",
+    run: async (ctx) => {
+      if (!ctx.agent) {
+        await ctx.log("warn", "Claude is not configured (ANTHROPIC_API_KEY), so nothing was qualified");
+        ctx.gaps.push("Qualification did not run: Claude is not configured");
+        return;
+      }
+      const { offering, exclusions } = await endeavourBrief(ctx);
+      const waiting = await ctx.db
+        .select()
+        .from(prospects)
+        .where(and(eq(prospects.endeavourId, ctx.endeavourId), eq(prospects.reviewStatus, "researching")))
+        .limit(20);
+      if (waiting.length === 0) {
+        await ctx.log("info", "nothing waiting to be qualified");
+        return;
+      }
+
+      let qualified = 0;
+      for (const prospect of waiting) {
+        const [company] = prospect.companyId ? await ctx.db.select().from(companies).where(eq(companies.id, prospect.companyId)) : [];
+        const [person] = prospect.personId ? await ctx.db.select().from(people).where(eq(people.id, prospect.personId)) : [];
+        const [segment] = prospect.segmentId ? await ctx.db.select().from(segments).where(eq(segments.id, prospect.segmentId)) : [];
+        const claims = await ctx.db.select().from(evidence).where(eq(evidence.entityId, prospect.id));
+        const [trigger] = await ctx.db.select().from(triggers).where(eq(triggers.prospectId, prospect.id));
+
+        const result = await qualifyProspect(
+          { ...ctx.agent, runId: ctx.runId },
+          {
+            segment: segment
+              ? { name: segment.name, definition: segment.definition, signals: segment.signals, painHypothesis: segment.painHypothesis }
+              : { name: "unspecified", definition: "no segment recorded", signals: [], painHypothesis: "unknown" },
+            offering,
+            exclusions,
+            prospect: {
+              company: company?.name ?? "unknown company",
+              person: person?.name ?? null,
+              role: person?.role ?? null,
+              hasEmail: !!person?.email,
+              trigger: trigger?.description ?? null,
+            },
+            evidence: claims.map(
+              (c): EvidenceForQualification => ({
+                id: c.id,
+                claim: c.claim,
+                sourceRef: c.sourceRef,
+                capturedAt: c.capturedAt.toISOString().slice(0, 10),
+                confidence: c.confidence,
+              }),
+            ),
+            today: localDate(ctx.now),
+          },
+        );
+        await applyQualification(ctx.db, { prospectId: prospect.id, ...result });
+        if (result.outcome === "qualified") qualified += 1;
+        await ctx.log("info", `${company?.name ?? prospect.id}: ${result.score}/100 · ${result.outcome}`);
+        if (result.droppedCitations > 0) {
+          await ctx.log("warn", `${result.droppedCitations} citation(s) pointed at evidence that does not exist and were dropped`);
+        }
+      }
+      ctx.metrics["qualified"] = qualified;
+    },
+  },
   {
     name: "build_queue",
     run: async (ctx) => {
@@ -131,6 +261,24 @@ export interface DailyRunInput {
   trigger: "schedule" | "manual";
   now?: Date;
   steps?: RunStep[];
+  agent?: AgentDeps | null;
+}
+
+/** Spec values the agent steps need, with the endeavour's own words. */
+async function endeavourBrief(ctx: RunContext) {
+  const [e] = await ctx.db.select().from(endeavours).where(eq(endeavours.id, ctx.endeavourId));
+  if (!e) throw notFound("endeavour");
+  const value = <T>(f: { state: string } & Record<string, unknown>) =>
+    f.state === "stated" || f.state === "confirmed" ? (f["value"] as T) : undefined;
+  const offering = value<{ summary: string; deliverables: string[] }>(e.spec.offering);
+  const exclusions = value<{ rule: string }[]>(e.spec.exclusions) ?? [];
+  const cadence = value<{ dailyNewTarget: number }>(e.spec.cadence);
+  return {
+    endeavour: e,
+    offering: offering ? [offering.summary, ...offering.deliverables].join(" · ") : e.name,
+    exclusions: exclusions.map((x) => x.rule),
+    dailyNewTarget: cadence?.dailyNewTarget ?? 0,
+  };
 }
 
 /** Starts today's run, or returns the existing one so a repeated trigger never duplicates work. */
@@ -161,6 +309,7 @@ export async function runDailyLoop(db: Database, input: DailyRunInput) {
 
   const ctx: RunContext = {
     db,
+    agent: input.agent ?? null,
     runId: run.id,
     endeavourId: input.endeavourId,
     now,
