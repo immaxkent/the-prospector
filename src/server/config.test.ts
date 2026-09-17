@@ -10,6 +10,7 @@ const prod = {
   GOOGLE_CLIENT_SECRET: "secret",
   AUTH_ALLOWED_EMAILS: "max@example.com",
   TOKEN_ENCRYPTION_KEY: randomBytes(32).toString("base64"),
+  ANTHROPIC_API_KEY: "sk-ant-test",
 };
 
 describe("loadConfig", () => {
@@ -43,6 +44,13 @@ describe("loadConfig", () => {
     expect(loadConfig({}).tokenKey).toBeNull();
     expect(loadConfig(prod).tokenKey).toHaveLength(32);
     expect(() => loadConfig({ ...prod, TOKEN_ENCRYPTION_KEY: "short" })).toThrow("TOKEN_ENCRYPTION_KEY");
+  });
+
+  it("requires a Claude key in production and refuses the fixture planner there", () => {
+    expect(loadConfig({}).plannerFixture).toBe(false);
+    expect(loadConfig({ INTAKE_PLANNER_FIXTURE: "1" }).plannerFixture).toBe(true);
+    expect(() => loadConfig({ ...prod, ANTHROPIC_API_KEY: "" })).toThrow("ANTHROPIC_API_KEY");
+    expect(() => loadConfig({ ...prod, INTAKE_PLANNER_FIXTURE: "1" })).toThrow("INTAKE_PLANNER_FIXTURE");
   });
 
   it("refuses the test login in production", () => {
