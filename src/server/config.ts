@@ -19,6 +19,8 @@ export interface AppConfig {
   databaseUrl: string | null;
   google: { clientId: string; clientSecret: string } | null;
   allowlist: string[];
+  /** Claude model used by the agent roles. */
+  model: string;
   /** Enables /auth/test-login for e2e. Never set in production. */
   testLoginSecret: string | null;
 }
@@ -40,6 +42,7 @@ export function loadConfig(env: Env = process.env): AppConfig {
     databaseUrl,
     google: clientId && clientSecret ? { clientId, clientSecret } : null,
     allowlist: parseAllowlist(env["AUTH_ALLOWED_EMAILS"]),
+    model: env["ANTHROPIC_MODEL"] || "claude-sonnet-5",
     testLoginSecret,
   };
 
