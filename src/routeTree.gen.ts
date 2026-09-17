@@ -26,6 +26,7 @@ import { Route as AuthTestLoginRouteImport } from './routes/auth.test-login'
 import { Route as EndeavoursIndexRouteImport } from './routes/endeavours.index'
 import { Route as EndeavoursIdRouteImport } from './routes/endeavours.$id'
 import { Route as EndeavoursNewRouteImport } from './routes/endeavours.new'
+import { Route as ApiV1SplatRouteImport } from './routes/api.v1.$'
 import { Route as AuthGoogleCallbackRouteImport } from './routes/auth.google.callback'
 import { Route as MailboxesGoogleCallbackRouteImport } from './routes/mailboxes.google.callback'
 import { Route as MailboxesGoogleConnectRouteImport } from './routes/mailboxes.google.connect'
@@ -115,6 +116,11 @@ const EndeavoursNewRoute = EndeavoursNewRouteImport.update({
   path: '/new',
   getParentRoute: () => EndeavoursRoute,
 } as any)
+const ApiV1SplatRoute = ApiV1SplatRouteImport.update({
+  id: '/api/v1/$',
+  path: '/api/v1/$',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AuthGoogleCallbackRoute = AuthGoogleCallbackRouteImport.update({
   id: '/callback',
   path: '/callback',
@@ -149,6 +155,7 @@ export interface FileRoutesByFullPath {
   '/endeavours/$id': typeof EndeavoursIdRoute
   '/endeavours/new': typeof EndeavoursNewRoute
   '/endeavours/': typeof EndeavoursIndexRoute
+  '/api/v1/$': typeof ApiV1SplatRoute
   '/auth/google/callback': typeof AuthGoogleCallbackRoute
   '/mailboxes/google/callback': typeof MailboxesGoogleCallbackRoute
   '/mailboxes/google/connect': typeof MailboxesGoogleConnectRoute
@@ -170,6 +177,7 @@ export interface FileRoutesByTo {
   '/endeavours/$id': typeof EndeavoursIdRoute
   '/endeavours/new': typeof EndeavoursNewRoute
   '/endeavours': typeof EndeavoursIndexRoute
+  '/api/v1/$': typeof ApiV1SplatRoute
   '/auth/google/callback': typeof AuthGoogleCallbackRoute
   '/mailboxes/google/callback': typeof MailboxesGoogleCallbackRoute
   '/mailboxes/google/connect': typeof MailboxesGoogleConnectRoute
@@ -193,6 +201,7 @@ export interface FileRoutesById {
   '/endeavours/$id': typeof EndeavoursIdRoute
   '/endeavours/new': typeof EndeavoursNewRoute
   '/endeavours/': typeof EndeavoursIndexRoute
+  '/api/v1/$': typeof ApiV1SplatRoute
   '/auth/google/callback': typeof AuthGoogleCallbackRoute
   '/mailboxes/google/callback': typeof MailboxesGoogleCallbackRoute
   '/mailboxes/google/connect': typeof MailboxesGoogleConnectRoute
@@ -217,6 +226,7 @@ export interface FileRouteTypes {
     | '/endeavours/$id'
     | '/endeavours/new'
     | '/endeavours/'
+    | '/api/v1/$'
     | '/auth/google/callback'
     | '/mailboxes/google/callback'
     | '/mailboxes/google/connect'
@@ -238,6 +248,7 @@ export interface FileRouteTypes {
     | '/endeavours/$id'
     | '/endeavours/new'
     | '/endeavours'
+    | '/api/v1/$'
     | '/auth/google/callback'
     | '/mailboxes/google/callback'
     | '/mailboxes/google/connect'
@@ -260,6 +271,7 @@ export interface FileRouteTypes {
     | '/endeavours/$id'
     | '/endeavours/new'
     | '/endeavours/'
+    | '/api/v1/$'
     | '/auth/google/callback'
     | '/mailboxes/google/callback'
     | '/mailboxes/google/connect'
@@ -280,6 +292,7 @@ export interface RootRouteChildren {
   AuthGoogleRoute: typeof AuthGoogleRouteWithChildren
   AuthLogoutRoute: typeof AuthLogoutRoute
   AuthTestLoginRoute: typeof AuthTestLoginRoute
+  ApiV1SplatRoute: typeof ApiV1SplatRoute
   MailboxesGoogleCallbackRoute: typeof MailboxesGoogleCallbackRoute
   MailboxesGoogleConnectRoute: typeof MailboxesGoogleConnectRoute
 }
@@ -405,6 +418,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof EndeavoursNewRouteImport
       parentRoute: typeof EndeavoursRoute
     }
+    '/api/v1/$': {
+      id: '/api/v1/$'
+      path: '/api/v1/$'
+      fullPath: '/api/v1/$'
+      preLoaderRoute: typeof ApiV1SplatRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/auth/google/callback': {
       id: '/auth/google/callback'
       path: '/callback'
@@ -472,6 +492,7 @@ const rootRouteChildren: RootRouteChildren = {
   AuthGoogleRoute: AuthGoogleRouteWithChildren,
   AuthLogoutRoute: AuthLogoutRoute,
   AuthTestLoginRoute: AuthTestLoginRoute,
+  ApiV1SplatRoute: ApiV1SplatRoute,
   MailboxesGoogleCallbackRoute: MailboxesGoogleCallbackRoute,
   MailboxesGoogleConnectRoute: MailboxesGoogleConnectRoute,
 }
