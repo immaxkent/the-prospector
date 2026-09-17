@@ -25,6 +25,8 @@ beforeEach(async () => {
 
 const key = randomBytes(32);
 const scope = GMAIL_SCOPES.join(" ");
+// Distinctive so "the ciphertext does not contain it" cannot pass or fail by chance.
+const PLAINTEXT_REFRESH = "refresh-token-plaintext-marker";
 const mailbox = async (address: string) => (await db.select().from(t.mailboxes).where(eq(t.mailboxes.address, address)))[0]!;
 
 describe("connectGoogleMailbox", () => {
@@ -32,13 +34,13 @@ describe("connectGoogleMailbox", () => {
     const result = await connectGoogleMailbox(db, key, {
       address: "Max@Deca.example",
       displayName: "Max at Decastream",
-      tokens: { accessToken: "at", refreshToken: "rt", expiresAt: 1000, scope },
+      tokens: { accessToken: "at", refreshToken: PLAINTEXT_REFRESH, expiresAt: 1000, scope },
     });
     expect(result).toMatchObject({ address: "max@deca.example", reconnected: false });
     const row = await mailbox("max@deca.example");
     expect(row).toMatchObject({ status: "connected", limits: DEFAULT_MAILBOX_LIMITS });
-    expect(row.tokenCiphertext).not.toContain("rt");
-    expect(unsealJson<GoogleTokenSet>(row.tokenCiphertext!, key)).toMatchObject({ refreshToken: "rt", accessToken: "at" });
+    expect(row.tokenCiphertext).not.toContain(PLAINTEXT_REFRESH);
+    expect(unsealJson<GoogleTokenSet>(row.tokenCiphertext!, key)).toMatchObject({ refreshToken: PLAINTEXT_REFRESH, accessToken: "at" });
   });
 
   it("keeps the stored refresh token when Google omits it on reconnect", async () => {
