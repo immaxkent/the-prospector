@@ -46,6 +46,14 @@ describe("loadConfig", () => {
     expect(() => loadConfig({ ...prod, TOKEN_ENCRYPTION_KEY: "short" })).toThrow("TOKEN_ENCRYPTION_KEY");
   });
 
+  it("accepts only long enough API keys", () => {
+    expect(loadConfig({}).apiKeys).toEqual([]);
+    expect(loadConfig({ API_KEYS: "short, a-key-long-enough-to-use , another-key-long-enough" }).apiKeys).toEqual([
+      "a-key-long-enough-to-use",
+      "another-key-long-enough",
+    ]);
+  });
+
   it("reads the daily run hour and worker mode, and guards them", () => {
     expect(loadConfig({})).toMatchObject({ dailyRunHour: 7, workerMode: "external" });
     expect(loadConfig({ DAILY_RUN_HOUR: "6", WORKER_MODE: "inline" })).toMatchObject({ dailyRunHour: 6, workerMode: "inline" });
