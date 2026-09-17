@@ -1,7 +1,9 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
-import { useDataset } from "@/data/store";
-import { Button, EmptyState, MachineLabel, PageHeader, Panel, StatusDot, Tag } from "@/components/os/primitives";
+import { useAppMode, useDataset } from "@/data/store";
+import { useMarkThreadRead } from "@/data/mutations";
+import { ApprovalActions } from "@/components/os/ApprovalActions";
+import { EmptyState, MachineLabel, PageHeader, Panel, StatusDot, Tag } from "@/components/os/primitives";
 import { gbp, relative, stamp } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
@@ -21,7 +23,9 @@ export const Route = createFileRoute("/inbox")({
 });
 
 function InboxScreen() {
-  const { threads, prospects, isEmpty } = useDataset();
+  const { threads, prospects, approvals, isEmpty } = useDataset();
+  const appMode = useAppMode();
+  const markRead = useMarkThreadRead();
   const [activeId, setActiveId] = useState<string | null>(threads[0]?.id ?? null);
   const thread = threads.find((t) => t.id === activeId) ?? threads[0];
   const prospect = thread ? prospects.find((p) => p.id === thread.prospectId) : undefined;
@@ -51,7 +55,10 @@ function InboxScreen() {
               return (
                 <li key={t.id}>
                   <button
-                    onClick={() => setActiveId(t.id)}
+                    onClick={() => {
+                      setActiveId(t.id);
+                      if (appMode === "live" && t.unread) markRead.mutate({ threadId: t.id });
+                    }}
                     className={cn(
                       "w-full px-3 py-2.5 text-left hover:bg-accent",
                       t.id === thread.id && "bg-signal-soft",
@@ -93,22 +100,25 @@ function InboxScreen() {
               >
                 <div className="flex items-center gap-2">
                   <MachineLabel tone={m.author === "AGENT" ? "signal" : "muted"}>
-                    {m.author === "AGENT" ? (m.draft ? "AGENT DRAFT" : "AGENT SENT") : m.author}
+                    {m.author === "AGENT"
+                      ? m.draft
+                        ? `AGENT DRAFT${m.sendState === "approved" ? " · APPROVED, WAITING TO SEND" : ""}`
+                        : m.sendState === "sent"
+                          ? "AGENT SENT"
+                          : `AGENT ${(m.sendState ?? "sent").toUpperCase()}`
+                      : m.author}
                   </MachineLabel>
                   <MachineLabel>{stamp(m.sentAt)}</MachineLabel>
                 </div>
                 <p className="mt-1.5">{m.body}</p>
-                {m.draft && (
-                  <div className="mt-2.5 flex gap-2">
-                    <Button variant="primary" size="sm">
-                      Approve &amp; send
-                    </Button>
-                    <Button size="sm">Edit</Button>
-                    <Button variant="ghost" size="sm">
-                      Reject
-                    </Button>
-                  </div>
-                )}
+                {(() => {
+                  const draftApproval = approvals.find((a) => a.subjectType === "message" && a.subjectId === m.id);
+                  return m.draft && draftApproval ? (
+                    <div className="mt-2.5">
+                      <ApprovalActions approval={draftApproval} />
+                    </div>
+                  ) : null;
+                })()}
               </article>
             ))}
           </div>
@@ -144,7 +154,19 @@ function InboxScreen() {
             <p className="text-[13px]">{prospect?.nextAction ?? "—"}</p>
           </Rail>
           <Rail label="SUGGESTED RESPONSE">
-            <p className="border-l-2 border-signal bg-surface-2 px-2.5 py-2 text-[13px]">{thread.suggestedResponse}</p>
+            <p className="border-l-2 border-signal bg-surface-2 px-2.5 py-2 text-[13px]">
+              {thread.suggestedResponse || "No reply drafted"}
+            </p>
+            {(() => {
+              const reply = approvals.find(
+                (a) => a.kind === "REPLY_APPROVAL" && a.subjectType === "thread" && a.subjectId === thread.id,
+              );
+              return reply ? (
+                <div className="mt-2" data-testid="reply-approval">
+                  <ApprovalActions approval={reply} />
+                </div>
+              ) : null;
+            })()}
           </Rail>
         </Panel>
       </div>
