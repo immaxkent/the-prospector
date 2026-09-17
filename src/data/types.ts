@@ -26,6 +26,7 @@ export interface Endeavour {
   id: string;
   name: string;
   kind: EndeavourKind;
+  status: "draft" | "active" | "paused" | "archived";
   /** Mailbox this endeavour sends through. Null until one is chosen. */
   mailboxId: string | null;
   objective: string;
