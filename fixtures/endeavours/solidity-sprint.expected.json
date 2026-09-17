@@ -1,0 +1,19 @@
+{
+  "$comment": "Expected planner behaviour for the placeholder brief. States, not wording, are asserted.",
+  "kind": "sprint",
+  "states": {
+    "objective": "stated",
+    "horizon": "stated",
+    "offering": "stated",
+    "pricing": ["suggested", "missing"],
+    "proof": "missing",
+    "buyers": "stated",
+    "exclusions": "missing",
+    "cadence": "stated"
+  },
+  "values": {
+    "objective": { "metric": "revenue", "target": 3000, "currency": "GBP" }
+  },
+  "mustAsk": ["pricing", "proof", "exclusions"],
+  "blockedUntilAnswered": ["field_missing"]
+}
