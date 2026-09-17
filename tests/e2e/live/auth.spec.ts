@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { E2E_LOGIN_SECRET, signIn } from "./env";
+import { E2E_LOGIN_SECRET, E2E_OPERATOR, signIn } from "./env";
 
 test.describe("live mode sign-in", () => {
   test("signed-out visitors are sent to login and returned after signing in", async ({ page }) => {
@@ -27,6 +27,16 @@ test.describe("live mode sign-in", () => {
   test("Google sign-in reports when it is not configured", async ({ page }) => {
     await page.goto("/auth/google");
     await expect(page.getByRole("alert")).toContainText("not configured");
+  });
+
+  test("settings shows the operator and signs out", async ({ page }) => {
+    await signIn(page, "/settings");
+    await expect(page.getByTestId("signed-in-email")).toHaveText(E2E_OPERATOR);
+    await expect(page.getByText("DESIGN FIXTURES")).toHaveCount(0);
+    await page.getByRole("button", { name: "Sign out" }).click();
+    await expect(page).toHaveURL(/\/login$/);
+    await page.goto("/settings");
+    await expect(page).toHaveURL(/\/login\?/);
   });
 
   test("logout revokes the session", async ({ page }) => {
