@@ -9,6 +9,7 @@ import {
   endeavourSummary,
   listEndeavours,
   receiveEvent,
+  receiveImport,
   receiveSignal,
 } from "@/server/api/v1";
 import { EXPORT_TABLES, exportCsv, exportJson, type ExportTable } from "@/server/api/export";
@@ -80,6 +81,7 @@ export const Route = createFileRoute("/api/v1/$")({
         }
         if (path[0] === "events") return receiveEvent(deps, body);
         if (path[0] === "signals") return receiveSignal(deps, body);
+        if (path[0] === "import") return receiveImport(deps, body);
         return notFound();
       },
     },
