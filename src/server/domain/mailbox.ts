@@ -72,22 +72,27 @@ export interface SendRequest {
 
 /**
  * Splits a mailbox's remaining capacity between endeavours.
- * One send at a time, in priority order, so no endeavour starves another of equal priority.
+ * Priority groups are served in order; inside a group, one send at a time
+ * so no endeavour starves another of equal priority.
  */
 export function allocateSends(capacity: number, requests: readonly SendRequest[]) {
   const ordered = [...requests].sort((a, b) => a.priority - b.priority || a.endeavourId.localeCompare(b.endeavourId));
   const granted = new Map(ordered.map((r) => [r.endeavourId, 0]));
   let left = Math.max(0, capacity);
-  let progress = true;
-  while (left > 0 && progress) {
-    progress = false;
-    for (const r of ordered) {
-      if (left === 0) break;
-      const g = granted.get(r.endeavourId) ?? 0;
-      if (g < r.requested) {
-        granted.set(r.endeavourId, g + 1);
-        left -= 1;
-        progress = true;
+  const priorities = [...new Set(ordered.map((r) => r.priority))];
+  for (const priority of priorities) {
+    const group = ordered.filter((r) => r.priority === priority);
+    let progress = true;
+    while (left > 0 && progress) {
+      progress = false;
+      for (const r of group) {
+        if (left === 0) break;
+        const g = granted.get(r.endeavourId) ?? 0;
+        if (g < r.requested) {
+          granted.set(r.endeavourId, g + 1);
+          left -= 1;
+          progress = true;
+        }
       }
     }
   }
