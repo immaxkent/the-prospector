@@ -19,8 +19,12 @@ import { Route as PipelineRouteImport } from './routes/pipeline'
 import { Route as ProspectsRouteImport } from './routes/prospects'
 import { Route as ResearchRouteImport } from './routes/research'
 import { Route as SettingsRouteImport } from './routes/settings'
+import { Route as AuthGoogleRouteImport } from './routes/auth.google'
+import { Route as AuthLogoutRouteImport } from './routes/auth.logout'
+import { Route as AuthTestLoginRouteImport } from './routes/auth.test-login'
 import { Route as EndeavoursIndexRouteImport } from './routes/endeavours.index'
 import { Route as EndeavoursIdRouteImport } from './routes/endeavours.$id'
+import { Route as AuthGoogleCallbackRouteImport } from './routes/auth.google.callback'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -72,6 +76,21 @@ const SettingsRoute = SettingsRouteImport.update({
   path: '/settings',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AuthGoogleRoute = AuthGoogleRouteImport.update({
+  id: '/auth/google',
+  path: '/auth/google',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AuthLogoutRoute = AuthLogoutRouteImport.update({
+  id: '/auth/logout',
+  path: '/auth/logout',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AuthTestLoginRoute = AuthTestLoginRouteImport.update({
+  id: '/auth/test-login',
+  path: '/auth/test-login',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const EndeavoursIndexRoute = EndeavoursIndexRouteImport.update({
   id: '/',
   path: '/',
@@ -81,6 +100,11 @@ const EndeavoursIdRoute = EndeavoursIdRouteImport.update({
   id: '/$id',
   path: '/$id',
   getParentRoute: () => EndeavoursRoute,
+} as any)
+const AuthGoogleCallbackRoute = AuthGoogleCallbackRouteImport.update({
+  id: '/callback',
+  path: '/callback',
+  getParentRoute: () => AuthGoogleRoute,
 } as any)
 
 export interface FileRoutesByFullPath {
@@ -94,8 +118,12 @@ export interface FileRoutesByFullPath {
   '/prospects': typeof ProspectsRoute
   '/research': typeof ResearchRoute
   '/settings': typeof SettingsRoute
+  '/auth/google': typeof AuthGoogleRouteWithChildren
+  '/auth/logout': typeof AuthLogoutRoute
+  '/auth/test-login': typeof AuthTestLoginRoute
   '/endeavours/$id': typeof EndeavoursIdRoute
   '/endeavours/': typeof EndeavoursIndexRoute
+  '/auth/google/callback': typeof AuthGoogleCallbackRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -107,8 +135,12 @@ export interface FileRoutesByTo {
   '/prospects': typeof ProspectsRoute
   '/research': typeof ResearchRoute
   '/settings': typeof SettingsRoute
+  '/auth/google': typeof AuthGoogleRouteWithChildren
+  '/auth/logout': typeof AuthLogoutRoute
+  '/auth/test-login': typeof AuthTestLoginRoute
   '/endeavours/$id': typeof EndeavoursIdRoute
   '/endeavours': typeof EndeavoursIndexRoute
+  '/auth/google/callback': typeof AuthGoogleCallbackRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -122,8 +154,12 @@ export interface FileRoutesById {
   '/prospects': typeof ProspectsRoute
   '/research': typeof ResearchRoute
   '/settings': typeof SettingsRoute
+  '/auth/google': typeof AuthGoogleRouteWithChildren
+  '/auth/logout': typeof AuthLogoutRoute
+  '/auth/test-login': typeof AuthTestLoginRoute
   '/endeavours/$id': typeof EndeavoursIdRoute
   '/endeavours/': typeof EndeavoursIndexRoute
+  '/auth/google/callback': typeof AuthGoogleCallbackRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -138,8 +174,12 @@ export interface FileRouteTypes {
     | '/prospects'
     | '/research'
     | '/settings'
+    | '/auth/google'
+    | '/auth/logout'
+    | '/auth/test-login'
     | '/endeavours/$id'
     | '/endeavours/'
+    | '/auth/google/callback'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -151,8 +191,12 @@ export interface FileRouteTypes {
     | '/prospects'
     | '/research'
     | '/settings'
+    | '/auth/google'
+    | '/auth/logout'
+    | '/auth/test-login'
     | '/endeavours/$id'
     | '/endeavours'
+    | '/auth/google/callback'
   id:
     | '__root__'
     | '/'
@@ -165,8 +209,12 @@ export interface FileRouteTypes {
     | '/prospects'
     | '/research'
     | '/settings'
+    | '/auth/google'
+    | '/auth/logout'
+    | '/auth/test-login'
     | '/endeavours/$id'
     | '/endeavours/'
+    | '/auth/google/callback'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -180,6 +228,9 @@ export interface RootRouteChildren {
   ProspectsRoute: typeof ProspectsRoute
   ResearchRoute: typeof ResearchRoute
   SettingsRoute: typeof SettingsRoute
+  AuthGoogleRoute: typeof AuthGoogleRouteWithChildren
+  AuthLogoutRoute: typeof AuthLogoutRoute
+  AuthTestLoginRoute: typeof AuthTestLoginRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -254,6 +305,27 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SettingsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/auth/google': {
+      id: '/auth/google'
+      path: '/auth/google'
+      fullPath: '/auth/google'
+      preLoaderRoute: typeof AuthGoogleRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/auth/logout': {
+      id: '/auth/logout'
+      path: '/auth/logout'
+      fullPath: '/auth/logout'
+      preLoaderRoute: typeof AuthLogoutRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/auth/test-login': {
+      id: '/auth/test-login'
+      path: '/auth/test-login'
+      fullPath: '/auth/test-login'
+      preLoaderRoute: typeof AuthTestLoginRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/endeavours/': {
       id: '/endeavours/'
       path: '/'
@@ -267,6 +339,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/endeavours/$id'
       preLoaderRoute: typeof EndeavoursIdRouteImport
       parentRoute: typeof EndeavoursRoute
+    }
+    '/auth/google/callback': {
+      id: '/auth/google/callback'
+      path: '/callback'
+      fullPath: '/auth/google/callback'
+      preLoaderRoute: typeof AuthGoogleCallbackRouteImport
+      parentRoute: typeof AuthGoogleRoute
     }
   }
 }
@@ -285,6 +364,18 @@ const EndeavoursRouteWithChildren = EndeavoursRoute._addFileChildren(
   EndeavoursRouteChildren,
 )
 
+interface AuthGoogleRouteChildren {
+  AuthGoogleCallbackRoute: typeof AuthGoogleCallbackRoute
+}
+
+const AuthGoogleRouteChildren: AuthGoogleRouteChildren = {
+  AuthGoogleCallbackRoute: AuthGoogleCallbackRoute,
+}
+
+const AuthGoogleRouteWithChildren = AuthGoogleRoute._addFileChildren(
+  AuthGoogleRouteChildren,
+)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   CommandRoute: CommandRoute,
@@ -296,6 +387,9 @@ const rootRouteChildren: RootRouteChildren = {
   ProspectsRoute: ProspectsRoute,
   ResearchRoute: ResearchRoute,
   SettingsRoute: SettingsRoute,
+  AuthGoogleRoute: AuthGoogleRouteWithChildren,
+  AuthLogoutRoute: AuthLogoutRoute,
+  AuthTestLoginRoute: AuthTestLoginRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
