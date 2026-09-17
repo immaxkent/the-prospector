@@ -1,3 +1,4 @@
+import { randomBytes } from "node:crypto";
 import { describe, expect, it } from "vitest";
 import { ConfigError, googleRedirectUri, loadConfig } from "./config";
 
@@ -8,6 +9,7 @@ const prod = {
   GOOGLE_CLIENT_ID: "id",
   GOOGLE_CLIENT_SECRET: "secret",
   AUTH_ALLOWED_EMAILS: "max@example.com",
+  TOKEN_ENCRYPTION_KEY: randomBytes(32).toString("base64"),
 };
 
 describe("loadConfig", () => {
@@ -35,6 +37,12 @@ describe("loadConfig", () => {
       const msg = (e as Error).message;
       for (const part of ["DATABASE_URL", "GOOGLE_CLIENT_ID", "AUTH_ALLOWED_EMAILS", "https"]) expect(msg).toContain(part);
     }
+  });
+
+  it("parses the token key and requires it in production", () => {
+    expect(loadConfig({}).tokenKey).toBeNull();
+    expect(loadConfig(prod).tokenKey).toHaveLength(32);
+    expect(() => loadConfig({ ...prod, TOKEN_ENCRYPTION_KEY: "short" })).toThrow("TOKEN_ENCRYPTION_KEY");
   });
 
   it("refuses the test login in production", () => {
