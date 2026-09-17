@@ -25,6 +25,7 @@ import { Route as AuthLogoutRouteImport } from './routes/auth.logout'
 import { Route as AuthTestLoginRouteImport } from './routes/auth.test-login'
 import { Route as EndeavoursIndexRouteImport } from './routes/endeavours.index'
 import { Route as EndeavoursIdRouteImport } from './routes/endeavours.$id'
+import { Route as EndeavoursNewRouteImport } from './routes/endeavours.new'
 import { Route as AuthGoogleCallbackRouteImport } from './routes/auth.google.callback'
 import { Route as MailboxesGoogleCallbackRouteImport } from './routes/mailboxes.google.callback'
 import { Route as MailboxesGoogleConnectRouteImport } from './routes/mailboxes.google.connect'
@@ -109,6 +110,11 @@ const EndeavoursIdRoute = EndeavoursIdRouteImport.update({
   path: '/$id',
   getParentRoute: () => EndeavoursRoute,
 } as any)
+const EndeavoursNewRoute = EndeavoursNewRouteImport.update({
+  id: '/new',
+  path: '/new',
+  getParentRoute: () => EndeavoursRoute,
+} as any)
 const AuthGoogleCallbackRoute = AuthGoogleCallbackRouteImport.update({
   id: '/callback',
   path: '/callback',
@@ -141,6 +147,7 @@ export interface FileRoutesByFullPath {
   '/auth/logout': typeof AuthLogoutRoute
   '/auth/test-login': typeof AuthTestLoginRoute
   '/endeavours/$id': typeof EndeavoursIdRoute
+  '/endeavours/new': typeof EndeavoursNewRoute
   '/endeavours/': typeof EndeavoursIndexRoute
   '/auth/google/callback': typeof AuthGoogleCallbackRoute
   '/mailboxes/google/callback': typeof MailboxesGoogleCallbackRoute
@@ -161,6 +168,7 @@ export interface FileRoutesByTo {
   '/auth/logout': typeof AuthLogoutRoute
   '/auth/test-login': typeof AuthTestLoginRoute
   '/endeavours/$id': typeof EndeavoursIdRoute
+  '/endeavours/new': typeof EndeavoursNewRoute
   '/endeavours': typeof EndeavoursIndexRoute
   '/auth/google/callback': typeof AuthGoogleCallbackRoute
   '/mailboxes/google/callback': typeof MailboxesGoogleCallbackRoute
@@ -183,6 +191,7 @@ export interface FileRoutesById {
   '/auth/logout': typeof AuthLogoutRoute
   '/auth/test-login': typeof AuthTestLoginRoute
   '/endeavours/$id': typeof EndeavoursIdRoute
+  '/endeavours/new': typeof EndeavoursNewRoute
   '/endeavours/': typeof EndeavoursIndexRoute
   '/auth/google/callback': typeof AuthGoogleCallbackRoute
   '/mailboxes/google/callback': typeof MailboxesGoogleCallbackRoute
@@ -206,6 +215,7 @@ export interface FileRouteTypes {
     | '/auth/logout'
     | '/auth/test-login'
     | '/endeavours/$id'
+    | '/endeavours/new'
     | '/endeavours/'
     | '/auth/google/callback'
     | '/mailboxes/google/callback'
@@ -226,6 +236,7 @@ export interface FileRouteTypes {
     | '/auth/logout'
     | '/auth/test-login'
     | '/endeavours/$id'
+    | '/endeavours/new'
     | '/endeavours'
     | '/auth/google/callback'
     | '/mailboxes/google/callback'
@@ -247,6 +258,7 @@ export interface FileRouteTypes {
     | '/auth/logout'
     | '/auth/test-login'
     | '/endeavours/$id'
+    | '/endeavours/new'
     | '/endeavours/'
     | '/auth/google/callback'
     | '/mailboxes/google/callback'
@@ -386,6 +398,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof EndeavoursIdRouteImport
       parentRoute: typeof EndeavoursRoute
     }
+    '/endeavours/new': {
+      id: '/endeavours/new'
+      path: '/new'
+      fullPath: '/endeavours/new'
+      preLoaderRoute: typeof EndeavoursNewRouteImport
+      parentRoute: typeof EndeavoursRoute
+    }
     '/auth/google/callback': {
       id: '/auth/google/callback'
       path: '/callback'
@@ -412,11 +431,13 @@ declare module '@tanstack/react-router' {
 
 interface EndeavoursRouteChildren {
   EndeavoursIdRoute: typeof EndeavoursIdRoute
+  EndeavoursNewRoute: typeof EndeavoursNewRoute
   EndeavoursIndexRoute: typeof EndeavoursIndexRoute
 }
 
 const EndeavoursRouteChildren: EndeavoursRouteChildren = {
   EndeavoursIdRoute: EndeavoursIdRoute,
+  EndeavoursNewRoute: EndeavoursNewRoute,
   EndeavoursIndexRoute: EndeavoursIndexRoute,
 }
 
