@@ -62,3 +62,54 @@ describe("daily run with an agent", () => {
     expect(await logText()).toContain("already known");
   });
 });
+
+describe("drafting", () => {
+  /** The fixture prospect is qualified and reachable, so the run should draft to them. */
+  async function qualifiedProspect() {
+    await db
+      .update(t.prospects)
+      .set({ stage: "qualified", reviewStatus: "qualified", scoreReason: "Mainnet in six weeks, no audit" })
+      .where(eq(t.prospects.id, FIXTURE_IDS.prospect));
+    await db.delete(t.messages);
+    await db.delete(t.approvals);
+  }
+
+  it("writes a draft that cites evidence and puts it in the approval queue", async () => {
+    await qualifiedProspect();
+    await run({ agent: agent() });
+
+    const drafts = await db.select().from(t.messages).where(eq(t.messages.sendState, "pending_approval"));
+    expect(drafts).toHaveLength(1);
+    expect(drafts[0]).toMatchObject({ messageClass: "new_outreach", templateVersion: "outreach.draft/2026-09-17.1" });
+    expect(drafts[0]!.evidenceIds).toEqual([FIXTURE_IDS.evidence]);
+    expect(drafts[0]!.body).toContain("invariant tests");
+
+    const [approval] = await db.select().from(t.approvals).where(eq(t.approvals.kind, "outreach_draft"));
+    expect(approval).toMatchObject({ status: "pending", subjectType: "message", subjectId: drafts[0]!.id });
+    expect(approval!.payload).toMatchObject({ recipient: "Ilse Vermeer <ilse@northbridge.example>" });
+    expect(await logText()).toContain("draft ready for approval");
+  });
+
+  it("never sends: the draft only ever reaches approved once a human decides", async () => {
+    await qualifiedProspect();
+    await run({ agent: agent() });
+    const sent = await db.select().from(t.messages).where(eq(t.messages.sendState, "sent"));
+    expect(sent).toHaveLength(0);
+  });
+
+  it("writes nothing under OBSERVE autonomy", async () => {
+    await qualifiedProspect();
+    await db.update(t.endeavours).set({ autonomyLevel: "OBSERVE" }).where(eq(t.endeavours.id, FIXTURE_IDS.endeavour));
+    await run({ agent: agent() });
+    expect(await db.select().from(t.messages)).toHaveLength(0);
+    expect(await logText()).toContain("autonomy_observe");
+  });
+
+  it("skips a prospect with no email address", async () => {
+    await qualifiedProspect();
+    await db.update(t.people).set({ email: null }).where(eq(t.people.id, FIXTURE_IDS.person));
+    await run({ agent: agent() });
+    expect(await db.select().from(t.messages)).toHaveLength(0);
+    expect(await logText()).toContain("no email address");
+  });
+});
