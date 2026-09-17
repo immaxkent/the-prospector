@@ -142,7 +142,7 @@ CREATE TABLE "insights" (
 CREATE TABLE "intake_sessions" (
 	"id" text PRIMARY KEY NOT NULL,
 	"brief" text NOT NULL,
-	"planner_spec" jsonb,
+	"draft_spec" jsonb,
 	"questions" jsonb DEFAULT '[]'::jsonb NOT NULL,
 	"status" "intake_status" DEFAULT 'interviewing' NOT NULL,
 	"endeavour_id" text,
@@ -309,6 +309,16 @@ CREATE TABLE "segments" (
 	"updated_at" timestamp with time zone DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
+CREATE TABLE "sessions" (
+	"id" text PRIMARY KEY NOT NULL,
+	"user_id" text NOT NULL,
+	"token_hash" text NOT NULL,
+	"expires_at" timestamp with time zone NOT NULL,
+	"revoked_at" timestamp with time zone,
+	"user_agent" text,
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL
+);
+--> statement-breakpoint
 CREATE TABLE "suppressions" (
 	"id" text PRIMARY KEY NOT NULL,
 	"kind" "suppression_kind" NOT NULL,
@@ -341,6 +351,16 @@ CREATE TABLE "triggers" (
 	"detected_at" timestamp with time zone DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
+CREATE TABLE "users" (
+	"id" text PRIMARY KEY NOT NULL,
+	"email" text NOT NULL,
+	"name" text,
+	"google_sub" text,
+	"last_sign_in_at" timestamp with time zone,
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"updated_at" timestamp with time zone DEFAULT now() NOT NULL
+);
+--> statement-breakpoint
 ALTER TABLE "activities" ADD CONSTRAINT "activities_endeavour_id_endeavours_id_fk" FOREIGN KEY ("endeavour_id") REFERENCES "public"."endeavours"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "activities" ADD CONSTRAINT "activities_prospect_id_prospects_id_fk" FOREIGN KEY ("prospect_id") REFERENCES "public"."prospects"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "approvals" ADD CONSTRAINT "approvals_endeavour_id_endeavours_id_fk" FOREIGN KEY ("endeavour_id") REFERENCES "public"."endeavours"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
@@ -365,6 +385,7 @@ ALTER TABLE "prospects" ADD CONSTRAINT "prospects_person_id_people_id_fk" FOREIG
 ALTER TABLE "prospects" ADD CONSTRAINT "prospects_segment_id_segments_id_fk" FOREIGN KEY ("segment_id") REFERENCES "public"."segments"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "run_log" ADD CONSTRAINT "run_log_run_id_daily_runs_id_fk" FOREIGN KEY ("run_id") REFERENCES "public"."daily_runs"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "segments" ADD CONSTRAINT "segments_endeavour_id_endeavours_id_fk" FOREIGN KEY ("endeavour_id") REFERENCES "public"."endeavours"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "sessions" ADD CONSTRAINT "sessions_user_id_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."users"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "threads" ADD CONSTRAINT "threads_mailbox_id_mailboxes_id_fk" FOREIGN KEY ("mailbox_id") REFERENCES "public"."mailboxes"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "threads" ADD CONSTRAINT "threads_endeavour_id_endeavours_id_fk" FOREIGN KEY ("endeavour_id") REFERENCES "public"."endeavours"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "threads" ADD CONSTRAINT "threads_prospect_id_prospects_id_fk" FOREIGN KEY ("prospect_id") REFERENCES "public"."prospects"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
@@ -390,5 +411,9 @@ CREATE UNIQUE INDEX "people_email_uq" ON "people" USING btree ("email") WHERE "p
 CREATE UNIQUE INDEX "prospects_endeavour_person_uq" ON "prospects" USING btree ("endeavour_id","person_id");--> statement-breakpoint
 CREATE INDEX "prospects_stage_idx" ON "prospects" USING btree ("endeavour_id","stage");--> statement-breakpoint
 CREATE INDEX "run_log_run_idx" ON "run_log" USING btree ("run_id","at");--> statement-breakpoint
+CREATE UNIQUE INDEX "sessions_token_hash_uq" ON "sessions" USING btree ("token_hash");--> statement-breakpoint
+CREATE INDEX "sessions_user_idx" ON "sessions" USING btree ("user_id");--> statement-breakpoint
 CREATE UNIQUE INDEX "suppressions_uq" ON "suppressions" USING btree ("kind","value");--> statement-breakpoint
-CREATE UNIQUE INDEX "threads_external_uq" ON "threads" USING btree ("mailbox_id","external_thread_id") WHERE "threads"."external_thread_id" is not null;
+CREATE UNIQUE INDEX "threads_external_uq" ON "threads" USING btree ("mailbox_id","external_thread_id") WHERE "threads"."external_thread_id" is not null;--> statement-breakpoint
+CREATE UNIQUE INDEX "users_email_uq" ON "users" USING btree ("email");--> statement-breakpoint
+CREATE UNIQUE INDEX "users_google_sub_uq" ON "users" USING btree ("google_sub");
