@@ -59,6 +59,38 @@ export const runStatus = pgEnum("run_status", ["running", "succeeded", "failed",
 export const suppressionKind = pgEnum("suppression_kind", ["email", "domain"]);
 export const intakeStatus = pgEnum("intake_status", ["interviewing", "ready", "activated", "abandoned"]);
 
+/* ---------- operators ---------- */
+
+export const users = pgTable(
+  "users",
+  {
+    id: id(),
+    email: text("email").notNull(),
+    name: text("name"),
+    googleSub: text("google_sub"),
+    lastSignInAt: timestamp("last_sign_in_at", { withTimezone: true }),
+    ...timestamps,
+  },
+  (t) => [uniqueIndex("users_email_uq").on(t.email), uniqueIndex("users_google_sub_uq").on(t.googleSub)],
+);
+
+export const sessions = pgTable(
+  "sessions",
+  {
+    id: id(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    /** SHA-256 of the cookie token. The token itself is never stored. */
+    tokenHash: text("token_hash").notNull(),
+    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+    revokedAt: timestamp("revoked_at", { withTimezone: true }),
+    userAgent: text("user_agent"),
+    createdAt: timestamps.createdAt,
+  },
+  (t) => [uniqueIndex("sessions_token_hash_uq").on(t.tokenHash), index("sessions_user_idx").on(t.userId)],
+);
+
 /* ---------- mailboxes and endeavours ---------- */
 
 export const mailboxes = pgTable(
