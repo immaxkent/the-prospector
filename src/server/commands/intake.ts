@@ -153,7 +153,7 @@ export async function editIntakeField(db: Database, input: { intakeId: string } 
 
 export async function updateIntakeSettings(
   db: Database,
-  input: { intakeId: string; name?: string; kind?: "sprint" | "ongoing"; autonomyLevel?: AutonomyLevel },
+  input: { intakeId: string; name?: string | undefined; kind?: "sprint" | "ongoing" | undefined; autonomyLevel?: AutonomyLevel | undefined },
 ): Promise<IntakeView> {
   const parsed = settingsSchema.safeParse(input);
   if (!parsed.success) throw invalid(z.prettifyError(parsed.error));
