@@ -273,6 +273,14 @@ export interface Mailbox {
   sentToday: number;
   warmingUp: boolean;
   quietHours: string;
+  /** Editable limits, shared by every endeavour on the mailbox. */
+  limits: {
+    dailyCap: number;
+    weeklyCap: number;
+    warmup: { startedOn: string; startCap: number; incrementPerDay: number } | null;
+    quietHours: { start: number; end: number };
+    timezone: string;
+  };
   /** Endeavours sending through this mailbox; caps are shared between them. */
   endeavourIds: string[];
 }
