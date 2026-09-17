@@ -102,3 +102,40 @@ export const markThreadReadFn = createServerFn({ method: "POST" })
     await markThreadRead(await live(), data);
     return { ok: true as const };
   });
+
+const limitsSchema = z.object({
+  dailyCap: z.number().int().positive().max(2000),
+  weeklyCap: z.number().int().positive().max(10000),
+  warmup: z
+    .object({ startedOn: z.iso.date(), startCap: z.number().int().positive(), incrementPerDay: z.number().int().min(0) })
+    .nullable(),
+  quietHours: z.object({ start: z.number().int().min(0).max(23), end: z.number().int().min(0).max(23) }),
+  timezone: z.string().min(1).max(64),
+});
+
+export const updateMailboxLimitsFn = createServerFn({ method: "POST" })
+  .middleware([requireSession])
+  .validator(z.object({ mailboxId: id, limits: limitsSchema }))
+  .handler(async ({ data }) => {
+    const { updateMailboxLimits } = await import("../server/commands/mailboxes");
+    await updateMailboxLimits(await live(), data);
+    return { ok: true as const };
+  });
+
+export const disconnectMailboxFn = createServerFn({ method: "POST" })
+  .middleware([requireSession])
+  .validator(z.object({ mailboxId: id }))
+  .handler(async ({ data }) => {
+    const { disconnectMailbox } = await import("../server/commands/mailboxes");
+    await disconnectMailbox(await live(), data);
+    return { ok: true as const };
+  });
+
+export const assignEndeavourMailboxFn = createServerFn({ method: "POST" })
+  .middleware([requireSession])
+  .validator(z.object({ endeavourId: id, mailboxId: id }))
+  .handler(async ({ data }) => {
+    const { assignEndeavourMailbox } = await import("../server/commands/mailboxes");
+    await assignEndeavourMailbox(await live(), data);
+    return { ok: true as const };
+  });
