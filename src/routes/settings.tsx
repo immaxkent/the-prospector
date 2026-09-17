@@ -1,6 +1,14 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useDataset, setDataMode, useDataMode } from "@/data/store";
-import { Button, MachineLabel, PageHeader, Panel, StatusDot, Tag } from "@/components/os/primitives";
+import { useRouteContext } from "@tanstack/react-router";
+import { useAppMode, useDataset, setDataMode, useDataMode } from "@/data/store";
+import {
+  Button,
+  MachineLabel,
+  PageHeader,
+  Panel,
+  StatusDot,
+  Tag,
+} from "@/components/os/primitives";
 import { stamp } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
@@ -10,7 +18,8 @@ export const Route = createFileRoute("/settings")({
       { title: "Settings — CBO OS" },
       {
         name: "description",
-        content: "Model provider, local database status, email connector, autonomy, send caps, research sources and export.",
+        content:
+          "Model provider, local database status, email connector, autonomy, send caps, research sources and export.",
       },
       { property: "og:title", content: "Settings — CBO OS" },
       { property: "og:description", content: "Local configuration for the commercial agent." },
@@ -22,33 +31,64 @@ export const Route = createFileRoute("/settings")({
 function SettingsScreen() {
   const { status, interfaces, mailboxes } = useDataset();
   const mode = useDataMode();
+  const appMode = useAppMode();
+  const user = useRouteContext({ from: "__root__", select: (c) => c.session?.user ?? null });
 
   const inputCls =
     "w-full rounded-[3px] border border-border bg-card px-2.5 py-2 text-[13px] outline-none focus:border-signal";
 
   return (
     <div className="space-y-5">
-      <PageHeader title="SETTINGS" summary="Local single-operator configuration. No authentication in v1." />
+      <PageHeader
+        title="SETTINGS"
+        summary={
+          appMode === "live"
+            ? "Operator configuration."
+            : "Demo mode: design fixtures, no database, no sign-in."
+        }
+      />
 
-      <Panel title="DATA MODE" bodyClassName="px-4 py-4">
-        <p className="text-[13px] text-muted-foreground">
-          Design fixtures live in one file and can be switched off to see the clean, zero-record application.
-        </p>
-        <div className="mt-3 flex gap-1">
-          {(["fixtures", "empty"] as const).map((m) => (
-            <button
-              key={m}
-              onClick={() => setDataMode(m)}
-              className={cn(
-                "machine rounded-[3px] border px-3 py-2",
-                mode === m ? "border-signal bg-signal-soft text-primary" : "border-border hover:bg-accent",
-              )}
-            >
-              {m === "fixtures" ? "DESIGN FIXTURES" : "CLEAN / EMPTY"}
-            </button>
-          ))}
-        </div>
-      </Panel>
+      {appMode === "live" ? (
+        <Panel
+          title="ACCOUNT"
+          bodyClassName="flex flex-wrap items-center justify-between gap-3 px-4 py-4"
+        >
+          <span className="text-[13px]">
+            Signed in as{" "}
+            <span className="numeral" data-testid="signed-in-email">
+              {user?.email}
+            </span>
+          </span>
+          <form method="post" action="/auth/logout">
+            <Button size="sm" type="submit">
+              Sign out
+            </Button>
+          </form>
+        </Panel>
+      ) : (
+        <Panel title="DATA MODE" bodyClassName="px-4 py-4">
+          <p className="text-[13px] text-muted-foreground">
+            Design fixtures live in one file and can be switched off to see the clean, zero-record
+            application.
+          </p>
+          <div className="mt-3 flex gap-1">
+            {(["fixtures", "empty"] as const).map((m) => (
+              <button
+                key={m}
+                onClick={() => setDataMode(m)}
+                className={cn(
+                  "machine rounded-[3px] border px-3 py-2",
+                  mode === m
+                    ? "border-signal bg-signal-soft text-primary"
+                    : "border-border hover:bg-accent",
+                )}
+              >
+                {m === "fixtures" ? "DESIGN FIXTURES" : "CLEAN / EMPTY"}
+              </button>
+            ))}
+          </div>
+        </Panel>
+      )}
 
       <div className="grid grid-cols-1 gap-5 xl:grid-cols-2">
         <Panel title="MODEL / PROVIDER" bodyClassName="space-y-3 px-4 py-4">
@@ -74,7 +114,11 @@ function SettingsScreen() {
 
         <Panel title="DATABASE / LOCAL STORAGE" bodyClassName="divide-y divide-border">
           <Line label="STORAGE" value={`${status.db} — on-disk, single operator`} ok />
-          <Line label="LAST RUN" value={status.lastRunAt ? stamp(status.lastRunAt) : "NEVER"} ok={!!status.lastRunAt} />
+          <Line
+            label="LAST RUN"
+            value={status.lastRunAt ? stamp(status.lastRunAt) : "NEVER"}
+            ok={!!status.lastRunAt}
+          />
           <Line label="SCHEMA" value="v1" ok />
         </Panel>
 
@@ -86,7 +130,8 @@ function SettingsScreen() {
           {mailboxes.length === 0 ? (
             <div className="px-4 py-6">
               <p className="text-[13px] text-muted-foreground">
-                No mailbox connected. Each endeavour sends through a mailbox you choose; connect one to start.
+                No mailbox connected. Each endeavour sends through a mailbox you choose; connect one
+                to start.
               </p>
             </div>
           ) : (
@@ -97,7 +142,15 @@ function SettingsScreen() {
                     <span className="block truncate text-[13px]">{m.displayName}</span>
                     <span className="machine block truncate">{m.address}</span>
                   </span>
-                  <Tag tone={m.status === "connected" ? "signal" : m.status === "needs_reauth" ? "warn" : "neutral"}>
+                  <Tag
+                    tone={
+                      m.status === "connected"
+                        ? "signal"
+                        : m.status === "needs_reauth"
+                          ? "warn"
+                          : "neutral"
+                    }
+                  >
                     {m.status.replace("_", " ").toUpperCase()}
                   </Tag>
                 </div>
@@ -108,7 +161,8 @@ function SettingsScreen() {
                   </span>
                   <span>QUIET {m.quietHours}</span>
                   <span>
-                    {m.endeavourIds.length} {m.endeavourIds.length === 1 ? "ENDEAVOUR" : "ENDEAVOURS"}
+                    {m.endeavourIds.length}{" "}
+                    {m.endeavourIds.length === 1 ? "ENDEAVOUR" : "ENDEAVOURS"}
                   </span>
                 </div>
               </div>
