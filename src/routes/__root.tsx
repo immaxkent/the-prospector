@@ -14,6 +14,7 @@ import { useEffect, type ReactNode } from "react";
 import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
 import { AppShell } from "../components/os/AppShell";
+import { Toaster } from "../components/ui/sonner";
 import { fetchSession } from "../api/session";
 import { datasetQuery } from "../data/queries";
 
@@ -160,6 +161,7 @@ function RootComponent() {
         {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
         <Outlet />
       </AppShell>
+      <Toaster position="bottom-right" />
     </QueryClientProvider>
   );
 }
