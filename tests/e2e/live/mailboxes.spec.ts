@@ -26,10 +26,10 @@ test.describe("mailboxes", () => {
 
     await expect(page.getByText("Mailbox limits saved")).toBeVisible();
     await expect(row).toContainText("WARMING UP TO 25");
-    const [{ limits }] = await query<{ limits: { dailyCap: number; weeklyCap: number; warmup: { startCap: number } } }>(
+    const [row] = await query<{ limits: { dailyCap: number; weeklyCap: number; warmup: { startCap: number } } }>(
       "select limits from mailboxes",
     );
-    expect(limits).toMatchObject({ dailyCap: 25, weeklyCap: 100, warmup: { startCap: 5, incrementPerDay: 3 } });
+    expect(row?.limits).toMatchObject({ dailyCap: 25, weeklyCap: 100, warmup: { startCap: 5, incrementPerDay: 3 } });
   });
 
   test("invalid limits are refused with the reason", async ({ page }) => {
