@@ -1,10 +1,11 @@
 import { Link, useRouterState } from "@tanstack/react-router";
 import { useEffect, useState, type ReactNode } from "react";
 import { cn } from "@/lib/utils";
-import { StatusDot, Button } from "./primitives";
+import { StatusDot } from "./primitives";
+import { RunNowControl } from "./RunNowControl";
 import { CommandPalette } from "./CommandPalette";
 import { WorldCanvas } from "@/components/world/WorldCanvas";
-import { useDataset, initDataMode, useRunState, startRun, dismissRun } from "@/data/store";
+import { useDataset, initDataMode } from "@/data/store";
 import { clockTime } from "@/lib/format";
 import { useSwipeNav } from "@/hooks/use-swipe-nav";
 
@@ -25,8 +26,6 @@ export function AppShell({ children }: { children: ReactNode }) {
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [contextOpen, setContextOpen] = useState(false);
   const { status, endeavours, approvals } = useDataset();
-  const run = useRunState();
-  const running = run.phase !== "IDLE" && run.phase !== "DONE";
   const pathname = useRouterState({ select: (s) => s.location.pathname });
 
   // Source: route hierarchy. Gestures move up inside a section, never across the navbar.
@@ -214,45 +213,9 @@ export function AppShell({ children }: { children: ReactNode }) {
           >
             SEARCH / COMMAND <span className="text-foreground/30">⌘K</span>
           </button>
-          <Button
-            variant="primary"
-            size="md"
-            className="h-9 rounded-full px-4"
-            disabled={running}
-            onClick={startRun}
-            title="Trigger the daily execution loop now: research new prospects, qualify them, draft outreach and follow-ups for approval — instead of waiting for the next scheduled run."
-          >
-            {running ? "RUNNING…" : "RUN NOW"}
-          </Button>
+          <RunNowControl />
         </div>
       </header>
-
-      {/* RUN STATE — visible progress of the manually triggered execution loop.
-          Source: run trigger state (src/data/store.ts) */}
-      {run.phase !== "IDLE" && (
-        <div className="fixed inset-x-3 top-[62px] z-40 flex justify-end md:left-[92px] md:right-5 md:top-[72px]">
-          <div className="island-ink rise flex max-w-full items-center gap-3 rounded-full px-4 py-2">
-            <StatusDot tone={run.phase === "DONE" ? "idle" : "ok"} live={running} />
-            <span className="machine text-ink-foreground/45">EXECUTION LOOP</span>
-            <span className="machine text-ink-foreground">
-              {run.phase === "RESEARCH" && "RESEARCHING PROSPECTS"}
-              {run.phase === "QUALIFY" && "QUALIFYING"}
-              {run.phase === "DRAFT" && "DRAFTING OUTREACH"}
-              {run.phase === "QUEUE" && "QUEUEING FOR APPROVAL"}
-              {run.phase === "DONE" && run.note}
-            </span>
-            {run.phase === "DONE" && (
-              <button
-                type="button"
-                onClick={dismissRun}
-                className="machine text-ink-foreground/50 transition-colors hover:text-ink-foreground"
-              >
-                DISMISS
-              </button>
-            )}
-          </div>
-        </div>
-      )}
 
       {/* MOBILE NAV — compact island */}
       <nav className="island-ink fixed inset-x-3 bottom-3 z-40 flex items-center justify-between gap-1 overflow-x-auto rounded-full px-2 py-2 md:hidden">
