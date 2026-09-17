@@ -24,6 +24,10 @@ export interface AppConfig {
   tokenKey: Buffer | null;
   /** Claude model used by the agent roles. */
   model: string;
+  /** Anthropic key for the agent roles. Null means the planner and daily run are unavailable. */
+  anthropicApiKey: string | null;
+  /** Answers the planner from a fixture instead of calling Claude. E2E only, never in production. */
+  plannerFixture: boolean;
   /** Enables /auth/test-login for e2e. Never set in production. */
   testLoginSecret: string | null;
 }
@@ -46,6 +50,8 @@ export function loadConfig(env: Env = process.env): AppConfig {
     google: clientId && clientSecret ? { clientId, clientSecret } : null,
     allowlist: parseAllowlist(env["AUTH_ALLOWED_EMAILS"]),
     tokenKey: null,
+    anthropicApiKey: env["ANTHROPIC_API_KEY"] || null,
+    plannerFixture: env["INTAKE_PLANNER_FIXTURE"] === "1",
     model: env["ANTHROPIC_MODEL"] || "claude-opus-5",
     testLoginSecret,
   };
@@ -65,6 +71,8 @@ export function loadConfig(env: Env = process.env): AppConfig {
     if (!config.google) problems.push("GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET are required");
     if (config.allowlist.length === 0) problems.push("AUTH_ALLOWED_EMAILS must list at least one address");
     if (testLoginSecret) problems.push("AUTH_TEST_LOGIN_SECRET must not be set");
+    if (config.plannerFixture) problems.push("INTAKE_PLANNER_FIXTURE must not be set");
+    if (!config.anthropicApiKey) problems.push("ANTHROPIC_API_KEY is required");
     if (!appUrl.startsWith("https://")) problems.push("APP_URL must be https");
     if (problems.length) throw new ConfigError(`invalid production config: ${problems.join("; ")}`);
   }
