@@ -26,6 +26,8 @@ import { Route as AuthTestLoginRouteImport } from './routes/auth.test-login'
 import { Route as EndeavoursIndexRouteImport } from './routes/endeavours.index'
 import { Route as EndeavoursIdRouteImport } from './routes/endeavours.$id'
 import { Route as AuthGoogleCallbackRouteImport } from './routes/auth.google.callback'
+import { Route as MailboxesGoogleCallbackRouteImport } from './routes/mailboxes.google.callback'
+import { Route as MailboxesGoogleConnectRouteImport } from './routes/mailboxes.google.connect'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -112,6 +114,16 @@ const AuthGoogleCallbackRoute = AuthGoogleCallbackRouteImport.update({
   path: '/callback',
   getParentRoute: () => AuthGoogleRoute,
 } as any)
+const MailboxesGoogleCallbackRoute = MailboxesGoogleCallbackRouteImport.update({
+  id: '/mailboxes/google/callback',
+  path: '/mailboxes/google/callback',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const MailboxesGoogleConnectRoute = MailboxesGoogleConnectRouteImport.update({
+  id: '/mailboxes/google/connect',
+  path: '/mailboxes/google/connect',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -131,6 +143,8 @@ export interface FileRoutesByFullPath {
   '/endeavours/$id': typeof EndeavoursIdRoute
   '/endeavours/': typeof EndeavoursIndexRoute
   '/auth/google/callback': typeof AuthGoogleCallbackRoute
+  '/mailboxes/google/callback': typeof MailboxesGoogleCallbackRoute
+  '/mailboxes/google/connect': typeof MailboxesGoogleConnectRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -149,6 +163,8 @@ export interface FileRoutesByTo {
   '/endeavours/$id': typeof EndeavoursIdRoute
   '/endeavours': typeof EndeavoursIndexRoute
   '/auth/google/callback': typeof AuthGoogleCallbackRoute
+  '/mailboxes/google/callback': typeof MailboxesGoogleCallbackRoute
+  '/mailboxes/google/connect': typeof MailboxesGoogleConnectRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -169,6 +185,8 @@ export interface FileRoutesById {
   '/endeavours/$id': typeof EndeavoursIdRoute
   '/endeavours/': typeof EndeavoursIndexRoute
   '/auth/google/callback': typeof AuthGoogleCallbackRoute
+  '/mailboxes/google/callback': typeof MailboxesGoogleCallbackRoute
+  '/mailboxes/google/connect': typeof MailboxesGoogleConnectRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -190,6 +208,8 @@ export interface FileRouteTypes {
     | '/endeavours/$id'
     | '/endeavours/'
     | '/auth/google/callback'
+    | '/mailboxes/google/callback'
+    | '/mailboxes/google/connect'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -208,6 +228,8 @@ export interface FileRouteTypes {
     | '/endeavours/$id'
     | '/endeavours'
     | '/auth/google/callback'
+    | '/mailboxes/google/callback'
+    | '/mailboxes/google/connect'
   id:
     | '__root__'
     | '/'
@@ -227,6 +249,8 @@ export interface FileRouteTypes {
     | '/endeavours/$id'
     | '/endeavours/'
     | '/auth/google/callback'
+    | '/mailboxes/google/callback'
+    | '/mailboxes/google/connect'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -244,6 +268,8 @@ export interface RootRouteChildren {
   AuthGoogleRoute: typeof AuthGoogleRouteWithChildren
   AuthLogoutRoute: typeof AuthLogoutRoute
   AuthTestLoginRoute: typeof AuthTestLoginRoute
+  MailboxesGoogleCallbackRoute: typeof MailboxesGoogleCallbackRoute
+  MailboxesGoogleConnectRoute: typeof MailboxesGoogleConnectRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -367,6 +393,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthGoogleCallbackRouteImport
       parentRoute: typeof AuthGoogleRoute
     }
+    '/mailboxes/google/callback': {
+      id: '/mailboxes/google/callback'
+      path: '/mailboxes/google/callback'
+      fullPath: '/mailboxes/google/callback'
+      preLoaderRoute: typeof MailboxesGoogleCallbackRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/mailboxes/google/connect': {
+      id: '/mailboxes/google/connect'
+      path: '/mailboxes/google/connect'
+      fullPath: '/mailboxes/google/connect'
+      preLoaderRoute: typeof MailboxesGoogleConnectRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -411,6 +451,8 @@ const rootRouteChildren: RootRouteChildren = {
   AuthGoogleRoute: AuthGoogleRouteWithChildren,
   AuthLogoutRoute: AuthLogoutRoute,
   AuthTestLoginRoute: AuthTestLoginRoute,
+  MailboxesGoogleCallbackRoute: MailboxesGoogleCallbackRoute,
+  MailboxesGoogleConnectRoute: MailboxesGoogleConnectRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
