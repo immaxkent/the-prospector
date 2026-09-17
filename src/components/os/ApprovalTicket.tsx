@@ -1,6 +1,7 @@
 import type { Approval } from "@/data/types";
 import { gbp, stamp } from "@/lib/format";
-import { Button, EvidenceChip, MachineLabel, Tag } from "./primitives";
+import { ApprovalActions } from "./ApprovalActions";
+import { EvidenceChip, MachineLabel, Tag } from "./primitives";
 
 const kindTone = {
   OUTREACH_DRAFT: "signal",
@@ -50,21 +51,20 @@ export function ApprovalTicket({
       {approval.evidence.length > 0 && (
         <div className="mt-2.5 flex flex-wrap gap-1.5">
           {approval.evidence.map((e) => (
-            <EvidenceChip key={e.claim} label={e.claim} title={`${e.source} · ${stamp(e.observedAt)}`} />
+            <EvidenceChip
+              key={e.claim}
+              label={e.claim}
+              title={`${e.source} · ${stamp(e.observedAt)}`}
+            />
           ))}
         </div>
       )}
 
-      <div className="mt-3 flex flex-wrap gap-2">
-        <Button variant="primary" size="sm" onClick={() => onResolve?.(approval.id, "APPROVE")}>
-          Approve
-        </Button>
-        <Button size="sm" onClick={() => onResolve?.(approval.id, "EDIT")}>
-          Edit
-        </Button>
-        <Button variant="ghost" size="sm" onClick={() => onResolve?.(approval.id, "REJECT")}>
-          Reject
-        </Button>
+      <div className="mt-3">
+        <ApprovalActions
+          approval={approval}
+          onDemoResolve={onResolve ? (id) => onResolve(id, "APPROVE") : undefined}
+        />
       </div>
     </article>
   );
