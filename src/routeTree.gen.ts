@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as CommandRouteImport } from './routes/command'
 import { Route as EndeavoursRouteImport } from './routes/endeavours'
+import { Route as HealthzRouteImport } from './routes/healthz'
 import { Route as InboxRouteImport } from './routes/inbox'
 import { Route as IntelligenceRouteImport } from './routes/intelligence'
 import { Route as InterfacesRouteImport } from './routes/interfaces'
@@ -44,6 +45,11 @@ const CommandRoute = CommandRouteImport.update({
 const EndeavoursRoute = EndeavoursRouteImport.update({
   id: '/endeavours',
   path: '/endeavours',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const HealthzRoute = HealthzRouteImport.update({
+  id: '/healthz',
+  path: '/healthz',
   getParentRoute: () => rootRouteImport,
 } as any)
 const InboxRoute = InboxRouteImport.update({
@@ -141,6 +147,7 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/command': typeof CommandRoute
   '/endeavours': typeof EndeavoursRouteWithChildren
+  '/healthz': typeof HealthzRoute
   '/inbox': typeof InboxRoute
   '/intelligence': typeof IntelligenceRoute
   '/interfaces': typeof InterfacesRoute
@@ -163,6 +170,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/command': typeof CommandRoute
+  '/healthz': typeof HealthzRoute
   '/inbox': typeof InboxRoute
   '/intelligence': typeof IntelligenceRoute
   '/interfaces': typeof InterfacesRoute
@@ -187,6 +195,7 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/command': typeof CommandRoute
   '/endeavours': typeof EndeavoursRouteWithChildren
+  '/healthz': typeof HealthzRoute
   '/inbox': typeof InboxRoute
   '/intelligence': typeof IntelligenceRoute
   '/interfaces': typeof InterfacesRoute
@@ -212,6 +221,7 @@ export interface FileRouteTypes {
     | '/'
     | '/command'
     | '/endeavours'
+    | '/healthz'
     | '/inbox'
     | '/intelligence'
     | '/interfaces'
@@ -234,6 +244,7 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/command'
+    | '/healthz'
     | '/inbox'
     | '/intelligence'
     | '/interfaces'
@@ -257,6 +268,7 @@ export interface FileRouteTypes {
     | '/'
     | '/command'
     | '/endeavours'
+    | '/healthz'
     | '/inbox'
     | '/intelligence'
     | '/interfaces'
@@ -281,6 +293,7 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   CommandRoute: typeof CommandRoute
   EndeavoursRoute: typeof EndeavoursRouteWithChildren
+  HealthzRoute: typeof HealthzRoute
   InboxRoute: typeof InboxRoute
   IntelligenceRoute: typeof IntelligenceRoute
   InterfacesRoute: typeof InterfacesRoute
@@ -318,6 +331,13 @@ declare module '@tanstack/react-router' {
       path: '/endeavours'
       fullPath: '/endeavours'
       preLoaderRoute: typeof EndeavoursRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/healthz': {
+      id: '/healthz'
+      path: '/healthz'
+      fullPath: '/healthz'
+      preLoaderRoute: typeof HealthzRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/inbox': {
@@ -481,6 +501,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   CommandRoute: CommandRoute,
   EndeavoursRoute: EndeavoursRouteWithChildren,
+  HealthzRoute: HealthzRoute,
   InboxRoute: InboxRoute,
   IntelligenceRoute: IntelligenceRoute,
   InterfacesRoute: InterfacesRoute,
