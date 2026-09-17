@@ -17,7 +17,7 @@ import {
   timestamp,
   uniqueIndex,
 } from "drizzle-orm/pg-core";
-import type { EndeavourSpec, PlannerSpec } from "../domain/endeavour-spec";
+import type { EndeavourSpec } from "../domain/endeavour-spec";
 import type { MailboxLimits } from "../domain/mailbox";
 import { PIPELINE_STAGES } from "../domain/pipeline";
 import { OUTBOUND_STATES } from "../domain/outbound";
@@ -148,8 +148,9 @@ export const endeavourSpecVersions = pgTable(
 export const intakeSessions = pgTable("intake_sessions", {
   id: id(),
   brief: text("brief").notNull(),
-  plannerSpec: jsonb("planner_spec").$type<PlannerSpec>(),
-  questions: jsonb("questions").$type<{ field: string; question: string; answer: string | null }[]>().notNull().default([]),
+  /** The draft the operator is reviewing: planner proposals plus their confirmations. */
+  draftSpec: jsonb("draft_spec").$type<EndeavourSpec>(),
+  questions: jsonb("questions").$type<{ field: string; question: string; answer: string }[]>().notNull().default([]),
   status: intakeStatus("status").notNull().default("interviewing"),
   endeavourId: text("endeavour_id").references(() => endeavours.id, { onDelete: "set null" }),
   ...timestamps,
