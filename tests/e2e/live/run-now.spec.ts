@@ -20,7 +20,10 @@ test.describe("run now", () => {
     expect(run).toMatchObject({ status: "succeeded", phase: "done" });
 
     const [brief] = await query<{ brief: { risks: string[] } }>("select brief from daily_runs");
-    expect(brief!.brief.risks.join(" ")).toContain("not built yet");
+    // Gaps name what is unconfigured or short, never a step that does not exist.
+    const risks = brief!.brief.risks.join(" ");
+    expect(risks).toContain("Sending did not run: Google is not configured");
+    expect(risks).not.toContain("not built yet");
 
     const [job] = await query<{ status: string; type: string }>("select status, type from jobs");
     expect(job).toMatchObject({ status: "succeeded", type: "endeavour.daily_run" });
@@ -46,6 +49,6 @@ test.describe("run now", () => {
     await page.goto("/research");
     await page.waitForLoadState("networkidle");
     await expect(page.getByText("daily brief written")).toBeVisible();
-    await expect(page.getByText(/not built yet/).first()).toBeVisible();
+    await expect(page.getByText(/is not configured/).first()).toBeVisible();
   });
 });
