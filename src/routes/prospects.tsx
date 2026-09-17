@@ -18,7 +18,7 @@ import {
 } from "@/components/os/primitives";
 import { gbp, relative, stamp } from "@/lib/format";
 import { cn } from "@/lib/utils";
-import type { Prospect } from "@/data/types";
+import { ProspectActions } from "@/components/os/ProspectActions";
 
 export const Route = createFileRoute("/prospects")({
   head: () => ({
@@ -42,7 +42,9 @@ function ProspectsScreen() {
   const [stage, setStage] = useState("ALL");
   const [endeavour, setEndeavour] = useState("ALL");
   const [q, setQ] = useState("");
-  const [selected, setSelected] = useState<Prospect | null>(null);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  // Derived from the dataset so the inspector reflects changes after an action.
+  const selected = prospects.find((p) => p.id === selectedId) ?? null;
 
   const rows = useMemo(
     () =>
@@ -125,7 +127,7 @@ function ProspectsScreen() {
               </thead>
               <tbody>
                 {rows.map((p) => (
-                  <Tr key={p.id} onClick={() => setSelected(p)} active={selected?.id === p.id}>
+                  <Tr key={p.id} onClick={() => setSelectedId(p.id)} active={selected?.id === p.id}>
                     <Td align="right" mono className="w-[70px]">
                       <span
                         className={cn(
@@ -168,7 +170,7 @@ function ProspectsScreen() {
 
       <InspectorPanel
         open={!!selected}
-        onClose={() => setSelected(null)}
+        onClose={() => setSelectedId(null)}
         title={selected ? `${selected.person} · ${selected.company}` : ""}
         meta={
           selected && (
@@ -177,24 +179,7 @@ function ProspectsScreen() {
             </MachineLabel>
           )
         }
-        footer={
-          <div className="flex flex-wrap justify-between gap-2">
-            <div className="flex gap-2">
-              <Button variant="primary" size="sm">
-                Approve next action
-              </Button>
-              <Button size="sm">Edit draft</Button>
-            </div>
-            <div className="flex gap-2">
-              <Button variant="ghost" size="sm">
-                Suppress
-              </Button>
-              <Button variant="destructive" size="sm">
-                Reject
-              </Button>
-            </div>
-          </div>
-        }
+        footer={selected ? <ProspectActions prospect={selected} /> : null}
       >
         {selected && (
           <div className="space-y-5">
