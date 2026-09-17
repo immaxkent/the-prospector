@@ -59,6 +59,18 @@ describe("loadDataset", () => {
     expect(d.mailboxes[0]!.endeavourIds).toEqual([]);
   });
 
+  it("surfaces objections the prospects actually raised", async () => {
+    await seedFixtures(handle.db);
+    await handle.db
+      .update(t.messages)
+      .set({ classification: { intent: "objection", objections: ["We already have an auditor lined up"] } })
+      .where(eq(t.messages.id, FIXTURE_IDS.inbound));
+    const d = await loadDataset(handle.db, opts);
+    expect(d.objections).toEqual([
+      { label: "We already have an auditor lined up", count: 1, example: "We already have an auditor lined up" },
+    ]);
+  });
+
   it("surfaces the latest successful brief and run log", async () => {
     await seedFixtures(handle.db);
     const brief = { date: "2026-09-17", changed: ["1 reply"], learned: [], today: ["Approve reply"], risks: [] };
