@@ -19,6 +19,9 @@ describe("buildApproval", () => {
     const a = buildApproval(approvalRow({ payload: { why: "Mainnet in 6 weeks" } }), lookups());
     expect(a).toMatchObject({
       kind: "OUTREACH_DRAFT",
+      subjectType: "message",
+      subjectId: "msg_1",
+      prospectId: "pro_1",
       title: "New outreach ready to send",
       recipient: "Ilse Vermeer <ilse@northbridge.example>",
       why: "Mainnet in 6 weeks",
@@ -43,6 +46,6 @@ describe("buildApproval", () => {
       approvalRow({ kind: "failed_run", subjectType: "run", subjectId: "run_1", payload: { why: "Search provider timed out", title: "Run failed at research" } }),
       lookups(),
     );
-    expect(a).toMatchObject({ kind: "FAILED_RUN", title: "Run failed at research", recipient: "—", value: null, copy: "", evidence: [] });
+    expect(a).toMatchObject({ kind: "FAILED_RUN", prospectId: null, title: "Run failed at research", recipient: "—", value: null, copy: "", evidence: [] });
   });
 });
