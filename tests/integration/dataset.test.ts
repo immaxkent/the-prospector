@@ -59,6 +59,45 @@ describe("loadDataset", () => {
     expect(d.mailboxes[0]!.endeavourIds).toEqual([]);
   });
 
+  it("reports interface traffic from the event log", async () => {
+    await seedFixtures(handle.db);
+    await handle.db.insert(t.events).values([
+      {
+        id: "evt_out",
+        sourceSystem: "prospector",
+        eventType: "commercial.signal.detected",
+        entityType: "endeavour",
+        entityId: FIXTURE_IDS.endeavour,
+        payload: { detail: "Repeated objection" },
+      },
+      {
+        id: "evt_in",
+        sourceSystem: "aweedinary",
+        eventType: "product.milestone.completed",
+        entityType: "external",
+        entityId: "milestone_7",
+        payload: { subject: "Testnet live" },
+      },
+    ]);
+
+    const d = await loadDataset(handle.db, { ...opts, apiEnabled: true });
+    const api = d.interfaces.find((i) => i.id === "prospector_api")!;
+    expect(api).toMatchObject({ status: "ACTIVE", outbound: 1, inbound: 0 });
+    expect(api.events[0]).toMatchObject({ direction: "OUT", type: "commercial.signal.detected" });
+
+    const aweedinary = d.interfaces.find((i) => i.id === "aweedinary")!;
+    expect(aweedinary).toMatchObject({ status: "ACTIVE", inbound: 1, outbound: 0 });
+    expect(aweedinary.events[0]!.payloadSummary).toBe("Testnet live");
+
+    const goodPaper = d.interfaces.find((i) => i.id === "good_paper")!;
+    expect(goodPaper).toMatchObject({ status: "INTERFACE_READY", inbound: 0, lastEventAt: null });
+  });
+
+  it("says the API is closed when no keys are configured", async () => {
+    const d = await loadDataset(handle.db, opts);
+    expect(d.interfaces.find((i) => i.id === "prospector_api")).toMatchObject({ status: "NOT_CONNECTED" });
+  });
+
   it("surfaces objections the prospects actually raised", async () => {
     await seedFixtures(handle.db);
     await handle.db
