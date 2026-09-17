@@ -7,6 +7,9 @@
  * Mode is persisted locally: "fixtures" (design data) or "empty" (clean install).
  */
 import { useSyncExternalStore } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { useRouteContext } from "@tanstack/react-router";
+import { datasetQuery } from "./queries";
 import type {
   ActivityEvent,
   AgentRun,
@@ -113,7 +116,42 @@ export interface Dataset {
   isEmpty: boolean;
 }
 
+/** Live mode before the first response arrives: an honest empty system, never fixtures. */
+const LIVE_EMPTY: Dataset = {
+  status: { ...emptyStatus, db: "REMOTE" },
+  endeavours: [],
+  mailboxes: [],
+  prospects: [],
+  threads: [],
+  activity: [],
+  approvals: [],
+  brief: null,
+  opportunities: [],
+  insights: [],
+  segments: [],
+  experiments: [],
+  objections: [],
+  runs: [],
+  runLog: [],
+  interfaces: [],
+  isEmpty: true,
+};
+
+/** "live" reads the database; "demo" (no DATABASE_URL, e.g. the Lovable preview) shows design fixtures. */
+export function useAppMode(): "live" | "demo" {
+  const session = useRouteContext({ from: "__root__", select: (c) => c.session });
+  return session?.mode === "live" ? "live" : "demo";
+}
+
 export function useDataset(): Dataset {
+  const appMode = useAppMode();
+  const query = useQuery({ ...datasetQuery, enabled: appMode === "live" });
+  const demo = useDemoDataset();
+  if (appMode === "live") return query.data ?? LIVE_EMPTY;
+  return demo;
+}
+
+function useDemoDataset(): Dataset {
   const m = useDataMode();
   const on = m === "fixtures";
   return {
