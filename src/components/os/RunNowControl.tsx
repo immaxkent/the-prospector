@@ -33,11 +33,14 @@ export function RunNowControl() {
     mutationFn: () => runNowFn({ data: {} }),
     onSuccess: async (result) => {
       await client.invalidateQueries({ queryKey: datasetQuery.queryKey });
-      toast.success(
-        result.executedInline
-          ? `Ran ${result.endeavours} endeavour${result.endeavours === 1 ? "" : "s"}`
-          : `Queued ${result.endeavours} endeavour${result.endeavours === 1 ? "" : "s"} for the worker`,
-      );
+      const plural = result.queued === 1 ? "" : "s";
+      if (result.queued === 0) {
+        toast("Already running: this minute's run is queued");
+      } else if (result.executedInline) {
+        toast.success(`Ran ${result.queued} endeavour${plural}`);
+      } else {
+        toast.success(`Queued ${result.queued} endeavour${plural} for the worker`);
+      }
     },
     onError: (err) => toast.error(errorMessage(err)),
   });
