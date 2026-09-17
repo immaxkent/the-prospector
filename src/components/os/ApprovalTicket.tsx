@@ -3,6 +3,8 @@ import { gbp, stamp } from "@/lib/format";
 import { Button, EvidenceChip, MachineLabel, Tag } from "./primitives";
 
 const kindTone = {
+  OUTREACH_DRAFT: "signal",
+  THREAD_MAPPING: "warn",
   REPLY_APPROVAL: "signal",
   HOT_LEAD: "signal",
   PRICING_DECISION: "warn",
