@@ -7,6 +7,7 @@
  * Production (APP_ENV=production) must be live and must not enable the test login.
  */
 import { parseAllowlist } from "./auth/allowlist";
+import { TokenKeyError, parseKey } from "./crypto/tokens";
 
 export type AppMode = "live" | "demo";
 
@@ -19,6 +20,8 @@ export interface AppConfig {
   databaseUrl: string | null;
   google: { clientId: string; clientSecret: string } | null;
   allowlist: string[];
+  /** Encrypts stored OAuth tokens. Null when unset or invalid; mailbox connection is then unavailable. */
+  tokenKey: Buffer | null;
   /** Claude model used by the agent roles. */
   model: string;
   /** Enables /auth/test-login for e2e. Never set in production. */
@@ -42,12 +45,22 @@ export function loadConfig(env: Env = process.env): AppConfig {
     databaseUrl,
     google: clientId && clientSecret ? { clientId, clientSecret } : null,
     allowlist: parseAllowlist(env["AUTH_ALLOWED_EMAILS"]),
+    tokenKey: null,
     model: env["ANTHROPIC_MODEL"] || "claude-sonnet-5",
     testLoginSecret,
   };
 
+  let tokenKeyProblem: string | null = null;
+  try {
+    config.tokenKey = parseKey(env["TOKEN_ENCRYPTION_KEY"]);
+  } catch (err) {
+    if (!(err instanceof TokenKeyError)) throw err;
+    tokenKeyProblem = err.message;
+  }
+
   if (production) {
     const problems: string[] = [];
+    if (tokenKeyProblem) problems.push(tokenKeyProblem);
     if (!databaseUrl) problems.push("DATABASE_URL is required");
     if (!config.google) problems.push("GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET are required");
     if (config.allowlist.length === 0) problems.push("AUTH_ALLOWED_EMAILS must list at least one address");
