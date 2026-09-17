@@ -20,3 +20,15 @@ export async function query<T extends Record<string, unknown>>(text: string, par
     await sql.end();
   }
 }
+
+/**
+ * Full reset between specs, in dependency order: an endeavour pins its mailbox
+ * (delete is restricted), so real endeavours go first, then fixtures, then the rest.
+ */
+export async function resetDatabase() {
+  await query("delete from endeavours where is_fixture = false");
+  dbScript("purge-fixtures");
+  await query("delete from mailboxes where is_fixture = false");
+  await query("delete from intake_sessions");
+  await query("delete from suppressions");
+}
