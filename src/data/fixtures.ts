@@ -11,6 +11,7 @@ import type {
   Endeavour,
   Experiment,
   Insight,
+  Mailbox,
   ObjectionCluster,
   Opportunity,
   Opportunity as Opp,
@@ -28,17 +29,17 @@ export const fixtureStatus: SystemStatus = {
   db: "LOCAL",
   model: "claude-sonnet-4.5",
   provider: "LOCAL GATEWAY",
-  autonomy: "SEMI_AUTO",
-  sendCapPerDay: 40,
-  quietHours: "20:00 – 07:00",
+  autonomy: "DRAFT",
   researchSources: ["GitHub", "Company blogs", "Grant registries", "Conference speaker lists"],
-  emailConnected: false,
 };
 
 export const fixtureEndeavours: Endeavour[] = [
   {
     id: "end_solidity",
     name: "£3K Solidity Sprint",
+    kind: "sprint",
+    mailboxId: "mbx_consulting",
+    period: null,
     objective: "Generate £3,000 in Solidity audit and consulting revenue",
     unit: "GBP",
     targetValue: 3000,
@@ -47,15 +48,16 @@ export const fixtureEndeavours: Endeavour[] = [
     deadline: "2026-11-05",
     horizonDays: 60,
     health: "ON_TRACK",
-    autonomy: "SEMI_AUTO",
+    autonomy: "DRAFT",
     audienceNotes: "Launch-stage protocol teams, 2–12 engineers, pre-audit, EU/UK timezone.",
     offerNotes: "Fixed-scope pre-audit review, 5 working days, £750 entry engagement.",
-    channels: ["EMAIL", "TELEGRAM"],
+    channels: ["EMAIL"],
     dailyOutreachTarget: 10,
     dailyFollowupTarget: 8,
     quota: { newProspects: 12, outreach: 10, followups: 8 },
     quotaDone: { newProspects: 9, outreach: 6, followups: 3 },
     funnel: {
+      discovered: 0,
       researched: 118,
       qualified: 41,
       contacted: 33,
@@ -63,6 +65,8 @@ export const fixtureEndeavours: Endeavour[] = [
       meeting: 4,
       proposal: 2,
       won: 1,
+      lost: 0,
+      nurture: 0,
     },
     qualifiedToday: 14,
     repliesToday: 4,
@@ -77,6 +81,9 @@ export const fixtureEndeavours: Endeavour[] = [
   {
     id: "end_liquidity",
     name: "10 Liquidity Providers",
+    kind: "sprint",
+    mailboxId: "mbx_desk",
+    period: null,
     objective: "Acquire 10 liquidity providers for the market-making desk",
     unit: "COUNT",
     targetValue: 10,
@@ -85,7 +92,7 @@ export const fixtureEndeavours: Endeavour[] = [
     deadline: "2026-10-20",
     horizonDays: 45,
     health: "AT_RISK",
-    autonomy: "SUGGEST",
+    autonomy: "DRAFT",
     audienceNotes: "Small prop desks and treasury managers already running on-chain inventory.",
     offerNotes: "Revenue-share LP program, no lockup, weekly settlement.",
     channels: ["EMAIL"],
@@ -94,6 +101,7 @@ export const fixtureEndeavours: Endeavour[] = [
     quota: { newProspects: 8, outreach: 6, followups: 6 },
     quotaDone: { newProspects: 8, outreach: 4, followups: 6 },
     funnel: {
+      discovered: 0,
       researched: 64,
       qualified: 22,
       contacted: 19,
@@ -101,6 +109,8 @@ export const fixtureEndeavours: Endeavour[] = [
       meeting: 3,
       proposal: 1,
       won: 3,
+      lost: 0,
+      nurture: 0,
     },
     qualifiedToday: 5,
     repliesToday: 1,
@@ -115,6 +125,9 @@ export const fixtureEndeavours: Endeavour[] = [
   {
     id: "end_pilots",
     name: "Five Pilot Customers",
+    kind: "sprint",
+    mailboxId: "mbx_consulting",
+    period: null,
     objective: "Sign five paid pilots for the compliance reporting module",
     unit: "COUNT",
     targetValue: 5,
@@ -123,15 +136,16 @@ export const fixtureEndeavours: Endeavour[] = [
     deadline: "2026-12-01",
     horizonDays: 75,
     health: "BEHIND",
-    autonomy: "MANUAL",
+    autonomy: "OBSERVE",
     audienceNotes: "Regulated fintechs preparing for first audit cycle.",
     offerNotes: "£1,200 pilot, 6 weeks, report templates included.",
-    channels: ["EMAIL", "LINKEDIN"],
+    channels: ["EMAIL"],
     dailyOutreachTarget: 5,
     dailyFollowupTarget: 4,
     quota: { newProspects: 6, outreach: 5, followups: 4 },
     quotaDone: { newProspects: 2, outreach: 0, followups: 1 },
     funnel: {
+      discovered: 0,
       researched: 37,
       qualified: 11,
       contacted: 8,
@@ -139,6 +153,8 @@ export const fixtureEndeavours: Endeavour[] = [
       meeting: 1,
       proposal: 1,
       won: 1,
+      lost: 0,
+      nurture: 0,
     },
     qualifiedToday: 2,
     repliesToday: 0,
@@ -158,10 +174,10 @@ export const fixtureProspects: Prospect[] = [
     endeavourId: "end_solidity",
     score: 92,
     scoreFactors: [
-      { label: "Trigger recency", weight: 30, note: "Funding announced 11 days ago" },
-      { label: "Contract exposure", weight: 28, note: "3 unaudited contracts in public repo" },
-      { label: "Role authority", weight: 22, note: "Technical co-founder, budget holder" },
-      { label: "Timezone fit", weight: 12, note: "CET, overlapping working hours" },
+      { label: "Trigger recency", weight: 30, note: "Funding announced 11 days ago", evidenceIds: [] },
+      { label: "Contract exposure", weight: 28, note: "3 unaudited contracts in public repo", evidenceIds: [] },
+      { label: "Role authority", weight: 22, note: "Technical co-founder, budget holder", evidenceIds: [] },
+      { label: "Timezone fit", weight: 12, note: "CET, overlapping working hours", evidenceIds: [] },
     ],
     person: "Ilse Vermeer",
     role: "Technical Co-founder",
@@ -170,11 +186,13 @@ export const fixtureProspects: Prospect[] = [
     trigger: "Seed round announced, mainnet date published",
     evidence: [
       {
+        id: "ev_001",
         claim: "Bridge contract merged to main without external audit",
         source: "Public repository commit log",
         observedAt: "2026-09-14T09:12:00Z",
       },
       {
+        id: "ev_002",
         claim: "Mainnet launch scheduled for 30 October",
         source: "Company blog post",
         observedAt: "2026-09-12T16:40:00Z",
@@ -192,9 +210,9 @@ export const fixtureProspects: Prospect[] = [
     endeavourId: "end_solidity",
     score: 84,
     scoreFactors: [
-      { label: "Trigger recency", weight: 26, note: "Testnet incident 6 days ago" },
-      { label: "Contract exposure", weight: 30, note: "Vault logic unverified on explorer" },
-      { label: "Role authority", weight: 18, note: "Lead engineer, influences spend" },
+      { label: "Trigger recency", weight: 26, note: "Testnet incident 6 days ago", evidenceIds: [] },
+      { label: "Contract exposure", weight: 30, note: "Vault logic unverified on explorer", evidenceIds: [] },
+      { label: "Role authority", weight: 18, note: "Lead engineer, influences spend", evidenceIds: [] },
     ],
     person: "Tomas Lindqvist",
     role: "Lead Engineer",
@@ -203,6 +221,7 @@ export const fixtureProspects: Prospect[] = [
     trigger: "Public testnet incident postmortem",
     evidence: [
       {
+        id: "ev_003",
         claim: "Postmortem cites missing invariant tests",
         source: "Engineering postmortem",
         observedAt: "2026-09-10T11:05:00Z",
@@ -220,8 +239,8 @@ export const fixtureProspects: Prospect[] = [
     endeavourId: "end_solidity",
     score: 71,
     scoreFactors: [
-      { label: "Trigger recency", weight: 18, note: "Grant awarded 5 weeks ago" },
-      { label: "Contract exposure", weight: 24, note: "Single contract, moderate surface" },
+      { label: "Trigger recency", weight: 18, note: "Grant awarded 5 weeks ago", evidenceIds: [] },
+      { label: "Contract exposure", weight: 24, note: "Single contract, moderate surface", evidenceIds: [] },
     ],
     person: "Ada Okonjo",
     role: "Head of Engineering",
@@ -230,6 +249,7 @@ export const fixtureProspects: Prospect[] = [
     trigger: "Ecosystem grant awarded",
     evidence: [
       {
+        id: "ev_004",
         claim: "Grant milestone requires audited release",
         source: "Grant registry entry",
         observedAt: "2026-09-08T14:00:00Z",
@@ -247,8 +267,8 @@ export const fixtureProspects: Prospect[] = [
     endeavourId: "end_liquidity",
     score: 88,
     scoreFactors: [
-      { label: "Inventory size", weight: 34, note: "Estimated $8m on-chain inventory" },
-      { label: "Activity", weight: 26, note: "Active market making last 14 days" },
+      { label: "Inventory size", weight: 34, note: "Estimated $8m on-chain inventory", evidenceIds: [] },
+      { label: "Activity", weight: 26, note: "Active market making last 14 days", evidenceIds: [] },
     ],
     person: "Marcus Reiter",
     role: "Desk Principal",
@@ -257,6 +277,7 @@ export const fixtureProspects: Prospect[] = [
     trigger: "Expanded to two new venues this month",
     evidence: [
       {
+        id: "ev_005",
         claim: "New venue integration announced",
         source: "Desk newsletter",
         observedAt: "2026-09-09T10:00:00Z",
@@ -273,7 +294,7 @@ export const fixtureProspects: Prospect[] = [
     id: "pro_005",
     endeavourId: "end_liquidity",
     score: 46,
-    scoreFactors: [{ label: "Inventory size", weight: 12, note: "Below stated floor" }],
+    scoreFactors: [{ label: "Inventory size", weight: 12, note: "Below stated floor", evidenceIds: [] }],
     person: "Priya Raghavan",
     role: "Treasury Manager",
     company: "Solent Digital",
@@ -281,6 +302,7 @@ export const fixtureProspects: Prospect[] = [
     trigger: "Published treasury policy update",
     evidence: [
       {
+        id: "ev_006",
         claim: "Policy restricts third-party LP programs",
         source: "Treasury policy document",
         observedAt: "2026-09-07T09:30:00Z",
@@ -298,8 +320,8 @@ export const fixtureProspects: Prospect[] = [
     endeavourId: "end_pilots",
     score: 77,
     scoreFactors: [
-      { label: "Audit deadline", weight: 30, note: "First reporting cycle in 4 months" },
-      { label: "Headcount fit", weight: 17, note: "No dedicated compliance engineer" },
+      { label: "Audit deadline", weight: 30, note: "First reporting cycle in 4 months", evidenceIds: [] },
+      { label: "Headcount fit", weight: 17, note: "No dedicated compliance engineer", evidenceIds: [] },
     ],
     person: "Grace Mbeki",
     role: "COO",
@@ -308,6 +330,7 @@ export const fixtureProspects: Prospect[] = [
     trigger: "Hiring for first compliance lead",
     evidence: [
       {
+        id: "ev_007",
         claim: "Job posting references upcoming first audit",
         source: "Careers page",
         observedAt: "2026-09-13T12:15:00Z",
@@ -341,6 +364,7 @@ export const fixtureThreads: Thread[] = [
         threadId: "thr_001",
         author: "HUMAN",
         draft: false,
+        sendState: "sent",
         sentAt: "2026-09-14T10:02:00Z",
         body: "Saw the bridge contract merged ahead of the 30 Oct mainnet date. We run a fixed-scope pre-audit review in five working days — happy to send the exact line items if useful.",
       },
@@ -349,6 +373,7 @@ export const fixtureThreads: Thread[] = [
         threadId: "thr_001",
         author: "PROSPECT",
         draft: false,
+        sendState: null,
         sentAt: "2026-09-16T06:41:00Z",
         body: "Yes — we would want this reviewed before Friday if possible. What is the cost and what exactly is covered?",
       },
@@ -357,6 +382,7 @@ export const fixtureThreads: Thread[] = [
         threadId: "thr_001",
         author: "AGENT",
         draft: true,
+        sendState: "pending_approval",
         sentAt: "2026-09-16T07:32:18Z",
         body: "We can start Friday. Fixed scope: bridge contract and its two dependencies, invariant review, privileged-role mapping and a written findings note — £750, delivered in five working days. If you want the vault logic included as well it is £1,200 total.",
       },
@@ -379,6 +405,7 @@ export const fixtureThreads: Thread[] = [
         threadId: "thr_002",
         author: "HUMAN",
         draft: false,
+        sendState: "sent",
         sentAt: "2026-09-15T08:20:00Z",
         body: "Your postmortem named missing invariant tests as the root cause. That is the first thing our pre-audit review covers — worth a short look before the next release?",
       },
@@ -401,6 +428,7 @@ export const fixtureThreads: Thread[] = [
         threadId: "thr_003",
         author: "HUMAN",
         draft: false,
+        sendState: "sent",
         sentAt: "2026-09-12T09:00:00Z",
         body: "Given the two new venues you added, our LP program may fit — weekly settlement, no lockup, 60/40 share.",
       },
@@ -409,6 +437,7 @@ export const fixtureThreads: Thread[] = [
         threadId: "thr_003",
         author: "PROSPECT",
         draft: false,
+        sendState: null,
         sentAt: "2026-09-15T15:10:00Z",
         body: "Interested. Weekly settlement is slower than we normally accept. Can we talk Thursday?",
       },
@@ -495,6 +524,7 @@ export const fixtureApprovals: Approval[] = [
     value: 1200,
     evidence: [
       {
+        id: "ev_002",
         claim: "Mainnet launch scheduled for 30 October",
         source: "Company blog post",
         observedAt: "2026-09-12T16:40:00Z",
@@ -513,6 +543,7 @@ export const fixtureApprovals: Approval[] = [
     value: null,
     evidence: [
       {
+        id: "ev_008",
         claim: "Two new venue integrations this month",
         source: "Desk newsletter",
         observedAt: "2026-09-09T10:00:00Z",
@@ -531,6 +562,7 @@ export const fixtureApprovals: Approval[] = [
     value: 750,
     evidence: [
       {
+        id: "ev_004",
         claim: "Grant milestone requires audited release",
         source: "Grant registry entry",
         observedAt: "2026-09-08T14:00:00Z",
@@ -748,7 +780,7 @@ export const fixtureRunLog: RunLogLine[] = [
   { id: "log_02", at: "2026-09-16T07:32:41Z", level: "INFO", text: "discovered 22 candidate organisations" },
   { id: "log_03", at: "2026-09-16T07:33:09Z", level: "INFO", text: "qualified Northbridge Protocol · score=92" },
   { id: "log_04", at: "2026-09-16T07:33:55Z", level: "WARN", text: "Meridian Settlements missing contact record · flagged NEEDS_REVIEW" },
-  { id: "log_05", at: "2026-09-16T07:34:47Z", level: "INFO", text: "drafted 6 messages · autonomy=SEMI_AUTO · held for approval" },
+  { id: "log_05", at: "2026-09-16T07:34:47Z", level: "INFO", text: "drafted 6 messages · autonomy=DRAFT · held for approval" },
   { id: "log_06", at: "2026-09-16T07:35:22Z", level: "INFO", text: "run_014 complete · 184s" },
   { id: "log_07", at: "2026-09-16T06:58:44Z", level: "ERROR", text: "run_012 failed · source rate limited after 12 requests" },
 ];
@@ -817,6 +849,35 @@ export const fixtureInterfaces: SystemInterface[] = [
     outbound: 0,
     lastEventAt: null,
     events: [],
+  },
+];
+
+export const fixtureMailboxes: Mailbox[] = [
+  {
+    id: "mbx_consulting",
+    address: "max@consulting.example",
+    displayName: "Max — Solidity consulting",
+    provider: "google",
+    status: "connected",
+    dailyCap: 30,
+    capToday: 19,
+    sentToday: 9,
+    warmingUp: true,
+    quietHours: "20:00 – 07:00",
+    endeavourIds: ["end_solidity", "end_pilots"],
+  },
+  {
+    id: "mbx_desk",
+    address: "desk@liquidity.example",
+    displayName: "Liquidity desk",
+    provider: "google",
+    status: "needs_reauth",
+    dailyCap: 40,
+    capToday: 40,
+    sentToday: 0,
+    warmingUp: false,
+    quietHours: "20:00 – 07:00",
+    endeavourIds: ["end_liquidity"],
   },
 ];
 
