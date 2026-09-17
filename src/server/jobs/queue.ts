@@ -43,23 +43,28 @@ export async function enqueue(db: Database, input: EnqueueInput) {
 
 /** Claims the oldest due job for this worker, or returns null when nothing is due. */
 export async function claimNext(db: Database, workerId: string, now = new Date()): Promise<JobRow | null> {
-  const rows = await db.execute<JobRow>(sql`
+  const stamp = now.toISOString();
+  // Raw SQL for SKIP LOCKED; the row is then read back through the typed query.
+  const claimed = await db.execute<{ id: string }>(sql`
     update ${jobs} set
       status = 'running',
       attempts = ${jobs.attempts} + 1,
-      locked_at = ${now},
+      locked_at = ${stamp}::timestamptz,
       locked_by = ${workerId},
-      updated_at = ${now}
+      updated_at = ${stamp}::timestamptz
     where id = (
       select id from ${jobs}
-      where status = 'queued' and run_at <= ${now}
+      where status = 'queued' and run_at <= ${stamp}::timestamptz
       order by run_at
       for update skip locked
       limit 1
     )
-    returning *
+    returning id
   `);
-  return rows[0] ?? null;
+  const id = claimed[0]?.id;
+  if (!id) return null;
+  const [row] = await db.select().from(jobs).where(eq(jobs.id, id));
+  return row ?? null;
 }
 
 export async function completeJob(db: Database, jobId: string) {
