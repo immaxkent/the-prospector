@@ -33,10 +33,10 @@ describe("runDailyLoop", () => {
     // Built steps report why they could not run; unbuilt ones name their work package.
     expect(brief.risks.join(" ")).toContain("Research did not run: Claude is not configured");
     expect(brief.risks.join(" ")).toContain("Sending did not run: Google is not configured");
-    // Learning is the only step still unbuilt.
-    expect(brief.risks.join(" ")).toContain("W11");
+    // Every step is built now: gaps explain what is unconfigured, never an unbuilt step.
+    expect(brief.risks.join(" ")).not.toContain("not built yet");
     const lines = await logLines(runId);
-    expect(lines.some((l) => l.startsWith("warn:") && l.includes("not built yet"))).toBe(true);
+    expect(lines.some((l) => l.startsWith("warn:") && l.includes("is not configured"))).toBe(true);
     expect(lines.some((l) => l.includes("daily brief written"))).toBe(true);
 
     const events = (await db.select().from(t.events)).map((e) => e.eventType);
