@@ -12,12 +12,27 @@ import { researchCandidates } from "../agent/research";
 import type { AgentDeps } from "../agent/deps";
 import { createOutreachDraft } from "../commands/outreach";
 import { applyReplyClassification } from "../commands/conversations";
+import { proposeInsights, recordInsights } from "../commands/learning";
+import { buildObjectionClusters, buildPerformance } from "../read/performance";
 import { sendApprovedForMailbox, type SendDeps } from "../commands/send";
 import { classifyReply } from "../agent/reply";
 import { ingestReplies } from "../mailboxes/ingest";
 import { applyQualification, knownTargetNames, storeCandidates } from "../commands/research";
 import type { Database } from "../db/client";
-import { activities, companies, dailyRuns, endeavours, evidence, messages, people, prospects, runLog, segments, triggers } from "../db/schema";
+import {
+  activities,
+  companies,
+  dailyRuns,
+  endeavours,
+  evidence,
+  messages,
+  opportunities,
+  people,
+  prospects,
+  runLog,
+  segments,
+  triggers,
+} from "../db/schema";
 import { PROGRESSION } from "../domain/pipeline";
 import { decideFollowUp, sequenceFinished } from "../domain/followup";
 import { newId } from "../ids";
@@ -542,7 +557,39 @@ export const DAILY_RUN_STEPS: RunStep[] = [
       if (waiting.length) await ctx.log("info", `${waiting.length} approved message(s) waiting to be sent`);
     },
   },
-  pending("learn", "W11", "Learning from replies and objections"),
+  {
+    name: "learn",
+    run: async (ctx) => {
+      const [own, sent, opportunityRows, segmentRows, triggerRows] = await Promise.all([
+        ctx.db.select().from(prospects).where(eq(prospects.endeavourId, ctx.endeavourId)),
+        ctx.db.select().from(messages).where(eq(messages.endeavourId, ctx.endeavourId)),
+        ctx.db.select().from(opportunities).where(eq(opportunities.endeavourId, ctx.endeavourId)),
+        ctx.db.select().from(segments).where(eq(segments.endeavourId, ctx.endeavourId)),
+        ctx.db.select().from(triggers),
+      ]);
+
+      const cuts = buildPerformance({
+        prospects: own,
+        messages: sent,
+        opportunities: opportunityRows,
+        segments: segmentRows,
+        triggers: triggerRows.filter((t) => own.some((p) => p.id === t.prospectId)),
+      });
+      const objections = buildObjectionClusters(sent);
+      const proposals = proposeInsights(cuts, objections);
+      const { created } = await recordInsights(ctx.db, ctx.endeavourId, proposals);
+
+      ctx.metrics["insights"] = created.length;
+      if (proposals.length === 0) {
+        await ctx.log("info", "not enough evidence yet to draw a conclusion");
+      } else {
+        await ctx.log("info", `${proposals.length} insight(s) from the numbers · ${created.length} new`);
+        for (const proposal of proposals.filter((p) => p.type !== "observation")) {
+          await ctx.log("info", proposal.statement);
+        }
+      }
+    },
+  },
   {
     name: "brief",
     run: async (ctx) => {
