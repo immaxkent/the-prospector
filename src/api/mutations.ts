@@ -139,3 +139,31 @@ export const assignEndeavourMailboxFn = createServerFn({ method: "POST" })
     await assignEndeavourMailbox(await live(), data);
     return { ok: true as const };
   });
+
+export const importProspectsFn = createServerFn({ method: "POST" })
+  .middleware([requireSession])
+  .validator(
+    z.object({
+      endeavourId: id,
+      segmentId: id.optional(),
+      /** CSV text with a header row, or JSON rows. */
+      csv: z.string().max(2_000_000),
+    }),
+  )
+  .handler(async ({ data }) => {
+    const [{ importProspects, parseCsv, importRowSchema }] = await Promise.all([import("../server/commands/import")]);
+    const parsed = parseCsv(data.csv);
+    if (parsed.length === 0) throw new Error("That file has no rows. A header row with at least a company column is required.");
+    const rows = parsed.map((row, index) => {
+      const candidate = importRowSchema.safeParse(
+        Object.fromEntries(Object.entries(row).filter(([, value]) => value !== "")),
+      );
+      if (!candidate.success) throw new Error(`Row ${index + 2}: ${z.prettifyError(candidate.error)}`);
+      return candidate.data;
+    });
+    return importProspects(await live(), {
+      endeavourId: data.endeavourId,
+      ...(data.segmentId ? { segmentId: data.segmentId } : {}),
+      rows,
+    });
+  });
