@@ -84,26 +84,24 @@ export const DAILY_RUN_STEPS: RunStep[] = [
     name: "process_inbound",
     run: async (ctx) => {
       const { endeavour, offering, pricing } = await endeavourBrief(ctx);
+      // Fetching needs Google; reading what already arrived only needs Claude.
       if (!endeavour.mailboxId) {
-        await ctx.log("warn", "no mailbox is connected, so no replies were read");
-        ctx.gaps.push("Replies were not read: the endeavour has no mailbox");
-        return;
+        await ctx.log("warn", "no mailbox is connected, so no new replies were fetched");
+        ctx.gaps.push("Replies were not fetched: the endeavour has no mailbox");
+      } else if (!ctx.mail) {
+        await ctx.log("warn", "Google is not configured on this server, so no new replies were fetched");
+        ctx.gaps.push("Replies were not fetched: Google is not configured");
+      } else {
+        const ingested = await ingestReplies(ctx.db, ctx.mail, { mailboxId: endeavour.mailboxId, now: ctx.now });
+        await ctx.log(
+          "info",
+          `${ingested.stored} new reply(ies) · ${ingested.matched} matched · ${ingested.needsReview} need review · ${ingested.alreadyKnown} already known`,
+        );
+        if (ingested.needsReview > 0) {
+          ctx.gaps.push(`${ingested.needsReview} reply(ies) could not be matched and are waiting for you`);
+        }
+        ctx.metrics["repliesReceived"] = ingested.stored;
       }
-      if (!ctx.mail) {
-        await ctx.log("warn", "Google is not configured on this server, so no replies were read");
-        ctx.gaps.push("Replies were not read: Google is not configured");
-        return;
-      }
-
-      const ingested = await ingestReplies(ctx.db, ctx.mail, { mailboxId: endeavour.mailboxId, now: ctx.now });
-      await ctx.log(
-        "info",
-        `${ingested.stored} new reply(ies) · ${ingested.matched} matched · ${ingested.needsReview} need review · ${ingested.alreadyKnown} already known`,
-      );
-      if (ingested.needsReview > 0) {
-        ctx.gaps.push(`${ingested.needsReview} reply(ies) could not be matched and are waiting for you`);
-      }
-      ctx.metrics["repliesReceived"] = ingested.stored;
 
       if (!ctx.agent) {
         await ctx.log("warn", "Claude is not configured, so replies were stored but not read");
