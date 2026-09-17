@@ -4,33 +4,45 @@
  */
 
 export type AgentState = "ONLINE" | "RUNNING" | "WAITING" | "ERROR";
-export type AutonomyLevel = "MANUAL" | "SUGGEST" | "SEMI_AUTO" | "AUTO";
+/** OBSERVE and DRAFT are enabled in v1; GUARDED and DELEGATED are shown but cannot be activated. */
+export type AutonomyLevel = "OBSERVE" | "DRAFT" | "GUARDED" | "DELEGATED";
 export type Health = "ON_TRACK" | "AT_RISK" | "BEHIND" | "PAUSED";
 
 export type PipelineStage =
+  | "discovered"
   | "researched"
   | "qualified"
   | "contacted"
   | "replied"
   | "meeting"
   | "proposal"
-  | "won";
+  | "won"
+  | "lost"
+  | "nurture";
+
+export type EndeavourKind = "sprint" | "ongoing";
 
 export interface Endeavour {
   id: string;
   name: string;
+  kind: EndeavourKind;
+  /** Mailbox this endeavour sends through. Null until one is chosen. */
+  mailboxId: string | null;
   objective: string;
   unit: "GBP" | "COUNT";
   targetValue: number;
   actualValue: number;
   pipelineValue: number;
+  /** Sprint: the end date. Ongoing: the end of the current period. */
   deadline: string; // ISO date
   horizonDays: number;
+  /** Ongoing endeavours only. */
+  period: "week" | "month" | "quarter" | null;
   health: Health;
   autonomy: AutonomyLevel;
   audienceNotes: string;
   offerNotes: string;
-  channels: string[];
+  channels: "EMAIL"[];
   dailyOutreachTarget: number;
   dailyFollowupTarget: number;
   quota: { newProspects: number; outreach: number; followups: number };
@@ -46,6 +58,7 @@ export interface Endeavour {
 export type ProspectStage = PipelineStage | "rejected";
 
 export interface EvidenceItem {
+  id: string;
   claim: string;
   source: string;
   url?: string;
@@ -56,7 +69,7 @@ export interface Prospect {
   id: string;
   endeavourId: string;
   score: number; // 0-100
-  scoreFactors: { label: string; weight: number; note: string }[];
+  scoreFactors: { label: string; weight: number; note: string; evidenceIds: string[] }[];
   person: string;
   role: string;
   company: string;
@@ -76,6 +89,8 @@ export interface Message {
   threadId: string;
   author: "AGENT" | "HUMAN" | "PROSPECT";
   draft: boolean;
+  /** Outbound lifecycle state; null for inbound messages. */
+  sendState: OutboundState | null;
   sentAt: string;
   body: string;
 }
@@ -85,7 +100,7 @@ export interface Thread {
   endeavourId: string;
   prospectId: string;
   subject: string;
-  channel: "EMAIL" | "LINKEDIN" | "TELEGRAM";
+  channel: "EMAIL";
   unread: boolean;
   lastActivityAt: string;
   intent: string;
@@ -114,10 +129,28 @@ export interface ActivityEvent {
   detail: string;
 }
 
+export type OutboundState =
+  | "drafted"
+  | "pending_approval"
+  | "approved"
+  | "rejected"
+  | "queued"
+  | "sending"
+  | "sent"
+  | "failed";
+
+export type ApprovalKind =
+  | "OUTREACH_DRAFT"
+  | "REPLY_APPROVAL"
+  | "HOT_LEAD"
+  | "PRICING_DECISION"
+  | "THREAD_MAPPING"
+  | "FAILED_RUN";
+
 export interface Approval {
   id: string;
   endeavourId: string;
-  kind: "REPLY_APPROVAL" | "HOT_LEAD" | "PRICING_DECISION" | "FAILED_RUN";
+  kind: ApprovalKind;
   title: string;
   recipient: string;
   why: string;
@@ -220,10 +253,23 @@ export interface SystemStatus {
   model: string;
   provider: string;
   autonomy: AutonomyLevel;
-  sendCapPerDay: number;
-  quietHours: string;
   researchSources: string[];
-  emailConnected: boolean;
+}
+
+export interface Mailbox {
+  id: string;
+  address: string;
+  displayName: string;
+  provider: "google";
+  status: "connected" | "needs_reauth" | "disconnected";
+  dailyCap: number;
+  /** Cap after warm-up for today. */
+  capToday: number;
+  sentToday: number;
+  warmingUp: boolean;
+  quietHours: string;
+  /** Endeavours sending through this mailbox; caps are shared between them. */
+  endeavourIds: string[];
 }
 
 export interface DailyBrief {
