@@ -53,6 +53,8 @@ export default defineConfig({
         APP_URL: `http://localhost:${LIVE_PORT}`,
         AUTH_ALLOWED_EMAILS: E2E_OPERATOR,
         AUTH_TEST_LOGIN_SECRET: E2E_LOGIN_SECRET,
+        // The planner answers from a fixture, so e2e never calls Claude.
+        INTAKE_PLANNER_FIXTURE: "1",
       },
     },
   ],
