@@ -32,7 +32,9 @@ describe("runDailyLoop", () => {
     const brief = row.brief as { risks: string[]; today: string[] };
     // Built steps report why they could not run; unbuilt ones name their work package.
     expect(brief.risks.join(" ")).toContain("Research did not run: Claude is not configured");
-    expect(brief.risks.join(" ")).toContain("W10");
+    expect(brief.risks.join(" ")).toContain("Sending did not run: Google is not configured");
+    // Learning is the only step still unbuilt.
+    expect(brief.risks.join(" ")).toContain("W11");
     const lines = await logLines(runId);
     expect(lines.some((l) => l.startsWith("warn:") && l.includes("not built yet"))).toBe(true);
     expect(lines.some((l) => l.includes("daily brief written"))).toBe(true);
