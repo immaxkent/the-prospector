@@ -879,6 +879,7 @@ export const fixtureMailboxes: Mailbox[] = [
     sentToday: 9,
     warmingUp: true,
     quietHours: "20:00 – 07:00",
+    limits: { dailyCap: 30, weeklyCap: 150, warmup: { startedOn: "2026-09-10", startCap: 5, incrementPerDay: 2 }, quietHours: { start: 20, end: 7 }, timezone: "Europe/London" },
     endeavourIds: ["end_solidity", "end_pilots"],
   },
   {
@@ -892,6 +893,7 @@ export const fixtureMailboxes: Mailbox[] = [
     sentToday: 0,
     warmingUp: false,
     quietHours: "20:00 – 07:00",
+    limits: { dailyCap: 40, weeklyCap: 200, warmup: null, quietHours: { start: 20, end: 7 }, timezone: "Europe/London" },
     endeavourIds: ["end_liquidity"],
   },
 ];
