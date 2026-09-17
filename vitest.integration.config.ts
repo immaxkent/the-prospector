@@ -9,6 +9,7 @@ export default defineConfig({
     include: ["tests/integration/**/*.test.ts"],
     environment: "node",
     fileParallelism: false,
+    globalSetup: ["tests/integration/global-setup.ts"],
     env: {
       DATABASE_URL:
         process.env["TEST_DATABASE_URL"] ?? "postgres://prospector:prospector@localhost:55433/prospector_test",
