@@ -15,6 +15,7 @@ import type {
   Endeavour,
   Experiment,
   Insight,
+  Mailbox,
   ObjectionCluster,
   Opportunity,
   Prospect,
@@ -33,6 +34,7 @@ import {
   fixtureExperiments,
   fixtureInsights,
   fixtureInterfaces,
+  fixtureMailboxes,
   fixtureObjections,
   fixtureOpportunities,
   fixtureProspects,
@@ -94,6 +96,7 @@ const live = () => mode === "fixtures";
 export interface Dataset {
   status: SystemStatus;
   endeavours: Endeavour[];
+  mailboxes: Mailbox[];
   prospects: Prospect[];
   threads: Thread[];
   activity: ActivityEvent[];
@@ -116,6 +119,7 @@ export function useDataset(): Dataset {
   return {
     status: on ? fixtureStatus : emptyStatus,
     endeavours: on ? fixtureEndeavours : [],
+    mailboxes: on ? fixtureMailboxes : [],
     prospects: on ? fixtureProspects : [],
     threads: on ? fixtureThreads : [],
     activity: on ? fixtureActivity : [],
