@@ -24,6 +24,8 @@ export interface AppConfig {
   tokenKey: Buffer | null;
   /** Claude model used by the agent roles. */
   model: string;
+  /** Keys that may call /api/v1. Empty means the API is closed. */
+  apiKeys: string[];
   /** Hour (operator timezone) after which the day's runs are queued. */
   dailyRunHour: number;
   /** "external" runs the worker as its own process; "inline" drains the queue inside the web process (dev and e2e only). */
@@ -54,6 +56,7 @@ export function loadConfig(env: Env = process.env): AppConfig {
     google: clientId && clientSecret ? { clientId, clientSecret } : null,
     allowlist: parseAllowlist(env["AUTH_ALLOWED_EMAILS"]),
     tokenKey: null,
+    apiKeys: (env["API_KEYS"] ?? "").split(",").map((k) => k.trim()).filter((k) => k.length >= 16),
     dailyRunHour: Number(env["DAILY_RUN_HOUR"] ?? 7),
     workerMode: env["WORKER_MODE"] === "inline" ? "inline" : "external",
     anthropicApiKey: env["ANTHROPIC_API_KEY"] || null,
