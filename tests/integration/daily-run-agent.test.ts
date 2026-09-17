@@ -41,7 +41,8 @@ describe("daily run with an agent", () => {
     expect(text).toContain("needs_review");
 
     const calls = await db.select().from(t.llmCalls);
-    expect(calls.map((c) => c.role).sort()).toEqual(["research.discover", "research.qualify"]);
+    // The fixture thread also carries a reply, so the run classifies it in the same pass.
+    expect(calls.map((c) => c.role).sort()).toEqual(["conversation.classify", "research.discover", "research.qualify"]);
     expect(calls.every((c) => c.status === "ok" && c.costUsd > 0)).toBe(true);
   });
 
@@ -111,5 +112,48 @@ describe("drafting", () => {
     await run({ agent: agent() });
     expect(await db.select().from(t.messages)).toHaveLength(0);
     expect(await logText()).toContain("no email address");
+  });
+});
+
+describe("replies", () => {
+  /** A reply already sits in the fixture thread; the run should read and classify it. */
+  it("classifies a reply and queues a suggested response", async () => {
+    await run({ agent: agent() });
+    const [reply] = await db.select().from(t.messages).where(eq(t.messages.id, FIXTURE_IDS.inbound));
+    expect(reply!.classification).toMatchObject({ intent: "question" });
+    expect(reply!.body).toBe("Yes, we would want this reviewed before Friday. What is the cost and what is covered?");
+
+    const [approval] = await db.select().from(t.approvals).where(eq(t.approvals.kind, "reply_approval"));
+    expect(approval!.payload).toMatchObject({ draft: expect.stringContaining("Fixed scope") });
+    expect(await logText()).toContain("question");
+  });
+
+  it("stops outreach when a reply asks not to be contacted", async () => {
+    await db
+      .update(t.messages)
+      .set({ body: "Please unsubscribe me, do not contact me again." })
+      .where(eq(t.messages.id, FIXTURE_IDS.inbound));
+    await db.insert(t.messages).values({
+      id: "msg_pending_draft",
+      threadId: FIXTURE_IDS.thread,
+      endeavourId: FIXTURE_IDS.endeavour,
+      prospectId: FIXTURE_IDS.prospect,
+      direction: "outbound",
+      messageClass: "follow_up",
+      subject: "Following up",
+      body: "Just checking in",
+      sendState: "pending_approval",
+    });
+
+    await run({ agent: agent() });
+
+    const [suppression] = await db.select().from(t.suppressions);
+    expect(suppression).toMatchObject({ kind: "email", value: "ilse@northbridge.example" });
+    const [draft] = await db.select().from(t.messages).where(eq(t.messages.id, "msg_pending_draft"));
+    expect(draft!.sendState).toBe("rejected");
+    const [prospect] = await db.select().from(t.prospects).where(eq(t.prospects.id, FIXTURE_IDS.prospect));
+    expect(prospect).toMatchObject({ stage: "lost", reviewStatus: "rejected", rejectionReason: "Asked not to be contacted" });
+    expect(await db.select().from(t.approvals).where(eq(t.approvals.kind, "reply_approval"))).toHaveLength(1); // the fixture's, not a new one
+    expect(await logText()).toContain("asked not to be contacted");
   });
 });
