@@ -15,7 +15,11 @@
     "test": "vitest run",
     "test:integration": "vitest run --config vitest.integration.config.ts",
     "test:e2e": "playwright test",
-    "check": "npm run typecheck && npm run test"
+    "check": "npm run typecheck && npm run test",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "tsx scripts/db.ts migrate",
+    "db:seed-fixtures": "tsx scripts/db.ts seed-fixtures",
+    "db:purge-fixtures": "tsx scripts/db.ts purge-fixtures"
   },
   "overrides": {
     "rolldown": "1.2.1"
