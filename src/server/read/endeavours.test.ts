@@ -44,6 +44,7 @@ describe("buildEndeavour", () => {
     expect(e).toMatchObject({
       id: "end_1",
       kind: "sprint",
+      status: "active",
       mailboxId: "mbx_1",
       unit: "GBP",
       targetValue: 3000,
