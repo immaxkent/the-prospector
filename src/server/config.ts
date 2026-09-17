@@ -46,7 +46,7 @@ export function loadConfig(env: Env = process.env): AppConfig {
     google: clientId && clientSecret ? { clientId, clientSecret } : null,
     allowlist: parseAllowlist(env["AUTH_ALLOWED_EMAILS"]),
     tokenKey: null,
-    model: env["ANTHROPIC_MODEL"] || "claude-sonnet-5",
+    model: env["ANTHROPIC_MODEL"] || "claude-opus-5",
     testLoginSecret,
   };
 
