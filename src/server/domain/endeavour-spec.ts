@@ -144,6 +144,19 @@ export const FIELD_KEYS = [
 ] as const;
 export type FieldKey = (typeof FIELD_KEYS)[number];
 
+/** Value schema per field, used to validate what the operator confirms or edits. */
+export const FIELD_VALUE_SCHEMAS = {
+  objective: objectiveValue,
+  horizon: horizonValue,
+  offering: offeringValue,
+  pricing: pricingValue,
+  proof: z.array(proofItem).min(1),
+  buyers: z.array(buyerSegment).min(1),
+  exclusions: z.array(exclusionRule),
+  mailboxId: nonEmpty,
+  cadence: cadenceValue,
+} as const satisfies Record<FieldKey, z.ZodType>;
+
 /** Fields the user may mark not applicable. Pricing is further restricted for revenue objectives. */
 const NOT_APPLICABLE_ALLOWED: readonly FieldKey[] = ["pricing", "proof"];
 
