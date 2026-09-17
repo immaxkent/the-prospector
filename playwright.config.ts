@@ -55,6 +55,8 @@ export default defineConfig({
         AUTH_TEST_LOGIN_SECRET: E2E_LOGIN_SECRET,
         // The planner answers from a fixture, so e2e never calls Claude.
         INTAKE_PLANNER_FIXTURE: "1",
+        // No separate worker process in e2e: the web process drains the queue.
+        WORKER_MODE: "inline",
       },
     },
   ],
