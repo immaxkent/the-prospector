@@ -24,6 +24,7 @@ describe("buildMailbox", () => {
       capToday: 30,
       warmingUp: false,
       quietHours: "20:00 – 07:00",
+      limits: { dailyCap: 30, weeklyCap: 150, timezone: "Europe/London" },
       endeavourIds: ["end_1", "end_2"],
     });
   });
