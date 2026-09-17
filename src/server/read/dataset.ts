@@ -15,6 +15,7 @@ import { buildThread } from "./conversations";
 import { buildEndeavour } from "./endeavours";
 import { buildMailbox } from "./mailboxes";
 import { buildOpportunity, buildSegmentPerformance } from "./pipeline";
+import { buildObjectionClusters } from "./performance";
 import { buildProspect } from "./prospects";
 import { iso } from "./rows";
 
@@ -121,7 +122,7 @@ export async function loadDataset(db: Database, opts: DatasetOptions): Promise<D
     insights: insights.map(buildInsight).filter((x) => x !== null),
     segments: buildSegmentPerformance(segments, prospects, messages),
     experiments: [],
-    objections: [],
+    objections: buildObjectionClusters(messages),
     runs: runs.map((r) => buildRun(r, now)),
     runLog: buildRunLog(runLog),
     interfaces: INTERFACES,
