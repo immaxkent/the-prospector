@@ -18,6 +18,7 @@ import {
 } from "@/components/os/primitives";
 import { ApprovalTicket } from "@/components/os/ApprovalTicket";
 import { EndeavourStatusControls } from "@/components/os/EndeavourStatusControls";
+import { EndeavourMailboxSelect } from "@/components/os/EndeavourMailboxSelect";
 import { gbp, num, pct, shortDate, stamp, daysUntil } from "@/lib/format";
 import type { PipelineStage } from "@/data/types";
 import { cn } from "@/lib/utils";
@@ -85,6 +86,7 @@ function EndeavourDetail() {
             <p className="mt-1 text-[14px] text-muted-foreground">{e.objective}</p>
           </div>
           <div className="flex flex-wrap items-center gap-6">
+            <EndeavourMailboxSelect endeavour={e} />
             <EndeavourStatusControls endeavour={e} />
             <MetricCell
               label="OBJECTIVE"
