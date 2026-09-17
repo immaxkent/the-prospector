@@ -82,7 +82,8 @@ test.describe("intake", () => {
     await cadence.getByRole("button", { name: "Edit" }).click();
     await cadence.getByLabel("Value for Daily cadence").fill('{"dailyNewTarget":-4,"dailyFollowupTarget":8}');
     await cadence.getByRole("button", { name: "Save value" }).click();
-    await expect(page.getByText(/dailyNewTarget/)).toBeVisible();
+    // The first server call in CI loads modules lazily, so the toast can take a while to appear.
+    await expect(page.getByText(/dailyNewTarget/)).toBeVisible({ timeout: 20_000 });
     await expect(cadence).toContainText("STATED");
   });
 });
