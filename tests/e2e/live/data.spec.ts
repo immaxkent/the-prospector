@@ -1,16 +1,6 @@
-import { execFileSync } from "node:child_process";
 import { expect, test } from "@playwright/test";
+import { dbScript as db } from "./db";
 import { signIn } from "./env";
-
-const E2E_DATABASE_URL =
-  process.env["E2E_DATABASE_URL"] ?? "postgres://prospector:prospector@localhost:55433/prospector_e2e";
-
-function db(command: "seed-fixtures" | "purge-fixtures") {
-  execFileSync("npx", ["tsx", "scripts/db.ts", command], {
-    env: { ...process.env, DATABASE_URL: E2E_DATABASE_URL },
-    stdio: "pipe",
-  });
-}
 
 // These specs change shared database state, so they run in order.
 test.describe.configure({ mode: "serial" });
