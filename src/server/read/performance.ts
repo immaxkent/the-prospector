@@ -87,7 +87,8 @@ export function buildPerformance(input: PerformanceInput): PerformanceCut[] {
     ...cut("source", active.map((p) => ({ label: p.source, prospect: p })), input),
   ];
 
-  // Message versions are a property of the message, not the prospect.
+  // Message versions are a property of the message: a send counts even if the prospect
+  // was rejected afterwards, because it really went out.
   const byVersion = new Map<string, MessageRow[]>();
   for (const message of input.messages) {
     if (message.direction !== "outbound" || message.sendState !== "sent" || !message.templateVersion) continue;
