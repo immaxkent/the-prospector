@@ -184,6 +184,19 @@ export async function receiveEvent(deps: ApiDeps, body: unknown) {
   return json({ accepted: true, canonical: (CANONICAL_EVENT_TYPES as readonly string[]).includes(event.type) }, 202);
 }
 
+/** Prospects from another system or a list. Same checks as research: nothing bypasses them. */
+export async function receiveImport(deps: ApiDeps, body: unknown) {
+  const { importProspects } = await import("../commands/import");
+  const { CommandError } = await import("../commands/errors");
+  try {
+    const result = await importProspects(deps.db, body as never);
+    return json({ accepted: true, ...result }, 202);
+  } catch (err) {
+    if (err instanceof CommandError) return error(err.code === "not_found" ? 404 : 400, err.message);
+    throw err;
+  }
+}
+
 export const signalSchema = z.object({
   endeavourId: z.string().trim().min(1).max(64),
   statement: z.string().trim().min(1).max(500),
