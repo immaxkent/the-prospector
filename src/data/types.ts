@@ -151,6 +151,10 @@ export interface Approval {
   id: string;
   endeavourId: string;
   kind: ApprovalKind;
+  /** What the decision acts on: a draft message, a thread, a prospect, a run or an opportunity. */
+  subjectType: "message" | "thread" | "prospect" | "run" | "opportunity";
+  subjectId: string;
+  prospectId: string | null;
   title: string;
   recipient: string;
   why: string;
