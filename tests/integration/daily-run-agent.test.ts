@@ -157,3 +157,75 @@ describe("replies", () => {
     expect(await logText()).toContain("asked not to be contacted");
   });
 });
+
+describe("follow-ups", () => {
+  /** A contacted prospect with one sent email and no reply. */
+  async function contactedDaysAgo(days: number) {
+    const sentAt = new Date(NOW.getTime() - days * 86_400_000);
+    await db.delete(t.approvals);
+    await db.delete(t.messages).where(eq(t.messages.direction, "inbound"));
+    await db.update(t.messages).set({ sentAt, messageClass: "new_outreach" }).where(eq(t.messages.id, FIXTURE_IDS.outbound));
+    await db
+      .update(t.prospects)
+      .set({ stage: "contacted", reviewStatus: "qualified" })
+      .where(eq(t.prospects.id, FIXTURE_IDS.prospect));
+  }
+
+  it("drafts a follow-up once the gap has passed", async () => {
+    await contactedDaysAgo(4);
+    await run({ agent: agent() });
+
+    const [followUp] = await db.select().from(t.messages).where(eq(t.messages.messageClass, "follow_up"));
+    expect(followUp).toMatchObject({ sendState: "pending_approval", prospectId: FIXTURE_IDS.prospect });
+    const [approval] = await db.select().from(t.approvals).where(eq(t.approvals.kind, "outreach_draft"));
+    expect(approval!.payload).toMatchObject({ why: "Follow-up 1: no reply yet" });
+    expect(await logText()).toContain("follow-up 1 ready for approval");
+  });
+
+  it("waits while it is too soon and records when it is next due", async () => {
+    await contactedDaysAgo(1);
+    await run({ agent: agent() });
+    expect(await db.select().from(t.messages).where(eq(t.messages.messageClass, "follow_up"))).toHaveLength(0);
+    const [prospect] = await db.select().from(t.prospects).where(eq(t.prospects.id, FIXTURE_IDS.prospect));
+    expect(prospect).toMatchObject({ nextAction: "Follow-up due" });
+    expect(prospect!.nextActionAt).toEqual(new Date(NOW.getTime() + 2 * 86_400_000));
+  });
+
+  it("never chases someone who already replied", async () => {
+    await contactedDaysAgo(10);
+    await db.insert(t.messages).values({
+      id: "msg_reply_now",
+      threadId: FIXTURE_IDS.thread,
+      endeavourId: FIXTURE_IDS.endeavour,
+      prospectId: FIXTURE_IDS.prospect,
+      direction: "inbound",
+      subject: "Re: Bridge",
+      body: "Costs look fine, let us talk Friday.",
+      receivedAt: new Date(NOW.getTime() - 86_400_000),
+    });
+    await run({ agent: agent() });
+    expect(await db.select().from(t.messages).where(eq(t.messages.messageClass, "follow_up"))).toHaveLength(0);
+  });
+
+  it("parks a prospect in nurture once the sequence is spent", async () => {
+    await contactedDaysAgo(30);
+    for (const [i, id] of ["f1", "f2", "f3"].entries()) {
+      await db.insert(t.messages).values({
+        id,
+        threadId: FIXTURE_IDS.thread,
+        endeavourId: FIXTURE_IDS.endeavour,
+        prospectId: FIXTURE_IDS.prospect,
+        direction: "outbound",
+        messageClass: "follow_up",
+        subject: `Follow-up ${i + 1}`,
+        body: "Checking in",
+        sendState: "sent",
+        sentAt: new Date(NOW.getTime() - (20 - i * 5) * 86_400_000),
+      });
+    }
+    await run({ agent: agent() });
+    const [prospect] = await db.select().from(t.prospects).where(eq(t.prospects.id, FIXTURE_IDS.prospect));
+    expect(prospect).toMatchObject({ stage: "nurture", nextAction: "No reply after the full sequence" });
+    expect(await logText()).toContain("parked in nurture");
+  });
+});
