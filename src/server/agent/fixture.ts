@@ -1,4 +1,5 @@
 /** Scripted agent for e2e and local work without an API key. Answers by role, in any order. */
+import { DRAFT_PROMPT } from "./draft";
 import { RESEARCH_PROMPT, QUALIFY_PROMPT } from "./research-prompt";
 import { QUALIFICATION_FACTORS } from "./qualify";
 import type { LlmClient, LlmRequest, LlmResponse } from "../llm/types";
@@ -39,17 +40,30 @@ export function fixtureQualifyOutput() {
   };
 }
 
+export function fixtureDraftOutput() {
+  const body =
+    "Your testnet postmortem mentions missing invariant tests. I run fixed-scope pre-audit reviews of exactly that kind of vault logic. Worth a short look before mainnet?";
+  return {
+    subject: "Invariant tests before mainnet",
+    body,
+    citations: [{ sentence: "Your testnet postmortem mentions missing invariant tests.", id: "FIXTURE_EVIDENCE_ID" }],
+  };
+}
+
 export class FixtureAgentLlm implements LlmClient {
   readonly requests: LlmRequest[] = [];
 
   async complete(request: LlmRequest): Promise<LlmResponse> {
     this.requests.push(request);
-    const output =
-      request.system === RESEARCH_PROMPT.system
-        ? fixtureResearchOutput()
-        : request.system === QUALIFY_PROMPT.system
-          ? fixtureQualifyOutput()
-          : {};
+    let output: unknown = {};
+    if (request.system === RESEARCH_PROMPT.system) output = fixtureResearchOutput();
+    else if (request.system === QUALIFY_PROMPT.system) output = fixtureQualifyOutput();
+    else if (request.system === DRAFT_PROMPT.system) {
+      // Cite the first evidence id the request actually offered, so the guard can verify it.
+      const id = request.user.match(/<item id="([^"]+)">/)?.[1] ?? "unknown";
+      const draft = fixtureDraftOutput();
+      output = { ...draft, citations: draft.citations.map((c) => ({ ...c, id })) };
+    }
     return {
       text: JSON.stringify(output),
       model: request.model,
