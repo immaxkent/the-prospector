@@ -1,25 +1,60 @@
 import { defineConfig, devices } from "@playwright/test";
+import { E2E_LOGIN_SECRET, E2E_OPERATOR } from "./tests/e2e/live/env";
 
-const PORT = Number(process.env["E2E_PORT"] ?? 4310);
+// E2E runs against the production Node build (npm run test:e2e builds first),
+// the same artifact that ships to the box. Two servers:
+// - demo: no database, design fixtures, no sign-in
+// - live: e2e database, sign-in required, guarded test login enabled
+const DEMO_PORT = Number(process.env["E2E_DEMO_PORT"] ?? 4310);
+const LIVE_PORT = Number(process.env["E2E_LIVE_PORT"] ?? 4320);
+const E2E_DATABASE_URL =
+  process.env["E2E_DATABASE_URL"] ?? "postgres://prospector:prospector@localhost:55433/prospector_e2e";
+const CI = !!process.env["CI"];
 
-// E2E runs against the production Node build, the same artifact that ships to the box.
 export default defineConfig({
   testDir: "tests/e2e",
   fullyParallel: true,
-  retries: process.env["CI"] ? 1 : 0,
-  reporter: process.env["CI"] ? "github" : "list",
+  retries: CI ? 1 : 0,
+  reporter: CI ? "github" : "list",
   use: {
-    baseURL: `http://localhost:${PORT}`,
     trace: "retain-on-failure",
     // The WebGL backdrop only mounts without reduced motion. Under software rendering
     // it starves parallel workers, so screens are tested without it.
     reducedMotion: "reduce",
   },
-  projects: [{ name: "chromium", use: { ...devices["Desktop Chrome"] } }],
-  webServer: {
-    command: `npm run build && PORT=${PORT} node .output/server/index.mjs`,
-    url: `http://localhost:${PORT}/`,
-    reuseExistingServer: !process.env["CI"],
-    timeout: 180_000,
-  },
+  projects: [
+    {
+      name: "demo",
+      testMatch: "demo/**/*.spec.ts",
+      use: { ...devices["Desktop Chrome"], baseURL: `http://localhost:${DEMO_PORT}` },
+    },
+    {
+      name: "live",
+      testMatch: "live/**/*.spec.ts",
+      // Live specs share one database.
+      fullyParallel: false,
+      use: { ...devices["Desktop Chrome"], baseURL: `http://localhost:${LIVE_PORT}` },
+    },
+  ],
+  webServer: [
+    {
+      command: `PORT=${DEMO_PORT} node .output/server/index.mjs`,
+      url: `http://localhost:${DEMO_PORT}/login`,
+      reuseExistingServer: !CI,
+      env: { DATABASE_URL: "" },
+    },
+    {
+      command: `tsx scripts/e2e-db.ts && PORT=${LIVE_PORT} node .output/server/index.mjs`,
+      url: `http://localhost:${LIVE_PORT}/login`,
+      reuseExistingServer: !CI,
+      timeout: 60_000,
+      env: {
+        E2E_DATABASE_URL,
+        DATABASE_URL: E2E_DATABASE_URL,
+        APP_URL: `http://localhost:${LIVE_PORT}`,
+        AUTH_ALLOWED_EMAILS: E2E_OPERATOR,
+        AUTH_TEST_LOGIN_SECRET: E2E_LOGIN_SECRET,
+      },
+    },
+  ],
 });
