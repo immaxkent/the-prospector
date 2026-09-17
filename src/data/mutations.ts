@@ -5,13 +5,16 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import {
+  assignEndeavourMailboxFn,
   decideApprovalFn,
+  disconnectMailboxFn,
   markThreadReadFn,
   moveProspectStageFn,
   rejectProspectFn,
   restoreProspectFn,
   setEndeavourStatusFn,
   suppressProspectFn,
+  updateMailboxLimitsFn,
   updateOpportunityFn,
 } from "@/api/mutations";
 import { datasetQuery } from "./queries";
@@ -51,3 +54,6 @@ export const useSetEndeavourStatus = () =>
     input.status === "active" ? "Endeavour resumed" : input.status === "paused" ? "Endeavour paused" : "Endeavour archived",
   );
 export const useMarkThreadRead = () => useAction(markThreadReadFn, null);
+export const useUpdateMailboxLimits = () => useAction(updateMailboxLimitsFn, "Mailbox limits saved");
+export const useDisconnectMailbox = () => useAction(disconnectMailboxFn, "Mailbox disconnected");
+export const useAssignEndeavourMailbox = () => useAction(assignEndeavourMailboxFn, "Sending mailbox changed");
