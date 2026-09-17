@@ -12,5 +12,5 @@ export const fetchDataset = createServerFn({ method: "GET" })
     ]);
     const config = getConfig();
     if (config.mode !== "live") throw new Error("dataset is only served in live mode");
-    return loadDataset(getDb(), { model: config.model, provider: "ANTHROPIC" });
+    return loadDataset(getDb(), { model: config.model, provider: "ANTHROPIC", apiEnabled: config.apiKeys.length > 0 });
   });

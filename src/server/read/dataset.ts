@@ -4,9 +4,8 @@
  */
 import { desc, inArray, ne } from "drizzle-orm";
 import type { AnyPgColumn } from "drizzle-orm/pg-core";
-import type { DailyBrief, SystemInterface } from "@/data/types";
+import type { DailyBrief } from "@/data/types";
 import type { Dataset } from "@/data/store";
-import { fixtureInterfaces } from "@/data/fixtures";
 import type { Database } from "../db/client";
 import * as t from "../db/schema";
 import { agentState, buildActivity, buildInsight, buildRun, buildRunLog } from "./activity";
@@ -16,6 +15,7 @@ import { buildEndeavour } from "./endeavours";
 import { buildMailbox } from "./mailboxes";
 import { buildOpportunity, buildSegmentPerformance } from "./pipeline";
 import { buildObjectionClusters } from "./performance";
+import { buildInterfaces } from "./interfaces";
 import { buildProspect } from "./prospects";
 import { iso } from "./rows";
 
@@ -23,6 +23,8 @@ export interface DatasetOptions {
   now?: Date;
   model: string;
   provider: string;
+  /** True when API keys are configured, so the Interfaces screen can say the API is open. */
+  apiEnabled?: boolean;
 }
 
 const byId = <T extends { id: string }>(rows: readonly T[]) => new Map(rows.map((r) => [r.id, r]));
@@ -31,15 +33,6 @@ function isBrief(v: unknown): v is DailyBrief {
   const b = v as Partial<DailyBrief> | null;
   return !!b && typeof b.date === "string" && [b.changed, b.learned, b.today, b.risks].every(Array.isArray);
 }
-
-/** Interfaces describe the integration seam; counters come from the event log in W12. */
-const INTERFACES: SystemInterface[] = fixtureInterfaces.map((i) => ({
-  ...i,
-  inbound: 0,
-  outbound: 0,
-  lastEventAt: null,
-  events: [],
-}));
 
 export async function loadDataset(db: Database, opts: DatasetOptions): Promise<Dataset> {
   const now = opts.now ?? new Date();
@@ -125,7 +118,7 @@ export async function loadDataset(db: Database, opts: DatasetOptions): Promise<D
     objections: buildObjectionClusters(messages),
     runs: runs.map((r) => buildRun(r, now)),
     runLog: buildRunLog(runLog),
-    interfaces: INTERFACES,
+    interfaces: buildInterfaces(events, opts.apiEnabled ?? false),
     isEmpty: endeavours.length === 0,
   };
 }
