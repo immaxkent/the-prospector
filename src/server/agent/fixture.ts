@@ -1,5 +1,6 @@
 /** Scripted agent for e2e and local work without an API key. Answers by role, in any order. */
 import { DRAFT_PROMPT } from "./draft";
+import { REPLY_PROMPT } from "./reply";
 import { RESEARCH_PROMPT, QUALIFY_PROMPT } from "./research-prompt";
 import { QUALIFICATION_FACTORS } from "./qualify";
 import type { LlmClient, LlmRequest, LlmResponse } from "../llm/types";
@@ -50,6 +51,20 @@ export function fixtureDraftOutput() {
   };
 }
 
+export function fixtureReplyOutput(reply: string) {
+  const stop = /unsubscribe|stop contacting|do not contact|remove me/i.test(reply);
+  return {
+    intent: stop ? "unsubscribe" : "question",
+    summary: stop ? "Asked not to be contacted again" : "Asked what the review costs",
+    objections: [] as string[],
+    commitments: [] as string[],
+    requestedNextStep: stop ? null : "Send cost and scope",
+    unsubscribeRequested: stop,
+    suggestedReply: stop ? null : "Fixed scope, five working days. Happy to start Friday.",
+    confidence: 0.7,
+  };
+}
+
 export class FixtureAgentLlm implements LlmClient {
   readonly requests: LlmRequest[] = [];
 
@@ -58,7 +73,9 @@ export class FixtureAgentLlm implements LlmClient {
     let output: unknown = {};
     if (request.system === RESEARCH_PROMPT.system) output = fixtureResearchOutput();
     else if (request.system === QUALIFY_PROMPT.system) output = fixtureQualifyOutput();
-    else if (request.system === DRAFT_PROMPT.system) {
+    else if (request.system === REPLY_PROMPT.system) {
+      output = fixtureReplyOutput(request.user.split("<reply-to-read>")[1] ?? "");
+    } else if (request.system === DRAFT_PROMPT.system) {
       // Cite the first evidence id the request actually offered, so the guard can verify it.
       const id = request.user.match(/<item id="([^"]+)">/)?.[1] ?? "unknown";
       const draft = fixtureDraftOutput();
