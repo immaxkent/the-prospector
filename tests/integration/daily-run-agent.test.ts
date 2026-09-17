@@ -229,3 +229,107 @@ describe("follow-ups", () => {
     expect(await logText()).toContain("parked in nurture");
   });
 });
+
+describe("learning", () => {
+  it("says nothing from a small sample", async () => {
+    await run({ agent: agent() });
+    expect(await db.select().from(t.insights)).toHaveLength(0);
+    expect(await logText()).toContain("not enough evidence yet");
+  });
+
+  it("recommends the better segment once the sample is big enough, with the numbers", async () => {
+    const [segment] = await db.select().from(t.segments);
+    const [weak] = await db
+      .insert(t.segments)
+      .values({
+        id: "seg_weak",
+        endeavourId: FIXTURE_IDS.endeavour,
+        name: "General protocols",
+        definition: "Everyone else",
+        signals: [],
+        painHypothesis: "unknown",
+        priority: 2,
+        specVersion: 1,
+      })
+      .returning();
+
+    // 20 contacted in each segment: the strong one replies positively, the weak one does not.
+    for (const [index, config] of [
+      { segmentId: segment!.id, positive: true },
+      { segmentId: weak!.id, positive: false },
+    ].entries()) {
+      for (let i = 0; i < 20; i++) {
+        const prospectId = `pro_${index}_${i}`;
+        await db.insert(t.prospects).values({
+          id: prospectId,
+          endeavourId: FIXTURE_IDS.endeavour,
+          segmentId: config.segmentId,
+          companyId: FIXTURE_IDS.company,
+          stage: "replied",
+          reviewStatus: "qualified",
+          source: "web_research",
+        });
+        await db.insert(t.messages).values({
+          id: `msg_${index}_${i}`,
+          threadId: FIXTURE_IDS.thread,
+          endeavourId: FIXTURE_IDS.endeavour,
+          prospectId,
+          direction: "outbound",
+          messageClass: "new_outreach",
+          subject: "Hello",
+          body: "…",
+          sendState: "sent",
+          sentAt: new Date("2026-09-16T09:00:00Z"),
+          templateVersion: "outreach.draft/2026-09-17.1",
+        });
+        if (config.positive && i < 6) {
+          await db.insert(t.messages).values({
+            id: `in_${index}_${i}`,
+            threadId: FIXTURE_IDS.thread,
+            endeavourId: FIXTURE_IDS.endeavour,
+            prospectId,
+            direction: "inbound",
+            subject: "Re: Hello",
+            body: "Interested",
+            receivedAt: new Date("2026-09-16T12:00:00Z"),
+            classification: { intent: "interested", objections: [] },
+          });
+        }
+      }
+    }
+
+    await run({ agent: agent() });
+    const recommendations = await db.select().from(t.insights).where(eq(t.insights.type, "recommendation"));
+    expect(recommendations).toHaveLength(1);
+    // 20 seeded plus the fixture prospect, which is in the same segment and replied.
+    expect(recommendations[0]!.statement).toContain("7/21");
+    expect(recommendations[0]!.statement).toContain("0/20");
+    expect(recommendations[0]!.statement).toContain("Launch-stage protocols");
+    expect(recommendations[0]!.evidence).toMatchObject({ dimension: "segment" });
+
+    // Running again does not duplicate the same open insight.
+    await db.delete(t.dailyRuns);
+    await run({ agent: agent(), now: new Date("2026-09-17T11:00:00Z") });
+    expect(await db.select().from(t.insights).where(eq(t.insights.type, "recommendation"))).toHaveLength(1);
+  });
+
+  it("raises a repeated objection as a commercial signal", async () => {
+    for (let i = 0; i < 3; i++) {
+      await db.insert(t.messages).values({
+        id: `obj_${i}`,
+        threadId: FIXTURE_IDS.thread,
+        endeavourId: FIXTURE_IDS.endeavour,
+        prospectId: FIXTURE_IDS.prospect,
+        direction: "inbound",
+        subject: "Re: Hello",
+        body: "We already have an auditor",
+        receivedAt: new Date("2026-09-16T12:00:00Z"),
+        classification: { intent: "objection", objections: ["We already have an auditor lined up"] },
+      });
+    }
+    await run({ agent: agent() });
+    const [signal] = await db.select().from(t.insights).where(eq(t.insights.type, "signal"));
+    expect(signal!.statement).toContain("3 times");
+    expect((await db.select().from(t.events)).map((e) => e.eventType)).toContain("commercial.signal.detected");
+  });
+});
