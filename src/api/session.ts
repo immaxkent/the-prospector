@@ -3,7 +3,7 @@
  * Server-only modules are imported inside handlers so they never reach the client bundle.
  */
 import { createMiddleware, createServerFn } from "@tanstack/react-start";
-import type { SessionUser } from "./sessions";
+import type { SessionUser } from "../server/auth/sessions";
 
 export interface SessionState {
   mode: "live" | "demo";
@@ -12,12 +12,12 @@ export interface SessionState {
 
 async function loadSession(): Promise<SessionState> {
   const [{ getConfig }, { getCookie }] = await Promise.all([
-    import("../config"),
+    import("../server/config"),
     import("@tanstack/react-start/server"),
   ]);
   const config = getConfig();
   if (config.mode === "demo") return { mode: "demo", user: null };
-  const [{ getDb }, { SESSION_COOKIE, resolveSession }] = await Promise.all([import("../db/client"), import("./sessions")]);
+  const [{ getDb }, { SESSION_COOKIE, resolveSession }] = await Promise.all([import("../server/db/client"), import("../server/auth/sessions")]);
   return { mode: "live", user: await resolveSession(getDb(), getCookie(SESSION_COOKIE)) };
 }
 
