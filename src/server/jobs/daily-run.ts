@@ -19,6 +19,7 @@ import { applyQualification, knownTargetNames, storeCandidates } from "../comman
 import type { Database } from "../db/client";
 import { activities, companies, dailyRuns, endeavours, evidence, messages, people, prospects, runLog, segments, triggers } from "../db/schema";
 import { PROGRESSION } from "../domain/pipeline";
+import { decideFollowUp, sequenceFinished } from "../domain/followup";
 import { newId } from "../ids";
 import { localDate, OPERATOR_TIMEZONE } from "../read/rows";
 import { notFound } from "../commands/errors";
@@ -284,6 +285,121 @@ export const DAILY_RUN_STEPS: RunStep[] = [
     },
   },
   {
+    name: "follow_up",
+    run: async (ctx) => {
+      if (!ctx.agent) {
+        await ctx.log("warn", "Claude is not configured, so no follow-ups were written");
+        ctx.gaps.push("Follow-ups did not run: Claude is not configured");
+        return;
+      }
+      const { endeavour, offering, pricing, proof, dailyFollowupTarget: target } = await endeavourBrief(ctx);
+      const today = startOfLocalDay(ctx.now);
+      const preparedToday = await ctx.db
+        .select({ id: messages.id })
+        .from(messages)
+        .where(
+          and(
+            eq(messages.endeavourId, ctx.endeavourId),
+            eq(messages.messageClass, "follow_up"),
+            gte(messages.createdAt, today),
+          ),
+        );
+      const room = Math.max(0, target - preparedToday.length);
+      if (room === 0) {
+        await ctx.log("info", `today's follow-up target of ${target} is already prepared`);
+        return;
+      }
+
+      const contacted = await ctx.db
+        .select()
+        .from(prospects)
+        .where(and(eq(prospects.endeavourId, ctx.endeavourId), eq(prospects.stage, "contacted")));
+      let drafted = 0;
+      let parked = 0;
+
+      for (const prospect of contacted) {
+        if (drafted >= room) break;
+        const own = await ctx.db.select().from(messages).where(eq(messages.prospectId, prospect.id));
+        const sent = own.filter((m) => m.direction === "outbound" && m.sendState === "sent");
+        const waiting = own.some((m) => ["drafted", "pending_approval", "approved", "queued", "sending"].includes(m.sendState ?? ""));
+        if (waiting) continue;
+
+        const lastOutboundAt = sent.reduce<Date | null>((latest, m) => (m.sentAt && (!latest || m.sentAt > latest) ? m.sentAt : latest), null);
+        const lastInboundAt = own.reduce<Date | null>(
+          (latest, m) => (m.direction === "inbound" && m.receivedAt && (!latest || m.receivedAt > latest) ? m.receivedAt : latest),
+          null,
+        );
+        const followUpsSoFar = own.filter((m) => m.messageClass === "follow_up" && m.sendState !== "rejected").length;
+
+        const decision = decideFollowUp({
+          stage: prospect.stage,
+          reviewStatus: prospect.reviewStatus,
+          lastOutboundAt,
+          lastInboundAt,
+          followUpsSoFar,
+          now: ctx.now,
+        });
+        if (!decision.due) {
+          if (decision.reason === "sequence_finished" && sequenceFinished(followUpsSoFar)) {
+            await ctx.db
+              .update(prospects)
+              .set({ stage: "nurture", nextAction: "No reply after the full sequence", nextActionAt: null })
+              .where(eq(prospects.id, prospect.id));
+            parked += 1;
+          } else if (decision.nextDueAt) {
+            await ctx.db
+              .update(prospects)
+              .set({ nextAction: "Follow-up due", nextActionAt: decision.nextDueAt })
+              .where(eq(prospects.id, prospect.id));
+          }
+          continue;
+        }
+
+        const [company] = prospect.companyId ? await ctx.db.select().from(companies).where(eq(companies.id, prospect.companyId)) : [];
+        const [person] = prospect.personId ? await ctx.db.select().from(people).where(eq(people.id, prospect.personId)) : [];
+        const [segment] = prospect.segmentId ? await ctx.db.select().from(segments).where(eq(segments.id, prospect.segmentId)) : [];
+        const claims = await ctx.db.select().from(evidence).where(eq(evidence.entityId, prospect.id));
+        if (!person?.email) continue;
+
+        const result = await draftOutreach(
+          { ...ctx.agent, runId: ctx.runId },
+          {
+            prospect: { company: company?.name ?? "unknown company", person: person.name, role: person.role },
+            segment: { name: segment?.name ?? "unspecified", painHypothesis: segment?.painHypothesis ?? "unknown" },
+            offering,
+            pricing,
+            evidence: claims.map((c) => ({ id: c.id, claim: c.claim, sourceRef: c.sourceRef })),
+            proof,
+            senderName: endeavour.name,
+            messageClass: "follow_up",
+            history: sent.map((m) => ({ direction: "outbound" as const, body: m.body })),
+            today: localDate(ctx.now),
+          },
+        );
+        if (!result.ok) {
+          await ctx.log("warn", `${company?.name ?? prospect.id}: follow-up refused — ${result.violations.map((v) => v.detail).join("; ")}`);
+          continue;
+        }
+        const created = await createOutreachDraft(ctx.db, {
+          prospectId: prospect.id,
+          subject: result.draft.subject,
+          body: result.draft.body,
+          evidenceIds: result.citedEvidenceIds,
+          messageClass: "follow_up",
+          templateVersion: "outreach.draft/2026-09-17.1",
+          why: `Follow-up ${decision.attempt}: no reply yet`,
+          runId: ctx.runId,
+        });
+        if (created.created) {
+          drafted += 1;
+          await ctx.log("info", `${company?.name ?? prospect.id}: follow-up ${decision.attempt} ready for approval`);
+        }
+      }
+      ctx.metrics["followUpsDrafted"] = drafted;
+      if (parked > 0) await ctx.log("info", `${parked} prospect(s) parked in nurture after the full sequence`);
+    },
+  },
+  {
     name: "build_queue",
     run: async (ctx) => {
       const today = startOfLocalDay(ctx.now);
@@ -460,7 +576,7 @@ async function endeavourBrief(ctx: RunContext) {
     f.state === "stated" || f.state === "confirmed" ? (f["value"] as T) : undefined;
   const offering = value<{ summary: string; deliverables: string[] }>(e.spec.offering);
   const exclusions = value<{ rule: string }[]>(e.spec.exclusions) ?? [];
-  const cadence = value<{ dailyNewTarget: number }>(e.spec.cadence);
+  const cadence = value<{ dailyNewTarget: number; dailyFollowupTarget: number }>(e.spec.cadence);
   const pricing = value<{ model: string; amount?: number; currency?: string }>(e.spec.pricing);
   const proofItems = value<{ kind: string; title: string; claim: string; url?: string }[]>(e.spec.proof) ?? [];
   return {
@@ -468,6 +584,7 @@ async function endeavourBrief(ctx: RunContext) {
     offering: offering ? [offering.summary, ...offering.deliverables].join(" · ") : e.name,
     exclusions: exclusions.map((x) => x.rule),
     dailyNewTarget: cadence?.dailyNewTarget ?? 0,
+    dailyFollowupTarget: cadence?.dailyFollowupTarget ?? 0,
     pricing: pricing?.amount ? `${pricing.currency ?? ""} ${pricing.amount} (${pricing.model})`.trim() : null,
     proof: proofItems.map((p, i): ProofItemRef => ({ id: `proof_${i + 1}`, title: p.title, claim: p.claim, url: p.url })),
   };
