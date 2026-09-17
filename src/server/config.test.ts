@@ -46,6 +46,13 @@ describe("loadConfig", () => {
     expect(() => loadConfig({ ...prod, TOKEN_ENCRYPTION_KEY: "short" })).toThrow("TOKEN_ENCRYPTION_KEY");
   });
 
+  it("reads the daily run hour and worker mode, and guards them", () => {
+    expect(loadConfig({})).toMatchObject({ dailyRunHour: 7, workerMode: "external" });
+    expect(loadConfig({ DAILY_RUN_HOUR: "6", WORKER_MODE: "inline" })).toMatchObject({ dailyRunHour: 6, workerMode: "inline" });
+    expect(loadConfig({ DAILY_RUN_HOUR: "25" }).dailyRunHour).toBe(7);
+    expect(() => loadConfig({ ...prod, WORKER_MODE: "inline" })).toThrow("development only");
+  });
+
   it("requires a Claude key in production and refuses the fixture planner there", () => {
     expect(loadConfig({}).plannerFixture).toBe(false);
     expect(loadConfig({ INTAKE_PLANNER_FIXTURE: "1" }).plannerFixture).toBe(true);
