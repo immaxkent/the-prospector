@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useRouteContext } from "@tanstack/react-router";
 import { useAppMode, useDataset, setDataMode, useDataMode } from "@/data/store";
 import { MailboxRow } from "@/components/os/MailboxRow";
+import { ImportPanel } from "@/components/os/ImportPanel";
 import {
   Button,
   MachineLabel,
@@ -186,10 +187,32 @@ function SettingsScreen() {
           </ul>
         </Panel>
 
-        <Panel title="IMPORT / EXPORT" bodyClassName="flex flex-wrap gap-2 px-4 py-4">
-          <Button size="sm">Export JSON</Button>
-          <Button size="sm">Export CSV</Button>
-          <Button size="sm">Import records</Button>
+        <Panel title="IMPORT" bodyClassName="p-0">
+          <ImportPanel />
+        </Panel>
+
+        <Panel title="EXPORT" bodyClassName="space-y-3 px-4 py-4">
+          <p className="text-[13px] text-muted-foreground">
+            A JSON backup holds everything; a CSV holds one table for a spreadsheet. Both need an API key
+            (set API_KEYS on the server).
+          </p>
+          <div className="flex flex-wrap gap-2">
+            <a
+              href="/api/v1/export?format=json"
+              className="machine inline-flex h-7 items-center rounded-full border border-border px-3 hover:bg-accent"
+            >
+              Export JSON
+            </a>
+            {(["prospects", "messages", "opportunities", "insights"] as const).map((table) => (
+              <a
+                key={table}
+                href={`/api/v1/export?format=csv&table=${table}`}
+                className="machine inline-flex h-7 items-center rounded-full border border-border px-3 hover:bg-accent"
+              >
+                {table.toUpperCase()} CSV
+              </a>
+            ))}
+          </div>
         </Panel>
 
         <Panel title="INTERFACE / API STATUS" bodyClassName="divide-y divide-border xl:col-span-2">
