@@ -70,7 +70,7 @@ export async function setEndeavourStatus(db: Database, input: { endeavourId: str
   });
 }
 
-export async function markThreadRead(db: Database, input: { threadId: string; unread?: boolean }) {
+export async function markThreadRead(db: Database, input: { threadId: string; unread?: boolean | undefined }) {
   const [row] = await db
     .update(threads)
     .set({ unread: input.unread ?? false })
