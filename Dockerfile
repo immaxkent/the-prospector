@@ -1,0 +1,19 @@
+# Built on your machine and shipped as an image: the box is too small to build on.
+FROM oven/bun:1.2-slim AS build
+WORKDIR /app
+COPY package.json bun.lock bunfig.toml ./
+RUN bun install --frozen-lockfile
+COPY . .
+RUN bun run build
+
+FROM node:22-slim AS runtime
+WORKDIR /app
+ENV NODE_ENV=production
+# The worker runs the same image with a different command, so it needs the sources tsx executes.
+COPY --from=build /app/.output ./.output
+COPY --from=build /app/node_modules ./node_modules
+COPY --from=build /app/db ./db
+COPY --from=build /app/src ./src
+COPY --from=build /app/package.json ./package.json
+EXPOSE 3000
+CMD ["node", ".output/server/index.mjs"]
