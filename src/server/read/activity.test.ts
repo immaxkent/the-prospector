@@ -33,6 +33,7 @@ describe("runs", () => {
   it("maps status, metrics and duration, using now for running runs", () => {
     expect(buildRun(runRow({ metrics: { discovered: 14, sent: 3 } }), T0)).toMatchObject({
       state: "OK",
+      phase: "done",
       durationMs: 90_000,
       discovered: 14,
       qualified: 0,
