@@ -28,3 +28,9 @@ test("unknown routes show the 404 surface", async ({ page }) => {
   await page.goto("/does-not-exist");
   await expect(page.getByText("404 / NO ROUTE")).toBeVisible();
 });
+
+test("the health endpoint reports the app and its mode", async ({ request }) => {
+  const res = await request.get("/healthz");
+  expect(res.status()).toBe(200);
+  expect(await res.json()).toMatchObject({ status: "ok", mode: "demo" });
+});
