@@ -758,6 +758,7 @@ export const fixtureRuns: AgentRun[] = [
   {
     id: "run_014",
     endeavourId: "end_solidity",
+    phase: "done",
     startedAt: "2026-09-16T07:32:18Z",
     durationMs: 184000,
     state: "OK",
@@ -769,6 +770,7 @@ export const fixtureRuns: AgentRun[] = [
   {
     id: "run_013",
     endeavourId: "end_liquidity",
+    phase: "done",
     startedAt: "2026-09-16T07:10:04Z",
     durationMs: 121000,
     state: "OK",
@@ -780,6 +782,7 @@ export const fixtureRuns: AgentRun[] = [
   {
     id: "run_012",
     endeavourId: "end_pilots",
+    phase: "done",
     startedAt: "2026-09-16T06:58:02Z",
     durationMs: 42000,
     state: "FAILED",
