@@ -31,6 +31,7 @@ export function buildMailbox(
     sentToday,
     warmingUp: capToday < m.limits.dailyCap,
     quietHours: `${hour(m.limits.quietHours.start)} – ${hour(m.limits.quietHours.end)}`,
+    limits: m.limits,
     endeavourIds: endeavours.filter((e) => e.mailboxId === m.id && e.status !== "archived").map((e) => e.id),
   };
 }
