@@ -1,0 +1,34 @@
+name: ci
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    services:
+      db:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: prospector
+          POSTGRES_PASSWORD: prospector
+          POSTGRES_DB: prospector_test
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U prospector"
+          --health-interval 2s --health-timeout 3s --health-retries 30
+    env:
+      TEST_DATABASE_URL: postgres://prospector:prospector@localhost:5432/prospector_test
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: bun install --frozen-lockfile
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run test:integration --if-present
+      - run: npx playwright install --with-deps chromium
+      - run: npm run test:e2e
