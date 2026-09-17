@@ -5,6 +5,7 @@
 import { hostname } from "node:os";
 import { closeDb, getDb } from "./server/db/client";
 import { getConfig } from "./server/config";
+import { createAgentDeps } from "./server/agent/deps";
 import { startWorker } from "./server/jobs/worker";
 
 async function main() {
@@ -18,10 +19,14 @@ async function main() {
       controller.abort();
     });
   }
-  console.log(`worker ${workerId} started · daily runs queue after ${config.dailyRunHour}:00`);
+  const agent = await createAgentDeps(config, getDb());
+  console.log(
+    `worker ${workerId} started · daily runs queue after ${config.dailyRunHour}:00 · ${agent ? `model ${config.model}` : "no Claude configured: research and qualification will be skipped"}`,
+  );
   await startWorker(getDb(), {
     workerId,
     scheduleHour: config.dailyRunHour,
+    agent,
     signal: controller.signal,
     onTick: (r) => {
       if (r.recovered || r.queued || r.processed || r.failed) {
