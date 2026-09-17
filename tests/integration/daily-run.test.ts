@@ -30,7 +30,8 @@ describe("runDailyLoop", () => {
     expect(row.metrics).toMatchObject({ prospects: 1, replied: 1 });
 
     const brief = row.brief as { risks: string[]; today: string[] };
-    expect(brief.risks.join(" ")).toContain("W9");
+    // Built steps report why they could not run; unbuilt ones name their work package.
+    expect(brief.risks.join(" ")).toContain("Research did not run: Claude is not configured");
     expect(brief.risks.join(" ")).toContain("W10");
     const lines = await logLines(runId);
     expect(lines.some((l) => l.startsWith("warn:") && l.includes("not built yet"))).toBe(true);
