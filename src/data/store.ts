@@ -145,7 +145,12 @@ export function useAppMode(): "live" | "demo" {
 
 export function useDataset(): Dataset {
   const appMode = useAppMode();
-  const query = useQuery({ ...datasetQuery, enabled: appMode === "live" });
+  const query = useQuery({
+    ...datasetQuery,
+    enabled: appMode === "live",
+    // Follow a run while it is in progress, then go quiet again.
+    refetchInterval: (q) => (q.state.data?.runs.some((r) => r.state === "RUNNING") ? 2000 : false),
+  });
   const demo = useDemoDataset();
   if (appMode === "live") return query.data ?? LIVE_EMPTY;
   return demo;
