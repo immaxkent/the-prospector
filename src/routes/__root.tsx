@@ -6,12 +6,18 @@ import {
   useRouter,
   HeadContent,
   Scripts,
+  redirect,
+  useRouterState,
 } from "@tanstack/react-router";
 import { useEffect, type ReactNode } from "react";
 
 import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
 import { AppShell } from "../components/os/AppShell";
+import { fetchSession } from "../api/session";
+
+/** Routes reachable without a session. Server routes under /auth never pass through the router. */
+const PUBLIC_PATHS = ["/login"];
 
 function NotFoundComponent() {
   return (
@@ -72,6 +78,14 @@ function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
 }
 
 export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()({
+  beforeLoad: async ({ location }) => {
+    if (PUBLIC_PATHS.includes(location.pathname)) return { session: null };
+    const session = await fetchSession();
+    if (session.mode === "live" && !session.user) {
+      throw redirect({ to: "/login", search: { returnTo: location.href, error: undefined } });
+    }
+    return { session };
+  },
   head: () => ({
     meta: [
       { charSet: "utf-8" },
@@ -123,6 +137,15 @@ function RootShell({ children }: { children: ReactNode }) {
 
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
+  const pathname = useRouterState({ select: (s) => s.location.pathname });
+
+  if (PUBLIC_PATHS.includes(pathname)) {
+    return (
+      <QueryClientProvider client={queryClient}>
+        <Outlet />
+      </QueryClientProvider>
+    );
+  }
 
   return (
     <QueryClientProvider client={queryClient}>
