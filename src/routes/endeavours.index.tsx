@@ -1,12 +1,9 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useState } from "react";
 import { useDataset } from "@/data/store";
 import {
   Button,
   EmptyState,
-  InspectorPanel,
   LedgerTable,
-  MachineLabel,
   Meter,
   PageHeader,
   Panel,
@@ -34,7 +31,6 @@ export const Route = createFileRoute("/endeavours/")({
 
 function EndeavoursScreen() {
   const { endeavours, isEmpty } = useDataset();
-  const [creating, setCreating] = useState(false);
 
   return (
     <div className="space-y-5">
@@ -42,9 +38,9 @@ function EndeavoursScreen() {
         title="ENDEAVOURS"
         summary="Each row is a measurable commercial outcome with its own research queue, cadence and execution loop."
         actions={
-          <Button variant="primary" onClick={() => setCreating(true)}>
-            New endeavour
-          </Button>
+          <Link to="/endeavours/new">
+            <Button variant="primary">New endeavour</Button>
+          </Link>
         }
       />
 
@@ -53,9 +49,9 @@ function EndeavoursScreen() {
           title="NO ACTIVE ENDEAVOURS"
           body="Define a commercial outcome. CBO OS will build the target model, research queue, outreach cadence and daily execution loop around it."
           action={
-            <Button variant="primary" onClick={() => setCreating(true)}>
-              Create first endeavour
-            </Button>
+            <Link to="/endeavours/new">
+              <Button variant="primary">Create first endeavour</Button>
+            </Link>
           }
         />
       ) : (
@@ -127,104 +123,6 @@ function EndeavoursScreen() {
           </LedgerTable>
         </Panel>
       )}
-
-      <NewEndeavourSheet open={creating} onClose={() => setCreating(false)} />
     </div>
-  );
-}
-
-function Field({
-  label,
-  children,
-}: {
-  label: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <label className="block space-y-1.5">
-      <MachineLabel>{label}</MachineLabel>
-      {children}
-    </label>
-  );
-}
-
-const inputCls =
-  "w-full rounded-[3px] border border-border bg-card px-2.5 py-2 text-[13px] outline-none focus:border-signal";
-
-function NewEndeavourSheet({ open, onClose }: { open: boolean; onClose: () => void }) {
-  return (
-    <InspectorPanel
-      open={open}
-      onClose={onClose}
-      title="New endeavour"
-      meta={<MachineLabel>DEFINE A MEASURABLE COMMERCIAL OUTCOME</MachineLabel>}
-      footer={
-        <div className="flex justify-end gap-2">
-          <Button onClick={onClose}>Cancel</Button>
-          <Button variant="primary" onClick={onClose}>
-            Create endeavour
-          </Button>
-        </div>
-      }
-    >
-      <div className="space-y-4">
-        <Field label="NAME">
-          <input className={inputCls} placeholder="£3K Solidity Sprint" />
-        </Field>
-        <Field label="OBJECTIVE">
-          <textarea className={inputCls} rows={2} placeholder="Generate £3,000 in consulting revenue" />
-        </Field>
-        <div className="grid grid-cols-2 gap-3">
-          <Field label="TARGET VALUE">
-            <input className={`${inputCls} numeral`} placeholder="3000" />
-          </Field>
-          <Field label="UNIT">
-            <select className={inputCls} defaultValue="GBP">
-              <option value="GBP">GBP</option>
-              <option value="COUNT">COUNT</option>
-            </select>
-          </Field>
-        </div>
-        <div className="grid grid-cols-2 gap-3">
-          <Field label="DEADLINE">
-            <input type="date" className={inputCls} />
-          </Field>
-          <Field label="HORIZON (DAYS)">
-            <input className={`${inputCls} numeral`} placeholder="60" />
-          </Field>
-        </div>
-        <Field label="TARGET AUDIENCE NOTES">
-          <textarea className={inputCls} rows={2} placeholder="Who, and what makes them reachable right now" />
-        </Field>
-        <Field label="OFFER NOTES">
-          <textarea className={inputCls} rows={2} placeholder="Scope, price, delivery window" />
-        </Field>
-        <Field label="CHANNELS">
-          <div className="flex gap-2">
-            {["EMAIL", "LINKEDIN", "TELEGRAM"].map((c) => (
-              <label key={c} className="machine flex items-center gap-1.5 rounded-[3px] border border-border px-2 py-1.5">
-                <input type="checkbox" defaultChecked={c === "EMAIL"} /> {c}
-              </label>
-            ))}
-          </div>
-        </Field>
-        <div className="grid grid-cols-2 gap-3">
-          <Field label="DAILY NEW OUTREACH">
-            <input className={`${inputCls} numeral`} placeholder="10" />
-          </Field>
-          <Field label="DAILY FOLLOW-UPS">
-            <input className={`${inputCls} numeral`} placeholder="8" />
-          </Field>
-        </div>
-        <Field label="AUTONOMY LEVEL">
-          <select className={inputCls} defaultValue="SEMI_AUTO">
-            <option value="MANUAL">MANUAL — agent proposes nothing automatically</option>
-            <option value="SUGGEST">SUGGEST — research and drafts, no sends</option>
-            <option value="SEMI_AUTO">SEMI_AUTO — sends after approval</option>
-            <option value="AUTO">AUTO — sends within caps</option>
-          </select>
-        </Field>
-      </div>
-    </InspectorPanel>
   );
 }
