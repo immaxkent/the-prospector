@@ -1,17 +1,13 @@
 import { expect, test } from "@playwright/test";
-import { dbScript, query } from "./db";
+import { dbScript, query, resetDatabase } from "./db";
 import { signIn } from "./env";
 
 test.describe("mailboxes", () => {
   test.beforeEach(async () => {
-    dbScript("purge-fixtures");
-    await query("delete from mailboxes where is_fixture = false");
+    await resetDatabase();
     dbScript("seed-fixtures");
   });
-  test.afterAll(async () => {
-    dbScript("purge-fixtures");
-    await query("delete from mailboxes where is_fixture = false");
-  });
+  test.afterAll(() => resetDatabase());
 
   test("edits shared limits, including warm-up", async ({ page }) => {
     await signIn(page, "/settings");

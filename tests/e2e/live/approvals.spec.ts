@@ -1,15 +1,15 @@
 import { expect, test } from "@playwright/test";
-import { dbScript, query } from "./db";
+import { dbScript, query, resetDatabase } from "./db";
 import { signIn } from "./env";
 
 test.describe.configure({ mode: "serial" });
 
 test.describe("approval queue", () => {
-  test.beforeEach(() => {
-    dbScript("purge-fixtures");
+  test.beforeEach(async () => {
+    await resetDatabase();
     dbScript("seed-fixtures");
   });
-  test.afterAll(() => dbScript("purge-fixtures"));
+  test.afterAll(() => resetDatabase());
 
   test("editing and approving a reply saves an approved, unsent reply", async ({ page }) => {
     await signIn(page, "/command");

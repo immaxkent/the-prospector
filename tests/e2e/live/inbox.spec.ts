@@ -1,10 +1,10 @@
 import { expect, test } from "@playwright/test";
-import { dbScript, query } from "./db";
+import { dbScript, query, resetDatabase } from "./db";
 import { signIn } from "./env";
 
 test.describe("inbox", () => {
   test.beforeEach(async () => {
-    dbScript("purge-fixtures");
+    await resetDatabase();
     dbScript("seed-fixtures");
     await query(
       `insert into messages (id, thread_id, endeavour_id, prospect_id, direction, message_class, subject, body, send_state)
@@ -16,7 +16,7 @@ test.describe("inbox", () => {
        values ('apr_e2e_draft', 'end_fixture_solidity', 'outreach_draft', 'message', 'msg_e2e_draft')`,
     );
   });
-  test.afterAll(() => dbScript("purge-fixtures"));
+  test.afterAll(() => resetDatabase());
 
   test("approves a follow-up draft in the conversation", async ({ page }) => {
     await signIn(page, "/inbox");

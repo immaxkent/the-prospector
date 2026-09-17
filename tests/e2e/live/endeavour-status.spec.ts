@@ -1,13 +1,13 @@
 import { expect, test } from "@playwright/test";
-import { dbScript, query } from "./db";
+import { dbScript, query, resetDatabase } from "./db";
 import { signIn } from "./env";
 
 test.describe("endeavour lifecycle", () => {
-  test.beforeEach(() => {
-    dbScript("purge-fixtures");
+  test.beforeEach(async () => {
+    await resetDatabase();
     dbScript("seed-fixtures");
   });
-  test.afterAll(() => dbScript("purge-fixtures"));
+  test.afterAll(() => resetDatabase());
 
   test("pause, resume and archive from the detail screen", async ({ page }) => {
     await signIn(page, "/endeavours/end_fixture_solidity");

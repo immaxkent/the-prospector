@@ -1,13 +1,13 @@
 import { expect, test } from "@playwright/test";
-import { dbScript as db } from "./db";
+import { dbScript, resetDatabase } from "./db";
 import { signIn } from "./env";
 
 // These specs change shared database state, so they run in order.
 test.describe.configure({ mode: "serial" });
 
 test.describe("live data", () => {
-  test.beforeAll(() => db("purge-fixtures"));
-  test.afterAll(() => db("purge-fixtures"));
+  test.beforeAll(() => resetDatabase());
+  test.afterAll(() => resetDatabase());
 
   test("a clean install shows empty states, never design fixtures", async ({ page }) => {
     await signIn(page, "/command");
@@ -22,7 +22,7 @@ test.describe("live data", () => {
   });
 
   test("screens render records from the database", async ({ page }) => {
-    db("seed-fixtures");
+    dbScript("seed-fixtures");
     await signIn(page, "/endeavours");
     await expect(page.getByRole("link", { name: "£3K Solidity Sprint" })).toBeVisible();
 

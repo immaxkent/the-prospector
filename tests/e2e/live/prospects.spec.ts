@@ -1,15 +1,14 @@
 import { expect, test } from "@playwright/test";
-import { dbScript, query } from "./db";
+import { dbScript, query, resetDatabase } from "./db";
 import { signIn } from "./env";
 
 test.describe("prospect inspector", () => {
   test.beforeEach(async () => {
-    dbScript("purge-fixtures");
-    // Suppressions are real operator data, not fixtures, so this spec clears its own.
-    await query("delete from suppressions");
+    // Suppressions are real operator data, not fixtures, so they are cleared here.
+    await resetDatabase();
     dbScript("seed-fixtures");
   });
-  test.afterAll(() => dbScript("purge-fixtures"));
+  test.afterAll(() => resetDatabase());
 
   async function openNorthbridge(page: import("@playwright/test").Page) {
     await signIn(page, "/prospects");

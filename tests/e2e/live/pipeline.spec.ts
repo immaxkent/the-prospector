@@ -1,17 +1,17 @@
 import { expect, test } from "@playwright/test";
-import { dbScript, query } from "./db";
+import { dbScript, query, resetDatabase } from "./db";
 import { signIn } from "./env";
 
 test.describe("pipeline ledger", () => {
   test.beforeEach(async () => {
-    dbScript("purge-fixtures");
+    await resetDatabase();
     dbScript("seed-fixtures");
     await query(
       `insert into opportunities (id, endeavour_id, prospect_id, name, value, currency, stage)
        values ('opp_e2e', 'end_fixture_solidity', 'pro_fixture_northbridge', 'Bridge pre-audit', 750, 'GBP', 'proposal')`,
     );
   });
-  test.afterAll(() => dbScript("purge-fixtures"));
+  test.afterAll(() => resetDatabase());
 
   const row = (page: import("@playwright/test").Page) =>
     page.getByRole("row").filter({ hasText: "Bridge pre-audit" }).getByTestId("opportunity-actions");
