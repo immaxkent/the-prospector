@@ -6,19 +6,26 @@ import { and, eq, inArray } from "drizzle-orm";
 import type { Database } from "../db/client";
 import { dailyRuns, endeavours, jobs } from "../db/schema";
 import { localDate, OPERATOR_TIMEZONE } from "../read/rows";
+import type { AgentDeps } from "../agent/deps";
 import { runDailyLoop } from "./daily-run";
 import { claimNext, completeJob, enqueue, failJob, recoverStaleJobs, type JobRow } from "./queue";
 
 export const DAILY_RUN_JOB = "endeavour.daily_run";
 
-export type JobHandler = (db: Database, payload: Record<string, unknown>, now: Date) => Promise<void>;
+export type JobHandler = (
+  db: Database,
+  payload: Record<string, unknown>,
+  now: Date,
+  agent: AgentDeps | null,
+) => Promise<void>;
 
 export const JOB_HANDLERS: Record<string, JobHandler> = {
-  [DAILY_RUN_JOB]: async (db, payload, now) => {
+  [DAILY_RUN_JOB]: async (db, payload, now, agent) => {
     await runDailyLoop(db, {
       endeavourId: String(payload["endeavourId"]),
       trigger: payload["trigger"] === "manual" ? "manual" : "schedule",
       now,
+      agent,
     });
   },
 };
@@ -58,10 +65,10 @@ export async function scheduleDueRuns(db: Database, opts: { now: Date; hour: num
   return { queued };
 }
 
-export async function runJob(db: Database, job: JobRow, now: Date) {
+export async function runJob(db: Database, job: JobRow, now: Date, agent: AgentDeps | null = null) {
   const handler = JOB_HANDLERS[job.type];
   if (!handler) throw new Error(`no handler for job type ${job.type}`);
-  await handler(db, job.payload, now);
+  await handler(db, job.payload, now, agent);
 }
 
 export interface TickResult {
@@ -74,7 +81,7 @@ export interface TickResult {
 /** One pass: recover, schedule, then drain up to `max` jobs. */
 export async function tick(
   db: Database,
-  opts: { workerId: string; now?: Date; scheduleHour: number; max?: number },
+  opts: { workerId: string; now?: Date; scheduleHour: number; max?: number; agent?: AgentDeps | null },
 ): Promise<TickResult> {
   const now = opts.now ?? new Date();
   const result: TickResult = { recovered: 0, queued: 0, processed: 0, failed: 0 };
@@ -86,7 +93,7 @@ export async function tick(
     const job = await claimNext(db, opts.workerId, now);
     if (!job) break;
     try {
-      await runJob(db, job, now);
+      await runJob(db, job, now, opts.agent ?? null);
       await completeJob(db, job.id);
       result.processed += 1;
     } catch (err) {
@@ -100,6 +107,7 @@ export async function tick(
 export interface WorkerOptions {
   workerId: string;
   scheduleHour: number;
+  agent?: AgentDeps | null;
   pollMs?: number;
   signal?: AbortSignal;
   onTick?: (result: TickResult) => void;
@@ -110,7 +118,7 @@ export async function startWorker(db: Database, opts: WorkerOptions) {
   const pollMs = opts.pollMs ?? 15_000;
   while (!opts.signal?.aborted) {
     try {
-      const result = await tick(db, { workerId: opts.workerId, scheduleHour: opts.scheduleHour });
+      const result = await tick(db, { workerId: opts.workerId, scheduleHour: opts.scheduleHour, agent: opts.agent ?? null });
       opts.onTick?.(result);
     } catch (err) {
       console.error("worker tick failed", err);
