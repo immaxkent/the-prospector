@@ -24,6 +24,10 @@ export interface AppConfig {
   tokenKey: Buffer | null;
   /** Claude model used by the agent roles. */
   model: string;
+  /** Hour (operator timezone) after which the day's runs are queued. */
+  dailyRunHour: number;
+  /** "external" runs the worker as its own process; "inline" drains the queue inside the web process (dev and e2e only). */
+  workerMode: "external" | "inline";
   /** Anthropic key for the agent roles. Null means the planner and daily run are unavailable. */
   anthropicApiKey: string | null;
   /** Answers the planner from a fixture instead of calling Claude. E2E only, never in production. */
@@ -50,6 +54,8 @@ export function loadConfig(env: Env = process.env): AppConfig {
     google: clientId && clientSecret ? { clientId, clientSecret } : null,
     allowlist: parseAllowlist(env["AUTH_ALLOWED_EMAILS"]),
     tokenKey: null,
+    dailyRunHour: Number(env["DAILY_RUN_HOUR"] ?? 7),
+    workerMode: env["WORKER_MODE"] === "inline" ? "inline" : "external",
     anthropicApiKey: env["ANTHROPIC_API_KEY"] || null,
     plannerFixture: env["INTAKE_PLANNER_FIXTURE"] === "1",
     model: env["ANTHROPIC_MODEL"] || "claude-opus-5",
@@ -64,6 +70,10 @@ export function loadConfig(env: Env = process.env): AppConfig {
     tokenKeyProblem = err.message;
   }
 
+  if (!Number.isInteger(config.dailyRunHour) || config.dailyRunHour < 0 || config.dailyRunHour > 23) {
+    config.dailyRunHour = 7;
+  }
+
   if (production) {
     const problems: string[] = [];
     if (tokenKeyProblem) problems.push(tokenKeyProblem);
@@ -72,6 +82,7 @@ export function loadConfig(env: Env = process.env): AppConfig {
     if (config.allowlist.length === 0) problems.push("AUTH_ALLOWED_EMAILS must list at least one address");
     if (testLoginSecret) problems.push("AUTH_TEST_LOGIN_SECRET must not be set");
     if (config.plannerFixture) problems.push("INTAKE_PLANNER_FIXTURE must not be set");
+    if (config.workerMode === "inline") problems.push("WORKER_MODE=inline is for development only");
     if (!config.anthropicApiKey) problems.push("ANTHROPIC_API_KEY is required");
     if (!appUrl.startsWith("https://")) problems.push("APP_URL must be https");
     if (problems.length) throw new ConfigError(`invalid production config: ${problems.join("; ")}`);
