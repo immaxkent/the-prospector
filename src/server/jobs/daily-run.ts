@@ -5,13 +5,16 @@
  * Steps that depend on unbuilt work packages record an explicit "pending" line and a
  * coverage gap in the brief. Nothing is ever reported as done when it did not run.
  */
-import { and, eq, gte, inArray, lt } from "drizzle-orm";
+import { and, eq, gte, inArray, isNull, lt } from "drizzle-orm";
 import { draftOutreach, type ProofItemRef } from "../agent/draft";
 import { qualifyProspect, type EvidenceForQualification } from "../agent/qualify";
 import { researchCandidates } from "../agent/research";
 import type { AgentDeps } from "../agent/deps";
 import { createOutreachDraft } from "../commands/outreach";
+import { applyReplyClassification } from "../commands/conversations";
 import { sendApprovedForMailbox, type SendDeps } from "../commands/send";
+import { classifyReply } from "../agent/reply";
+import { ingestReplies } from "../mailboxes/ingest";
 import { applyQualification, knownTargetNames, storeCandidates } from "../commands/research";
 import type { Database } from "../db/client";
 import { activities, companies, dailyRuns, endeavours, evidence, messages, people, prospects, runLog, segments, triggers } from "../db/schema";
@@ -77,7 +80,70 @@ export const DAILY_RUN_STEPS: RunStep[] = [
       await ctx.log("info", `${due.length} action(s) due · ${sentYesterday.length} message(s) sent before today`);
     },
   },
-  pending("process_inbound", "W10", "Reading replies from the mailbox"),
+  {
+    name: "process_inbound",
+    run: async (ctx) => {
+      const { endeavour, offering, pricing } = await endeavourBrief(ctx);
+      if (!endeavour.mailboxId) {
+        await ctx.log("warn", "no mailbox is connected, so no replies were read");
+        ctx.gaps.push("Replies were not read: the endeavour has no mailbox");
+        return;
+      }
+      if (!ctx.mail) {
+        await ctx.log("warn", "Google is not configured on this server, so no replies were read");
+        ctx.gaps.push("Replies were not read: Google is not configured");
+        return;
+      }
+
+      const ingested = await ingestReplies(ctx.db, ctx.mail, { mailboxId: endeavour.mailboxId, now: ctx.now });
+      await ctx.log(
+        "info",
+        `${ingested.stored} new reply(ies) · ${ingested.matched} matched · ${ingested.needsReview} need review · ${ingested.alreadyKnown} already known`,
+      );
+      if (ingested.needsReview > 0) {
+        ctx.gaps.push(`${ingested.needsReview} reply(ies) could not be matched and are waiting for you`);
+      }
+      ctx.metrics["repliesReceived"] = ingested.stored;
+
+      if (!ctx.agent) {
+        await ctx.log("warn", "Claude is not configured, so replies were stored but not read");
+        ctx.gaps.push("Replies were not classified: Claude is not configured");
+        return;
+      }
+
+      const unread = await ctx.db
+        .select()
+        .from(messages)
+        .where(and(eq(messages.endeavourId, ctx.endeavourId), eq(messages.direction, "inbound"), isNull(messages.classification)))
+        .limit(20);
+      for (const reply of unread) {
+        const [prospect] = reply.prospectId ? await ctx.db.select().from(prospects).where(eq(prospects.id, reply.prospectId)) : [];
+        const [company] = prospect?.companyId ? await ctx.db.select().from(companies).where(eq(companies.id, prospect.companyId)) : [];
+        const [person] = prospect?.personId ? await ctx.db.select().from(people).where(eq(people.id, prospect.personId)) : [];
+        const history = await ctx.db
+          .select({ direction: messages.direction, body: messages.body })
+          .from(messages)
+          .where(and(eq(messages.threadId, reply.threadId), inArray(messages.sendState, ["sent"])));
+
+        const classification = await classifyReply(
+          { ...ctx.agent, runId: ctx.runId },
+          {
+            offering,
+            pricing,
+            prospect: { company: company?.name ?? "unknown company", person: person?.name ?? null },
+            history: history.map((h) => ({ direction: h.direction, body: h.body })),
+            reply: reply.body,
+            today: localDate(ctx.now),
+          },
+        );
+        const applied = await applyReplyClassification(ctx.db, { messageId: reply.id, classification, now: ctx.now });
+        await ctx.log("info", `${company?.name ?? reply.id}: ${classification.intent} · ${applied.outcome}`);
+        if (applied.outcome === "unsubscribed") {
+          await ctx.log("warn", `${company?.name ?? reply.id} asked not to be contacted: suppressed and outreach stopped`);
+        }
+      }
+    },
+  },
   {
     name: "recalculate",
     run: async (ctx) => {
