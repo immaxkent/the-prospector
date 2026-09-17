@@ -15,6 +15,7 @@ import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
 import { AppShell } from "../components/os/AppShell";
 import { fetchSession } from "../api/session";
+import { datasetQuery } from "../data/queries";
 
 /** Routes reachable without a session. Server routes under /auth never pass through the router. */
 const PUBLIC_PATHS = ["/login"];
@@ -85,6 +86,12 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       throw redirect({ to: "/login", search: { returnTo: location.href, error: undefined } });
     }
     return { session };
+  },
+  loader: async ({ context }) => {
+    // Render live screens with data on first paint; later reads come from the query cache.
+    if (context.session?.mode === "live" && context.session.user) {
+      await context.queryClient.ensureQueryData(datasetQuery);
+    }
   },
   head: () => ({
     meta: [
