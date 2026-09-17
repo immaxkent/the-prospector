@@ -71,6 +71,8 @@ export interface StoreInput {
   candidates: readonly Candidate[];
   runId?: string | null;
   source?: string;
+  /** Where the evidence came from; imports and manual notes are not web research. */
+  evidenceSourceType?: "web" | "import" | "manual" | "email";
 }
 
 export async function storeCandidates(db: Database, input: StoreInput): Promise<StoreResult> {
@@ -118,7 +120,7 @@ export async function storeCandidates(db: Database, input: StoreInput): Promise<
           id,
           entityType: "prospect",
           entityId: prospectId,
-          sourceType: "web",
+          sourceType: input.evidenceSourceType ?? "web",
           sourceRef: claim.sourceRef,
           excerpt: claim.excerpt,
           claim: claim.claim,
