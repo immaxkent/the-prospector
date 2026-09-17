@@ -11,6 +11,7 @@ import { qualifyProspect, type EvidenceForQualification } from "../agent/qualify
 import { researchCandidates } from "../agent/research";
 import type { AgentDeps } from "../agent/deps";
 import { createOutreachDraft } from "../commands/outreach";
+import { sendApprovedForMailbox, type SendDeps } from "../commands/send";
 import { applyQualification, knownTargetNames, storeCandidates } from "../commands/research";
 import type { Database } from "../db/client";
 import { activities, companies, dailyRuns, endeavours, evidence, messages, people, prospects, runLog, segments, triggers } from "../db/schema";
@@ -24,6 +25,8 @@ export interface RunContext {
   db: Database;
   /** Null when Claude is not configured: agent steps then report themselves as skipped. */
   agent: AgentDeps | null;
+  /** Null when Google or the encryption key is not configured: nothing is sent. */
+  mail: SendDeps | null;
   runId: string;
   endeavourId: string;
   now: Date;
@@ -319,7 +322,35 @@ export const DAILY_RUN_STEPS: RunStep[] = [
       if (refused > 0) ctx.gaps.push(`${refused} draft(s) were refused because their claims were not supported by evidence`);
     },
   },
-  pending("send", "W10", "Sending approved messages"),
+  {
+    name: "send",
+    run: async (ctx) => {
+      const [e] = await ctx.db.select().from(endeavours).where(eq(endeavours.id, ctx.endeavourId));
+      if (!e?.mailboxId) {
+        await ctx.log("warn", "no sending mailbox is set, so nothing was sent");
+        ctx.gaps.push("Sending did not run: the endeavour has no mailbox");
+        return;
+      }
+      if (!ctx.mail) {
+        await ctx.log("warn", "Google is not configured on this server, so nothing was sent");
+        ctx.gaps.push("Sending did not run: Google is not configured");
+        return;
+      }
+      const outcome = await sendApprovedForMailbox(ctx.db, ctx.mail, { mailboxId: e.mailboxId, now: ctx.now });
+      ctx.metrics["sent"] = outcome.sent;
+      if (outcome.skipped === "quiet_hours") {
+        await ctx.log("info", "inside quiet hours: approved messages wait for the next run");
+      } else if (outcome.skipped === "no_capacity") {
+        await ctx.log("warn", `mailbox cap reached: ${outcome.sent} sent, approved messages wait for tomorrow`);
+        ctx.gaps.push("Sending stopped at the mailbox cap");
+      } else if (outcome.skipped === "nothing_approved") {
+        await ctx.log("info", "nothing approved to send");
+      } else {
+        await ctx.log("info", `${outcome.sent} sent · ${outcome.failed} failed · ${outcome.suppressed} suppressed · ${outcome.capacity} of today's capacity available`);
+      }
+      if (outcome.failed > 0) ctx.gaps.push(`${outcome.failed} message(s) could not be sent`);
+    },
+  },
   {
     name: "escalate",
     run: async (ctx) => {
@@ -354,6 +385,7 @@ export interface DailyRunInput {
   now?: Date;
   steps?: RunStep[];
   agent?: AgentDeps | null;
+  mail?: SendDeps | null;
 }
 
 /** Spec values the agent steps need, with the endeavour's own words. */
@@ -406,6 +438,7 @@ export async function runDailyLoop(db: Database, input: DailyRunInput) {
   const ctx: RunContext = {
     db,
     agent: input.agent ?? null,
+    mail: input.mail ?? null,
     runId: run.id,
     endeavourId: input.endeavourId,
     now,
