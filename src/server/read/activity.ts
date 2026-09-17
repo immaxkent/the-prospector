@@ -6,6 +6,7 @@ export function buildRun(r: RunRow, now: Date): AgentRun {
   return {
     id: r.id,
     endeavourId: r.endeavourId,
+    phase: r.phase,
     startedAt: iso(r.startedAt),
     durationMs: (r.finishedAt ?? now).getTime() - r.startedAt.getTime(),
     state: r.status === "running" ? "RUNNING" : r.status === "succeeded" ? "OK" : "FAILED",
