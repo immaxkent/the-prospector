@@ -33,7 +33,7 @@ export default defineConfig({
   },
   // Self-hosted on a Node box. Inside a Lovable build LOVABLE_NITRO_PRESET still
   // pins Cloudflare, so the Lovable preview is unaffected.
-  nitro: { preset: process.env.NITRO_PRESET ?? "node-server" },
+  nitro: { preset: process.env["NITRO_PRESET"] ?? "node-server" },
   vite: {
     plugins: [stripTsdSourceFromR3F()],
   },
