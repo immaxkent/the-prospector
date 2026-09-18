@@ -323,6 +323,8 @@ export const messages = pgTable(
     /** Only set for inbound replies whose objections were extracted; body is never rewritten. */
     classification: jsonb("classification").$type<Record<string, unknown>>(),
     templateVersion: text("template_version"),
+    /** The offer this email pitched, so performance can be read by offer. */
+    offerId: text("offer_id").references(() => offers.id, { onDelete: "set null" }),
     evidenceIds: jsonb("evidence_ids").$type<string[]>().notNull().default([]),
     sendState: outboundState("send_state"),
     sendAttempts: integer("send_attempts").notNull().default(0),

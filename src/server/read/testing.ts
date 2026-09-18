@@ -159,6 +159,7 @@ export function messageRow(o: Partial<MessageRow> = {}): MessageRow {
     body: "Hello",
     classification: null,
     templateVersion: null,
+    offerId: null,
     evidenceIds: [],
     sendState: "sent",
     sendAttempts: 1,
