@@ -19,10 +19,23 @@ import { recordEvent, type Executor } from "./events";
 
 const confirmed = <T>(f: FieldState<T>) => (f.state === "stated" || f.state === "confirmed" ? f.value : undefined);
 
+/** Postgres stores jsonb with its own key order, so comparison must not depend on it. */
+function stable(value: unknown): string {
+  if (Array.isArray(value)) return `[${value.map(stable).join(",")}]`;
+  if (value && typeof value === "object") {
+    return `{${Object.entries(value as Record<string, unknown>)
+      .filter(([, v]) => v !== undefined)
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([k, v]) => `${JSON.stringify(k)}:${stable(v)}`)
+      .join(",")}}`;
+  }
+  return JSON.stringify(value) ?? "null";
+}
+
 /** Which fields changed, for the version history and the event. */
 export function changedFields(before: EndeavourSpec, after: EndeavourSpec) {
   const keys = Object.keys(before) as (keyof EndeavourSpec)[];
-  return keys.filter((key) => JSON.stringify(before[key]) !== JSON.stringify(after[key])).map(String);
+  return keys.filter((key) => stable(before[key]) !== stable(after[key])).map(String);
 }
 
 /** Segments follow the spec: new buyers are added, ones dropped from the spec are retired. */
