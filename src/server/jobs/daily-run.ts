@@ -30,6 +30,7 @@ import {
   evidence,
   mailboxes,
   messages,
+  offers,
   opportunities,
   people,
   prospects,
@@ -566,12 +567,13 @@ export const DAILY_RUN_STEPS: RunStep[] = [
   {
     name: "learn",
     run: async (ctx) => {
-      const [own, sent, opportunityRows, segmentRows, triggerRows] = await Promise.all([
+      const [own, sent, opportunityRows, segmentRows, triggerRows, offerRows] = await Promise.all([
         ctx.db.select().from(prospects).where(eq(prospects.endeavourId, ctx.endeavourId)),
         ctx.db.select().from(messages).where(eq(messages.endeavourId, ctx.endeavourId)),
         ctx.db.select().from(opportunities).where(eq(opportunities.endeavourId, ctx.endeavourId)),
         ctx.db.select().from(segments).where(eq(segments.endeavourId, ctx.endeavourId)),
         ctx.db.select().from(triggers),
+        ctx.db.select().from(offers).where(eq(offers.endeavourId, ctx.endeavourId)),
       ]);
 
       const cuts = buildPerformance({
@@ -580,6 +582,7 @@ export const DAILY_RUN_STEPS: RunStep[] = [
         opportunities: opportunityRows,
         segments: segmentRows,
         triggers: triggerRows.filter((t) => own.some((p) => p.id === t.prospectId)),
+        offers: offerRows,
       });
       const objections = buildObjectionClusters(sent);
       const proposals = proposeInsights(cuts, objections);
