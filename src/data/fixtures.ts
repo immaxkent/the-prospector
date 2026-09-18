@@ -31,6 +31,7 @@ export const fixtureStatus: SystemStatus = {
   provider: "LOCAL GATEWAY",
   autonomy: "DRAFT",
   researchSources: ["GitHub", "Company blogs", "Grant registries", "Conference speaker lists"],
+  notifications: { channel: "slack", destination: "hooks.slack.com" },
 };
 
 export const fixtureEndeavours: Endeavour[] = [

@@ -3,6 +3,7 @@ import { useRouteContext } from "@tanstack/react-router";
 import { useAppMode, useDataset, setDataMode, useDataMode } from "@/data/store";
 import { MailboxRow } from "@/components/os/MailboxRow";
 import { ImportPanel } from "@/components/os/ImportPanel";
+import { NotificationChannel } from "@/components/os/NotificationChannel";
 import {
   Button,
   MachineLabel,
@@ -185,6 +186,10 @@ function SettingsScreen() {
               </li>
             ))}
           </ul>
+        </Panel>
+
+        <Panel title="NOTIFICATIONS" bodyClassName="p-0">
+          <NotificationChannel />
         </Panel>
 
         <Panel title="IMPORT" bodyClassName="p-0">

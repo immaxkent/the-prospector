@@ -24,7 +24,7 @@ const notification: Notification = {
 
 /** Records what was posted and answers with whatever the test asks for. */
 function recorder(response: Partial<{ ok: boolean; status: number; body: string }> = {}) {
-  const calls: { url: string; init?: RequestInit }[] = [];
+  const calls: { url: string; init: RequestInit | undefined }[] = [];
   const impl: Fetch = async (url, init) => {
     calls.push({ url, init });
     return {

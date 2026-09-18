@@ -100,6 +100,27 @@ export function webhookChannel(url: string, fetchImpl: Fetch = fetch): DeliveryC
 /** No delivery: notifications wait in the app. The honest default until a channel is chosen. */
 export const inAppOnly: DeliveryChannel = { name: "in_app", deliver: async () => {} };
 
+/** What Settings shows: the channel and the host, never the webhook's secret path. */
+export function channelStatus(config: AppConfig): { channel: "slack" | "ntfy" | "webhook" | "in_app"; destination: string | null } {
+  const url = config.notifySlackWebhookUrl ?? config.notifyNtfyUrl ?? config.notifyWebhookUrl;
+  const channel = config.notifySlackWebhookUrl
+    ? ("slack" as const)
+    : config.notifyNtfyUrl
+      ? ("ntfy" as const)
+      : config.notifyWebhookUrl
+        ? ("webhook" as const)
+        : ("in_app" as const);
+  let destination: string | null = null;
+  if (url) {
+    try {
+      destination = new URL(url).host;
+    } catch {
+      destination = "an address this server cannot parse";
+    }
+  }
+  return { channel, destination };
+}
+
 export function channelFor(config: AppConfig, fetchImpl: Fetch = fetch): DeliveryChannel {
   if (config.notifySlackWebhookUrl) return slackChannel(config.notifySlackWebhookUrl, config.appUrl, fetchImpl);
   if (config.notifyNtfyUrl) return ntfyChannel(config.notifyNtfyUrl, fetchImpl);

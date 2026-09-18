@@ -257,6 +257,13 @@ export interface SystemInterface {
   events: InterfaceEvent[];
 }
 
+/** Which channel notifications leave by. The address itself is never sent to the browser. */
+export interface NotifyChannelStatus {
+  channel: "slack" | "ntfy" | "webhook" | "in_app";
+  /** The host it delivers to, for recognising a misconfiguration; never the secret path. */
+  destination: string | null;
+}
+
 export interface SystemStatus {
   agent: AgentState;
   lastRunAt: string;
@@ -265,6 +272,7 @@ export interface SystemStatus {
   provider: string;
   autonomy: AutonomyLevel;
   researchSources: string[];
+  notifications: NotifyChannelStatus;
 }
 
 export interface Mailbox {

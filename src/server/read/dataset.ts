@@ -4,7 +4,7 @@
  */
 import { desc, inArray, ne } from "drizzle-orm";
 import type { AnyPgColumn } from "drizzle-orm/pg-core";
-import type { DailyBrief } from "@/data/types";
+import type { DailyBrief, NotifyChannelStatus } from "@/data/types";
 import type { Dataset } from "@/data/store";
 import type { Database } from "../db/client";
 import * as t from "../db/schema";
@@ -25,6 +25,8 @@ export interface DatasetOptions {
   provider: string;
   /** True when API keys are configured, so the Interfaces screen can say the API is open. */
   apiEnabled?: boolean;
+  /** Where notifications go, for the Settings screen. In-app only when nothing is configured. */
+  notifications?: NotifyChannelStatus;
 }
 
 const byId = <T extends { id: string }>(rows: readonly T[]) => new Map(rows.map((r) => [r.id, r]));
@@ -92,6 +94,7 @@ export async function loadDataset(db: Database, opts: DatasetOptions): Promise<D
       provider: opts.provider,
       autonomy: "DRAFT",
       researchSources: ["Claude web search"],
+      notifications: opts.notifications ?? { channel: "in_app", destination: null },
     },
     endeavours: endeavours.map((e) =>
       buildEndeavour({
