@@ -24,6 +24,10 @@ export interface AppConfig {
   tokenKey: Buffer | null;
   /** Claude model used by the agent roles. */
   model: string;
+  /** Phone push through ntfy, when set. */
+  notifyNtfyUrl: string | null;
+  /** Any endpoint that accepts a JSON POST, when set. */
+  notifyWebhookUrl: string | null;
   /** Keys that may call /api/v1. Empty means the API is closed. */
   apiKeys: string[];
   /** Hour (operator timezone) after which the day's runs are queued. */
@@ -56,6 +60,8 @@ export function loadConfig(env: Env = process.env): AppConfig {
     google: clientId && clientSecret ? { clientId, clientSecret } : null,
     allowlist: parseAllowlist(env["AUTH_ALLOWED_EMAILS"]),
     tokenKey: null,
+    notifyNtfyUrl: env["NOTIFY_NTFY_URL"] || null,
+    notifyWebhookUrl: env["NOTIFY_WEBHOOK_URL"] || null,
     apiKeys: (env["API_KEYS"] ?? "").split(",").map((k) => k.trim()).filter((k) => k.length >= 16),
     dailyRunHour: Number(env["DAILY_RUN_HOUR"] ?? 7),
     workerMode: env["WORKER_MODE"] === "inline" ? "inline" : "external",
