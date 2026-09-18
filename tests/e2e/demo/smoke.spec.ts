@@ -34,3 +34,19 @@ test("the health endpoint reports the app and its mode", async ({ request }) => 
   expect(res.status()).toBe(200);
   expect(await res.json()).toMatchObject({ status: "ok", mode: "demo" });
 });
+
+test("intelligence shows performance cut every way the read model cuts it", async ({ page }) => {
+  await page.goto("/intelligence");
+  for (const title of [
+    "PERFORMANCE BY SEGMENT",
+    "PERFORMANCE BY OFFER",
+    "PERFORMANCE BY MESSAGE VERSION",
+    "PERFORMANCE BY TRIGGER",
+    "PERFORMANCE BY SOURCE",
+  ]) {
+    await expect(page.getByText(title, { exact: true })).toBeVisible();
+  }
+  // The offer table reads by offer name, with its own sends and replies.
+  const offers = page.locator("section", { hasText: "PERFORMANCE BY OFFER" });
+  await expect(offers.getByRole("row", { name: /Pre-audit review/ })).toContainText("63");
+});
