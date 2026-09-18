@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { buildObjectionClusters, buildPerformance, objectionKey, type PerformanceInput } from "./performance";
 import type { MessageRow, TriggerRow } from "./rows";
-import { T0, messageRow, opportunityRow, prospectRow, segmentRow } from "./testing";
+import { T0, messageRow, offerRow, opportunityRow, prospectRow, segmentRow } from "./testing";
 
 const trigger = (prospectId: string, type: string): TriggerRow => ({
   id: `trg_${prospectId}`,
@@ -24,10 +24,10 @@ function input(over: Partial<PerformanceInput> = {}): PerformanceInput {
       prospectRow({ id: "p4", segmentId: "seg_general", stage: "contacted", reviewStatus: "rejected", source: "import" }),
     ],
     messages: [
-      messageRow({ id: "m1", prospectId: "p1", templateVersion: "v1" }),
-      messageRow({ id: "m2", prospectId: "p2", templateVersion: "v1" }),
-      messageRow({ id: "m3", prospectId: "p3", templateVersion: "v2" }),
-      messageRow({ id: "m4", prospectId: "p4", templateVersion: "v2" }),
+      messageRow({ id: "m1", prospectId: "p1", templateVersion: "v1", offerId: "off_review" }),
+      messageRow({ id: "m2", prospectId: "p2", templateVersion: "v1", offerId: "off_review" }),
+      messageRow({ id: "m3", prospectId: "p3", templateVersion: "v2", offerId: "off_retainer" }),
+      messageRow({ id: "m4", prospectId: "p4", templateVersion: "v2", offerId: "off_retainer" }),
       replied("in1", "p1", "question"),
       replied("in2", "p2", "interested"),
       replied("in3", "p3", "not_interested"),
@@ -35,6 +35,7 @@ function input(over: Partial<PerformanceInput> = {}): PerformanceInput {
     opportunities: [opportunityRow({ id: "o1", prospectId: "p2", stage: "won", value: 750 })],
     segments: [segmentRow({ id: "seg_launch", name: "Launch-stage protocols" }), segmentRow({ id: "seg_general", name: "General" })],
     triggers: [trigger("p1", "mainnet_date"), trigger("p2", "mainnet_date"), trigger("p3", "hiring")],
+    offers: [offerRow({ id: "off_review", name: "Security review" }), offerRow({ id: "off_retainer", name: "Monthly retainer" })],
     ...over,
   };
 }
@@ -67,6 +68,22 @@ describe("buildPerformance", () => {
     expect(find(cuts, "message_version", "v1")).toMatchObject({ sent: 2, replies: 2 });
     // A message sent to someone later rejected was still sent: the version cut counts it.
     expect(find(cuts, "message_version", "v2")).toMatchObject({ sent: 2, replies: 1, positiveReplies: 0 });
+  });
+
+  it("cuts by the offer each email pitched", () => {
+    const cuts = buildPerformance(input());
+    expect(find(cuts, "offer", "Security review")).toMatchObject({ sent: 2, replies: 2, positiveReplies: 2, wins: 1, revenue: 750 });
+    expect(find(cuts, "offer", "Monthly retainer")).toMatchObject({ sent: 2, replies: 1, positiveReplies: 0, wins: 0 });
+  });
+
+  it("names an offer it cannot resolve rather than showing an id", () => {
+    const cuts = buildPerformance(input({ offers: [] }));
+    expect(find(cuts, "offer", "Unknown offer").sent).toBe(4);
+  });
+
+  it("leaves out messages that pitched no offer", () => {
+    const cuts = buildPerformance(input({ messages: [messageRow({ id: "m1", prospectId: "p1", offerId: null })] }));
+    expect(cuts.some((c) => c.dimension === "offer")).toBe(false);
   });
 
   it("counts a prospect once however many replies they send", () => {

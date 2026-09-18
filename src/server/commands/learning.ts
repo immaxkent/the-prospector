@@ -22,6 +22,7 @@ const DIMENSION_WORDS: Record<PerformanceCut["dimension"], string> = {
   trigger: "trigger",
   source: "source",
   message_version: "message version",
+  offer: "offer",
 };
 
 const rate = (part: number, whole: number) => (whole === 0 ? 0 : part / whole);
@@ -51,7 +52,7 @@ export function proposeInsights(
     });
   }
 
-  for (const dimension of ["segment", "trigger", "source", "message_version"] as const) {
+  for (const dimension of ["segment", "trigger", "source", "message_version", "offer"] as const) {
     const eligible = cuts.filter((c) => c.dimension === dimension && c.sent >= minSample);
     if (eligible.length < 2) continue;
     const ranked = [...eligible].sort((a, b) => rate(b.positiveReplies, b.sent) - rate(a.positiveReplies, a.sent));

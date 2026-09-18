@@ -5,6 +5,7 @@ import type * as t from "../db/schema";
 export type EndeavourRow = InferSelectModel<typeof t.endeavours>;
 export type MailboxRow = InferSelectModel<typeof t.mailboxes>;
 export type SegmentRow = InferSelectModel<typeof t.segments>;
+export type OfferRow = InferSelectModel<typeof t.offers>;
 export type CompanyRow = InferSelectModel<typeof t.companies>;
 export type PersonRow = InferSelectModel<typeof t.people>;
 export type ProspectRow = InferSelectModel<typeof t.prospects>;

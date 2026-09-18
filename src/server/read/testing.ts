@@ -8,6 +8,7 @@ import type {
   EvidenceRow,
   MailboxRow,
   MessageRow,
+  OfferRow,
   OpportunityRow,
   PersonRow,
   ProspectRow,
@@ -104,6 +105,22 @@ export function segmentRow(o: Partial<SegmentRow> = {}): SegmentRow {
     signals: [],
     painHypothesis: "Audits booked out",
     priority: 1,
+    specVersion: 1,
+    status: "active",
+    createdAt: T0,
+    updatedAt: T0,
+    ...o,
+  };
+}
+
+export function offerRow(o: Partial<OfferRow> = {}): OfferRow {
+  return {
+    id: "off_1",
+    endeavourId: "end_1",
+    name: "Two-week security review",
+    proposition: "A fixed-scope review before mainnet",
+    pricing: null,
+    cta: null,
     specVersion: 1,
     status: "active",
     createdAt: T0,

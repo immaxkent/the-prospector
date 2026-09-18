@@ -3,10 +3,10 @@
  * Rates are shown with their denominators so a number is never bigger than its sample.
  */
 import type { ObjectionCluster } from "@/data/types";
-import type { MessageRow, OpportunityRow, ProspectRow, SegmentRow, TriggerRow } from "./rows";
+import type { MessageRow, OfferRow, OpportunityRow, ProspectRow, SegmentRow, TriggerRow } from "./rows";
 
 export interface PerformanceCut {
-  dimension: "segment" | "trigger" | "source" | "message_version";
+  dimension: "segment" | "trigger" | "source" | "message_version" | "offer";
   label: string;
   sent: number;
   replies: number;
@@ -28,6 +28,8 @@ export interface PerformanceInput {
   opportunities: readonly OpportunityRow[];
   segments: readonly SegmentRow[];
   triggers: readonly TriggerRow[];
+  /** Named so an offer's performance reads as the offer, not an id. */
+  offers?: readonly OfferRow[];
 }
 
 function intentOf(message: MessageRow) {
@@ -68,6 +70,41 @@ function cut(
     .sort((a, b) => b.sent - a.sent || a.label.localeCompare(b.label));
 }
 
+/** Cuts keyed by something the message itself carries, such as its template version or offer. */
+function messageCut(
+  dimension: PerformanceCut["dimension"],
+  input: PerformanceInput,
+  active: readonly ProspectRow[],
+  /** The label this message counts under, or null when it counts under none. */
+  labelOf: (message: MessageRow) => string | null,
+): PerformanceCut[] {
+  const byKey = new Map<string, MessageRow[]>();
+  for (const message of input.messages) {
+    if (message.direction !== "outbound" || message.sendState !== "sent") continue;
+    const label = labelOf(message);
+    if (!label) continue;
+    byKey.set(label, [...(byKey.get(label) ?? []), message]);
+  }
+
+  return [...byKey.entries()].map(([label, sent]) => {
+    const ids = new Set(sent.map((m) => m.prospectId).filter((id): id is string => !!id));
+    const inbound = input.messages.filter((m) => m.direction === "inbound" && m.prospectId && ids.has(m.prospectId));
+    const prospects = active.filter((p) => ids.has(p.id));
+    return {
+      dimension,
+      label,
+      sent: sent.length,
+      replies: new Set(inbound.map((m) => m.prospectId)).size,
+      positiveReplies: new Set(inbound.filter((m) => POSITIVE_INTENTS.has(intentOf(m) ?? "")).map((m) => m.prospectId)).size,
+      meetings: prospects.filter((p) => MEETING_STAGES.has(p.stage)).length,
+      wins: prospects.filter((p) => p.stage === "won").length,
+      revenue: input.opportunities
+        .filter((o) => o.prospectId && ids.has(o.prospectId) && o.stage === "won")
+        .reduce((total, o) => total + o.value, 0),
+    };
+  });
+}
+
 export function buildPerformance(input: PerformanceInput): PerformanceCut[] {
   const active = input.prospects.filter((p) => p.reviewStatus !== "rejected");
   const segmentName = new Map(input.segments.map((s) => [s.id, s.name]));
@@ -87,28 +124,13 @@ export function buildPerformance(input: PerformanceInput): PerformanceCut[] {
     ...cut("source", active.map((p) => ({ label: p.source, prospect: p })), input),
   ];
 
-  // Message versions are a property of the message: a send counts even if the prospect
-  // was rejected afterwards, because it really went out.
-  const byVersion = new Map<string, MessageRow[]>();
-  for (const message of input.messages) {
-    if (message.direction !== "outbound" || message.sendState !== "sent" || !message.templateVersion) continue;
-    byVersion.set(message.templateVersion, [...(byVersion.get(message.templateVersion) ?? []), message]);
-  }
-  for (const [label, sent] of byVersion) {
-    const ids = new Set(sent.map((m) => m.prospectId).filter((id): id is string => !!id));
-    const inbound = input.messages.filter((m) => m.direction === "inbound" && m.prospectId && ids.has(m.prospectId));
-    const prospects = active.filter((p) => ids.has(p.id));
-    cuts.push({
-      dimension: "message_version",
-      label,
-      sent: sent.length,
-      replies: new Set(inbound.map((m) => m.prospectId)).size,
-      positiveReplies: new Set(inbound.filter((m) => POSITIVE_INTENTS.has(intentOf(m) ?? "")).map((m) => m.prospectId)).size,
-      meetings: prospects.filter((p) => MEETING_STAGES.has(p.stage)).length,
-      wins: prospects.filter((p) => p.stage === "won").length,
-      revenue: input.opportunities.filter((o) => o.prospectId && ids.has(o.prospectId) && o.stage === "won").reduce((s, o) => s + o.value, 0),
-    });
-  }
+  // These are properties of the message, not the prospect: a send counts even if the
+  // prospect was rejected afterwards, because it really went out.
+  const offerName = new Map((input.offers ?? []).map((o) => [o.id, o.name]));
+  cuts.push(...messageCut("message_version", input, active, (m) => m.templateVersion));
+  // Offers are grouped by name, so a renamed-but-identical pitch is not split in two, and
+  // an offer that has since been deleted still shows up rather than vanishing.
+  cuts.push(...messageCut("offer", input, active, (m) => (m.offerId ? offerName.get(m.offerId) ?? "Unknown offer" : null)));
   return cuts;
 }
 
