@@ -19,6 +19,7 @@ import {
 import { ApprovalTicket } from "@/components/os/ApprovalTicket";
 import { EndeavourStatusControls } from "@/components/os/EndeavourStatusControls";
 import { EndeavourMailboxSelect } from "@/components/os/EndeavourMailboxSelect";
+import { StrategyEditor } from "@/components/os/StrategyEditor";
 import { gbp, num, pct, shortDate, stamp, daysUntil } from "@/lib/format";
 import type { PipelineStage } from "@/data/types";
 import { cn } from "@/lib/utils";
@@ -282,14 +283,8 @@ function EndeavourDetail() {
       )}
 
       {tab === "STRATEGY" && (
-        <Panel bodyClassName="divide-y divide-border">
-          <Row label="ACTIVE ICP" value={e.strategy.icp} />
-          <Row label="OFFER" value={e.strategy.offer} />
-          <Row label="MESSAGE HYPOTHESIS" value={e.strategy.hypothesis} />
-          <Row label="AUDIENCE NOTES" value={e.audienceNotes} />
-          <Row label="OFFER NOTES" value={e.offerNotes} />
-          <Row label="CHANNELS" value={e.channels.join(" · ")} />
-          <Row label="AUTONOMY" value={e.autonomy} />
+        <Panel title="STRATEGY" meta={<MachineLabel>EVERY CHANGE IS A NEW VERSION WITH A REASON</MachineLabel>} bodyClassName="p-0">
+          <StrategyEditor endeavourId={e.id} />
         </Panel>
       )}
 
