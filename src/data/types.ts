@@ -175,12 +175,16 @@ export interface Insight {
   createdAt: string;
 }
 
-export interface SegmentPerformance {
-  segment: string;
+/** One row of performance, cut by whichever dimension it belongs to. */
+export interface PerformanceSlice {
+  dimension: "segment" | "trigger" | "source" | "message_version" | "offer";
+  label: string;
   sent: number;
   replies: number;
+  positiveReplies: number;
   meetings: number;
   wins: number;
+  revenue: number;
 }
 
 export interface Experiment {
