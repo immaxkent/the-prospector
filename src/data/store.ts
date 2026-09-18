@@ -14,6 +14,7 @@ import type {
   ActivityEvent,
   AgentRun,
   Approval,
+  BriefRecord,
   DailyBrief,
   Endeavour,
   Experiment,
@@ -105,6 +106,8 @@ export interface Dataset {
   activity: ActivityEvent[];
   approvals: Approval[];
   brief: DailyBrief | null;
+  /** Earlier briefs, newest first. */
+  briefs: BriefRecord[];
   opportunities: Opportunity[];
   insights: Insight[];
   segments: SegmentPerformance[];
@@ -126,6 +129,7 @@ const LIVE_EMPTY: Dataset = {
   activity: [],
   approvals: [],
   brief: null,
+  briefs: [],
   opportunities: [],
   insights: [],
   segments: [],
@@ -168,6 +172,7 @@ function useDemoDataset(): Dataset {
     activity: on ? fixtureActivity : [],
     approvals: on ? fixtureApprovals : [],
     brief: on ? fixtureBrief : null,
+    briefs: on ? [{ runId: "run_001", endeavourId: "end_solidity", date: fixtureBrief.date, brief: fixtureBrief }] : [],
     opportunities: on ? fixtureOpportunities : [],
     insights: on ? fixtureInsights : [],
     segments: on ? fixtureSegments : [],
