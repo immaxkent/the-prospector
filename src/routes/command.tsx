@@ -40,7 +40,10 @@ export const Route = createFileRoute("/command")({
 });
 
 function CommandScreen() {
-  const { endeavours, approvals, brief, activity, status, isEmpty } = useDataset();
+  const { endeavours, approvals, brief, briefs, activity, status, isEmpty } = useDataset();
+  const [briefDate, setBriefDate] = useState<string | null>(null);
+  // The chosen day, or the latest one when nothing is chosen.
+  const shownBrief = (briefDate && briefs.find((b) => b.date === briefDate)?.brief) || brief;
   const [resolved, setResolved] = useState<string[]>([]);
   const openApprovals = approvals.filter((a) => !resolved.includes(a.id));
 
@@ -149,25 +152,49 @@ function CommandScreen() {
           </Panel>
 
           {/* Daily brief — source: DailyBrief record */}
-          {brief && (
-            <Panel title="DAILY BRIEF" meta={<MachineLabel>{shortDate(brief.date)}</MachineLabel>} bodyClassName="px-4 py-1">
+          {shownBrief && (
+            <Panel
+              title="DAILY BRIEF"
+              meta={
+                briefs.length > 1 ? (
+                  <label className="flex items-center gap-2">
+                    <MachineLabel>DAY</MachineLabel>
+                    <select
+                      aria-label="Brief day"
+                      className="rounded-[3px] border border-border bg-card px-2 py-1 text-[12px]"
+                      value={briefDate ?? briefs[0]!.date}
+                      onChange={(e) => setBriefDate(e.target.value)}
+                    >
+                      {briefs.map((b) => (
+                        <option key={b.runId} value={b.date}>
+                          {shortDate(b.date)}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                ) : (
+                  <MachineLabel>{shortDate(shownBrief.date)}</MachineLabel>
+                )
+              }
+              bodyClassName="px-4 py-1"
+            >
               <BriefSection title="CHANGED">
-                {brief.changed.map((l) => (
+                {shownBrief.changed.map((l) => (
                   <p key={l}>{l}</p>
                 ))}
               </BriefSection>
               <BriefSection title="LEARNED">
-                {brief.learned.map((l) => (
+                {shownBrief.learned.map((l) => (
                   <p key={l}>{l}</p>
                 ))}
               </BriefSection>
               <BriefSection title="TODAY">
-                {brief.today.map((l) => (
+                {shownBrief.today.map((l) => (
                   <p key={l}>{l}</p>
                 ))}
               </BriefSection>
               <BriefSection title="RISKS">
-                {brief.risks.map((l) => (
+                {shownBrief.risks.map((l) => (
                   <p key={l} className="text-warn">
                     {l}
                   </p>
