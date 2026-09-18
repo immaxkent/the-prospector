@@ -287,6 +287,14 @@ export interface Mailbox {
   endeavourIds: string[];
 }
 
+/** One day's brief, with the run that produced it. */
+export interface BriefRecord {
+  runId: string;
+  endeavourId: string;
+  date: string;
+  brief: DailyBrief;
+}
+
 export interface DailyBrief {
   date: string;
   changed: string[];
