@@ -333,3 +333,34 @@ describe("learning", () => {
     expect((await db.select().from(t.events)).map((e) => e.eventType)).toContain("commercial.signal.detected");
   });
 });
+
+describe("notifications", () => {
+  it("tells the operator when approvals are waiting after a run", async () => {
+    await run({ agent: agent() });
+    const waiting = await db.select().from(t.notifications).where(eq(t.notifications.kind, "approvals_waiting"));
+    expect(waiting).toHaveLength(1);
+    expect(waiting[0]!.title).toMatch(/approval/);
+    expect(waiting[0]!.body).toContain("before anything is sent");
+  });
+
+  it("says nothing when there is nothing waiting", async () => {
+    await db.delete(t.approvals);
+    await db.delete(t.messages).where(eq(t.messages.direction, "inbound"));
+    await db.update(t.prospects).set({ reviewStatus: "rejected" }).where(eq(t.prospects.id, FIXTURE_IDS.prospect));
+    await run({ agent: agent() });
+    expect(await db.select().from(t.notifications).where(eq(t.notifications.kind, "approvals_waiting"))).toHaveLength(0);
+  });
+
+  it("reports a failed run and a mailbox that needs reconnecting", async () => {
+    await db.update(t.mailboxes).set({ status: "needs_reauth" }).where(eq(t.mailboxes.id, FIXTURE_IDS.mailbox));
+    await run({ agent: agent() });
+    const [stale] = await db.select().from(t.notifications).where(eq(t.notifications.kind, "mailbox_needs_reauth"));
+    expect(stale!.body).toContain("max@consulting.example");
+
+    await db.delete(t.dailyRuns);
+    await db.update(t.endeavours).set({ status: "paused" }).where(eq(t.endeavours.id, FIXTURE_IDS.endeavour));
+    await expect(run({ agent: agent(), now: new Date("2026-09-17T11:00:00Z") })).rejects.toThrow("not active");
+    const [failed] = await db.select().from(t.notifications).where(eq(t.notifications.kind, "run_failed"));
+    expect(failed!.title).toContain("failed at load");
+  });
+});
