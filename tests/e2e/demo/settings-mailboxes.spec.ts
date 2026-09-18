@@ -20,6 +20,15 @@ test.describe("settings: mailboxes", () => {
     await expect(select.locator("option")).toHaveCount(4);
   });
 
+  test("says where notifications go, and does not offer to send one in demo mode", async ({ page }) => {
+    await page.goto("/settings");
+    const panel = page.getByTestId("notification-channel");
+    await expect(panel).toContainText("SLACK");
+    await expect(panel).toContainText("hooks.slack.com");
+    await expect(panel.getByRole("button", { name: /test notification/i })).toBeDisabled();
+    await expect(panel).toContainText("DEMO MODE: NOTHING IS ACTUALLY SENT");
+  });
+
   test("clean install shows the connect prompt", async ({ page }) => {
     await page.goto("/settings");
     await page.getByRole("button", { name: "CLEAN / EMPTY" }).click();
