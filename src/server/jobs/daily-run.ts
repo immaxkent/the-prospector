@@ -13,6 +13,8 @@ import type { AgentDeps } from "../agent/deps";
 import { createOutreachDraft } from "../commands/outreach";
 import { applyReplyClassification } from "../commands/conversations";
 import { proposeInsights, recordInsights } from "../commands/learning";
+import { notify } from "../commands/notify";
+import { inAppOnly, type DeliveryChannel } from "../notify/channels";
 import { buildObjectionClusters, buildPerformance } from "../read/performance";
 import { sendApprovedForMailbox, type SendDeps } from "../commands/send";
 import { classifyReply } from "../agent/reply";
@@ -21,10 +23,12 @@ import { applyQualification, knownTargetNames, storeCandidates } from "../comman
 import type { Database } from "../db/client";
 import {
   activities,
+  approvals,
   companies,
   dailyRuns,
   endeavours,
   evidence,
+  mailboxes,
   messages,
   opportunities,
   people,
@@ -46,6 +50,8 @@ export interface RunContext {
   agent: AgentDeps | null;
   /** Null when Google or the encryption key is not configured: nothing is sent. */
   mail: SendDeps | null;
+  /** Where notifications are delivered; they are always recorded in the app. */
+  notifications: DeliveryChannel;
   runId: string;
   endeavourId: string;
   now: Date;
@@ -613,6 +619,7 @@ export interface DailyRunInput {
   steps?: RunStep[];
   agent?: AgentDeps | null;
   mail?: SendDeps | null;
+  notifications?: DeliveryChannel;
 }
 
 /** Spec values the agent steps need, with the endeavour's own words. */
@@ -667,6 +674,7 @@ export async function runDailyLoop(db: Database, input: DailyRunInput) {
     db,
     agent: input.agent ?? null,
     mail: input.mail ?? null,
+    notifications: input.notifications ?? inAppOnly,
     runId: run.id,
     endeavourId: input.endeavourId,
     now,
@@ -690,6 +698,14 @@ export async function runDailyLoop(db: Database, input: DailyRunInput) {
         .update(dailyRuns)
         .set({ status: "failed", finishedAt: new Date(), metrics: ctx.metrics })
         .where(eq(dailyRuns.id, run.id));
+      await notify(db, ctx.notifications, {
+        kind: "run_failed",
+        title: `Daily run failed at ${step.name}`,
+        body: message,
+        endeavourId: input.endeavourId,
+        path: "/research",
+        priority: "high",
+      }, now);
       await recordEvent(db, {
         eventType: "run.failed",
         entityType: "run",
@@ -707,6 +723,34 @@ export async function runDailyLoop(db: Database, input: DailyRunInput) {
     .update(dailyRuns)
     .set({ status: "succeeded", phase: "done", finishedAt: new Date(), metrics: ctx.metrics })
     .where(eq(dailyRuns.id, run.id));
+
+  const waiting = await db
+    .select({ id: approvals.id })
+    .from(approvals)
+    .where(and(eq(approvals.endeavourId, input.endeavourId), eq(approvals.status, "pending")));
+  if (waiting.length > 0) {
+    await notify(db, ctx.notifications, {
+      kind: "approvals_waiting",
+      title: `${waiting.length} approval${waiting.length === 1 ? "" : "s"} waiting`,
+      body: `Today's run finished. ${waiting.length} item${waiting.length === 1 ? " needs" : "s need"} your decision before anything is sent.`,
+      endeavourId: input.endeavourId,
+      path: "/command",
+    }, now);
+  }
+  const stale = await db
+    .select({ address: mailboxes.address })
+    .from(mailboxes)
+    .where(eq(mailboxes.status, "needs_reauth"));
+  if (stale.length > 0) {
+    await notify(db, ctx.notifications, {
+      kind: "mailbox_needs_reauth",
+      title: "A mailbox needs reconnecting",
+      body: `${stale.map((m) => m.address).join(", ")} cannot send until you reconnect it in Settings.`,
+      endeavourId: input.endeavourId,
+      path: "/settings",
+      priority: "high",
+    }, now);
+  }
   await recordEvent(db, {
     eventType: "run.completed",
     entityType: "run",
