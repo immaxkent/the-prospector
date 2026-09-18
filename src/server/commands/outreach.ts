@@ -4,7 +4,7 @@
  */
 import { and, desc, eq, inArray } from "drizzle-orm";
 import type { Database } from "../db/client";
-import { approvals, endeavours, messages, people, prospects, threads } from "../db/schema";
+import { approvals, endeavours, messages, offers, people, prospects, threads } from "../db/schema";
 import { routeDraft, type MessageClass } from "../domain/outbound";
 import { newId } from "../ids";
 import { conflict, notFound } from "./errors";
@@ -70,6 +70,10 @@ export async function createOutreachDraft(db: Database, input: CreateDraftInput,
       return { created: false as const, reason: "autonomy_observe" as const };
     }
 
+    const [offer] = await tx
+      .select({ id: offers.id })
+      .from(offers)
+      .where(and(eq(offers.endeavourId, endeavour.id), eq(offers.status, "active")));
     const threadId = await threadFor(tx, prospect.id, endeavour.id, endeavour.mailboxId, input.subject);
     const messageId = newId("message");
     await tx.insert(messages).values({
@@ -82,6 +86,7 @@ export async function createOutreachDraft(db: Database, input: CreateDraftInput,
       subject: input.subject,
       body: input.body,
       templateVersion: input.templateVersion,
+      offerId: offer?.id ?? null,
       evidenceIds: input.evidenceIds,
       sendState: route === "approved" ? "approved" : "pending_approval",
       ...(route === "approved" ? { approvedAt: now } : {}),

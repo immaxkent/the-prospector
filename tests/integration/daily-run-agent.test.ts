@@ -91,6 +91,14 @@ describe("drafting", () => {
     expect(await logText()).toContain("draft ready for approval");
   });
 
+  it("records which offer the draft pitched, so its performance can be read later", async () => {
+    await qualifiedProspect();
+    await run({ agent: agent() });
+
+    const [draft] = await db.select().from(t.messages).where(eq(t.messages.sendState, "pending_approval"));
+    expect(draft!.offerId).toBe(FIXTURE_IDS.offer);
+  });
+
   it("never sends: the draft only ever reaches approved once a human decides", async () => {
     await qualifiedProspect();
     await run({ agent: agent() });
