@@ -24,6 +24,8 @@ export interface AppConfig {
   tokenKey: Buffer | null;
   /** Claude model used by the agent roles. */
   model: string;
+  /** Slack incoming webhook, when set. Free on Slack's own free plan. */
+  notifySlackWebhookUrl: string | null;
   /** Phone push through ntfy, when set. */
   notifyNtfyUrl: string | null;
   /** Any endpoint that accepts a JSON POST, when set. */
@@ -60,6 +62,7 @@ export function loadConfig(env: Env = process.env): AppConfig {
     google: clientId && clientSecret ? { clientId, clientSecret } : null,
     allowlist: parseAllowlist(env["AUTH_ALLOWED_EMAILS"]),
     tokenKey: null,
+    notifySlackWebhookUrl: env["NOTIFY_SLACK_WEBHOOK_URL"] || null,
     notifyNtfyUrl: env["NOTIFY_NTFY_URL"] || null,
     notifyWebhookUrl: env["NOTIFY_WEBHOOK_URL"] || null,
     apiKeys: (env["API_KEYS"] ?? "").split(",").map((k) => k.trim()).filter((k) => k.length >= 16),
