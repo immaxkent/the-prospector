@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useDataset } from "@/data/store";
+import type { PerformanceSlice } from "@/data/types";
 import {
   EmptyState,
   LedgerTable,
@@ -29,8 +30,67 @@ export const Route = createFileRoute("/intelligence")({
   component: IntelligenceScreen,
 });
 
+/** Every cut the read model produces, in the order an operator reads them. */
+const DIMENSIONS = [
+  { dimension: "segment", title: "PERFORMANCE BY SEGMENT", column: "Segment" },
+  { dimension: "offer", title: "PERFORMANCE BY OFFER", column: "Offer" },
+  { dimension: "message_version", title: "PERFORMANCE BY MESSAGE VERSION", column: "Version" },
+  { dimension: "trigger", title: "PERFORMANCE BY TRIGGER", column: "Trigger" },
+  { dimension: "source", title: "PERFORMANCE BY SOURCE", column: "Source" },
+] as const;
+
+/** Rates are shown against their denominator: a rate with no sends is shown as no sends. */
+function PerformancePanel({ title, column, rows }: { title: string; column: string; rows: readonly PerformanceSlice[] }) {
+  return (
+    <Panel title={title}>
+      <LedgerTable>
+        <thead>
+          <tr>
+            <Th>{column}</Th>
+            <Th align="right">Sent</Th>
+            <Th align="right">Replies</Th>
+            <Th align="right">Reply rate</Th>
+            <Th align="right">Positive</Th>
+            <Th align="right">Meetings</Th>
+            <Th align="right">Wins</Th>
+            <Th>Reply rate distribution</Th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((s) => (
+            <Tr key={s.label}>
+              <Td>{s.label}</Td>
+              <Td align="right" mono>
+                {s.sent}
+              </Td>
+              <Td align="right" mono>
+                {s.replies}
+              </Td>
+              <Td align="right" mono className={s.sent > 0 && s.replies / s.sent > 0.15 ? "text-signal" : undefined}>
+                {s.sent === 0 ? "—" : pct(s.replies / s.sent, 1)}
+              </Td>
+              <Td align="right" mono>
+                {s.positiveReplies}
+              </Td>
+              <Td align="right" mono>
+                {s.meetings}
+              </Td>
+              <Td align="right" mono>
+                {s.wins}
+              </Td>
+              <Td className="w-[220px]">
+                <Meter value={s.sent === 0 ? 0 : s.replies / s.sent} />
+              </Td>
+            </Tr>
+          ))}
+        </tbody>
+      </LedgerTable>
+    </Panel>
+  );
+}
+
 function IntelligenceScreen() {
-  const { segments, insights, experiments, objections, isEmpty } = useDataset();
+  const { performance, insights, experiments, objections, isEmpty } = useDataset();
 
   if (isEmpty) {
     return (
@@ -51,46 +111,11 @@ function IntelligenceScreen() {
         summary="Every statement below is derived from recorded sends, replies and outcomes — no modelled estimates."
       />
 
-      <Panel title="PERFORMANCE BY SEGMENT">
-        <LedgerTable>
-          <thead>
-            <tr>
-              <Th>Segment</Th>
-              <Th align="right">Sent</Th>
-              <Th align="right">Replies</Th>
-              <Th align="right">Reply rate</Th>
-              <Th align="right">Meetings</Th>
-              <Th align="right">Wins</Th>
-              <Th>Reply rate distribution</Th>
-            </tr>
-          </thead>
-          <tbody>
-            {segments.map((s) => (
-              <Tr key={s.segment}>
-                <Td>{s.segment}</Td>
-                <Td align="right" mono>
-                  {s.sent}
-                </Td>
-                <Td align="right" mono>
-                  {s.replies}
-                </Td>
-                <Td align="right" mono className={s.replies / s.sent > 0.15 ? "text-signal" : undefined}>
-                  {pct(s.replies / s.sent, 1)}
-                </Td>
-                <Td align="right" mono>
-                  {s.meetings}
-                </Td>
-                <Td align="right" mono>
-                  {s.wins}
-                </Td>
-                <Td className="w-[220px]">
-                  <Meter value={s.replies / s.sent} />
-                </Td>
-              </Tr>
-            ))}
-          </tbody>
-        </LedgerTable>
-      </Panel>
+      {DIMENSIONS.map(({ dimension, title, column }) => {
+        const rows = performance.filter((p) => p.dimension === dimension);
+        if (rows.length === 0) return null;
+        return <PerformancePanel key={dimension} title={title} column={column} rows={rows} />;
+      })}
 
       <div className="grid grid-cols-1 gap-5 xl:grid-cols-2">
         <Panel title="OBSERVATIONS & RECOMMENDATIONS" bodyClassName="divide-y divide-border">

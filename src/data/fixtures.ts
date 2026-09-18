@@ -17,7 +17,7 @@ import type {
   Opportunity as Opp,
   Prospect,
   RunLogLine,
-  SegmentPerformance,
+  PerformanceSlice,
   SystemInterface,
   SystemStatus,
   Thread,
@@ -718,12 +718,21 @@ export const fixtureInsights: Insight[] = [
   },
 ];
 
-export const fixtureSegments: SegmentPerformance[] = [
-  { segment: "Launch-stage protocol", sent: 22, replies: 5, meetings: 3, wins: 1 },
-  { segment: "General protocol", sent: 41, replies: 1, meetings: 0, wins: 0 },
-  { segment: "Prop desk", sent: 19, replies: 5, meetings: 3, wins: 3 },
-  { segment: "Treasury", sent: 11, replies: 0, meetings: 0, wins: 0 },
-  { segment: "Regulated fintech", sent: 8, replies: 2, meetings: 1, wins: 1 },
+/** Demo numbers, cut every way the Intelligence screen reads them. */
+export const fixturePerformance: PerformanceSlice[] = [
+  { dimension: "segment", label: "Launch-stage protocol", sent: 22, replies: 5, positiveReplies: 4, meetings: 3, wins: 1, revenue: 750 },
+  { dimension: "segment", label: "General protocol", sent: 41, replies: 1, positiveReplies: 0, meetings: 0, wins: 0, revenue: 0 },
+  { dimension: "segment", label: "Prop desk", sent: 19, replies: 5, positiveReplies: 4, meetings: 3, wins: 3, revenue: 2250 },
+  { dimension: "segment", label: "Treasury", sent: 11, replies: 0, positiveReplies: 0, meetings: 0, wins: 0, revenue: 0 },
+  { dimension: "segment", label: "Regulated fintech", sent: 8, replies: 2, positiveReplies: 1, meetings: 1, wins: 1, revenue: 750 },
+  { dimension: "offer", label: "Pre-audit review", sent: 63, replies: 11, positiveReplies: 8, meetings: 6, wins: 4, revenue: 3000 },
+  { dimension: "offer", label: "Invariant test suite", sent: 38, replies: 2, positiveReplies: 1, meetings: 1, wins: 1, revenue: 750 },
+  { dimension: "message_version", label: "outreach.draft/2026-09-12.1", sent: 44, replies: 4, positiveReplies: 2, meetings: 2, wins: 1, revenue: 750 },
+  { dimension: "message_version", label: "outreach.draft/2026-09-16.1", sent: 57, replies: 9, positiveReplies: 7, meetings: 5, wins: 4, revenue: 3000 },
+  { dimension: "trigger", label: "mainnet_date", sent: 34, replies: 8, positiveReplies: 6, meetings: 5, wins: 3, revenue: 2250 },
+  { dimension: "trigger", label: "hiring", sent: 27, replies: 2, positiveReplies: 1, meetings: 1, wins: 1, revenue: 750 },
+  { dimension: "source", label: "web_research", sent: 78, replies: 11, positiveReplies: 8, meetings: 6, wins: 4, revenue: 3000 },
+  { dimension: "source", label: "import", sent: 23, replies: 2, positiveReplies: 1, meetings: 1, wins: 1, revenue: 750 },
 ];
 
 export const fixtureExperiments: Experiment[] = [

@@ -44,7 +44,9 @@ describe("loadDataset", () => {
 
     expect(d.approvals).toHaveLength(1);
     expect(d.approvals[0]).toMatchObject({ kind: "REPLY_APPROVAL", recipient: "Ilse Vermeer <ilse@northbridge.example>" });
-    expect(d.segments).toEqual([{ segment: "Launch-stage protocols", sent: 1, replies: 1, meetings: 0, wins: 0 }]);
+    expect(d.performance.filter((p) => p.dimension === "segment")).toMatchObject([
+      { label: "Launch-stage protocols", sent: 1, replies: 1, meetings: 0, wins: 0 },
+    ]);
   });
 
   it("drops archived endeavours and decided approvals", async () => {

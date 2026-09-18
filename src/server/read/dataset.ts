@@ -13,8 +13,8 @@ import { buildApproval } from "./approvals";
 import { buildThread } from "./conversations";
 import { buildEndeavour } from "./endeavours";
 import { buildMailbox } from "./mailboxes";
-import { buildOpportunity, buildSegmentPerformance } from "./pipeline";
-import { buildObjectionClusters } from "./performance";
+import { buildOpportunity } from "./pipeline";
+import { buildObjectionClusters, buildPerformance } from "./performance";
 import { buildInterfaces } from "./interfaces";
 import { buildProspect } from "./prospects";
 import { iso } from "./rows";
@@ -58,11 +58,12 @@ export async function loadDataset(db: Database, opts: DatasetOptions): Promise<D
   const personIds = [...new Set(prospects.map((p) => p.personId).filter((x): x is string => !!x))];
   const prospectIds = prospects.map((p) => p.id);
   const entityIds = [...companyIds, ...personIds, ...prospectIds];
-  const [companies, people, evidence, triggers, runLog] = await Promise.all([
+  const [companies, people, evidence, triggers, offers, runLog] = await Promise.all([
     companyIds.length ? db.select().from(t.companies).where(inArray(t.companies.id, companyIds)) : [],
     personIds.length ? db.select().from(t.people).where(inArray(t.people.id, personIds)) : [],
     entityIds.length ? db.select().from(t.evidence).where(inArray(t.evidence.entityId, entityIds)) : [],
     prospectIds.length ? db.select().from(t.triggers).where(inArray(t.triggers.prospectId, prospectIds)) : [],
+    db.select().from(t.offers).where(inEndeavours(t.offers.endeavourId)),
     runs[0] ? db.select().from(t.runLog).where(inArray(t.runLog.runId, [runs[0].id])) : [],
   ]);
 
@@ -120,7 +121,7 @@ export async function loadDataset(db: Database, opts: DatasetOptions): Promise<D
     })),
     opportunities: opportunities.map((o) => buildOpportunity(o, maps.prospects, maps.companies)),
     insights: insights.map(buildInsight).filter((x) => x !== null),
-    segments: buildSegmentPerformance(segments, prospects, messages),
+    performance: buildPerformance({ prospects, messages, opportunities, segments, triggers, offers }),
     experiments: [],
     objections: buildObjectionClusters(messages),
     runs: runs.map((r) => buildRun(r, now)),

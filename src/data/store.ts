@@ -24,7 +24,7 @@ import type {
   Opportunity,
   Prospect,
   RunLogLine,
-  SegmentPerformance,
+  PerformanceSlice,
   SystemInterface,
   SystemStatus,
   Thread,
@@ -44,7 +44,7 @@ import {
   fixtureProspects,
   fixtureRunLog,
   fixtureRuns,
-  fixtureSegments,
+  fixturePerformance,
   fixtureStatus,
   fixtureThreads,
 } from "./fixtures";
@@ -110,7 +110,7 @@ export interface Dataset {
   briefs: BriefRecord[];
   opportunities: Opportunity[];
   insights: Insight[];
-  segments: SegmentPerformance[];
+  performance: PerformanceSlice[];
   experiments: Experiment[];
   objections: ObjectionCluster[];
   runs: AgentRun[];
@@ -132,7 +132,7 @@ const LIVE_EMPTY: Dataset = {
   briefs: [],
   opportunities: [],
   insights: [],
-  segments: [],
+  performance: [],
   experiments: [],
   objections: [],
   runs: [],
@@ -175,7 +175,7 @@ function useDemoDataset(): Dataset {
     briefs: on ? [{ runId: "run_001", endeavourId: "end_solidity", date: fixtureBrief.date, brief: fixtureBrief }] : [],
     opportunities: on ? fixtureOpportunities : [],
     insights: on ? fixtureInsights : [],
-    segments: on ? fixtureSegments : [],
+    performance: on ? fixturePerformance : [],
     experiments: on ? fixtureExperiments : [],
     objections: on ? fixtureObjections : [],
     runs: on ? fixtureRuns : [],

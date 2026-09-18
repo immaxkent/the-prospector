@@ -1,4 +1,4 @@
-import type { Opportunity, SegmentPerformance } from "@/data/types";
+import type { Opportunity } from "@/data/types";
 import type { PipelineStage } from "../domain/pipeline";
 import { iso, type CompanyRow, type MessageRow, type OpportunityRow, type ProspectRow, type SegmentRow } from "./rows";
 
@@ -36,23 +36,3 @@ export function buildOpportunity(
   };
 }
 
-const MEETING_OR_LATER = new Set(["meeting", "proposal", "won"]);
-
-export function buildSegmentPerformance(
-  segments: readonly SegmentRow[],
-  prospects: readonly ProspectRow[],
-  messages: readonly MessageRow[],
-): SegmentPerformance[] {
-  return segments.map((s) => {
-    const members = prospects.filter((p) => p.segmentId === s.id && p.reviewStatus !== "rejected");
-    const ids = new Set(members.map((p) => p.id));
-    const own = messages.filter((m) => m.prospectId && ids.has(m.prospectId));
-    return {
-      segment: s.name,
-      sent: own.filter((m) => m.direction === "outbound" && m.messageClass === "new_outreach" && m.sendState === "sent").length,
-      replies: new Set(own.filter((m) => m.direction === "inbound").map((m) => m.prospectId)).size,
-      meetings: members.filter((p) => MEETING_OR_LATER.has(p.stage)).length,
-      wins: members.filter((p) => p.stage === "won").length,
-    };
-  });
-}
