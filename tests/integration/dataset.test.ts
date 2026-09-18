@@ -110,6 +110,35 @@ describe("loadDataset", () => {
     ]);
   });
 
+  it("keeps recent briefs, newest first, and shows the latest by default", async () => {
+    await seedFixtures(handle.db);
+    for (const [index, day] of ["2026-09-15", "2026-09-16", "2026-09-17"].entries()) {
+      await handle.db.insert(t.dailyRuns).values({
+        id: `run_${day}`,
+        endeavourId: FIXTURE_IDS.endeavour,
+        runDate: day,
+        trigger: "schedule",
+        status: "succeeded",
+        brief: { date: day, changed: [`day ${index}`], learned: [], today: [], risks: [] },
+        startedAt: new Date(`${day}T07:00:00Z`),
+      });
+    }
+    // A failed run has no brief to show.
+    await handle.db.insert(t.dailyRuns).values({
+      id: "run_failed",
+      endeavourId: FIXTURE_IDS.endeavour,
+      runDate: "2026-09-18",
+      trigger: "schedule",
+      status: "failed",
+      startedAt: new Date("2026-09-18T07:00:00Z"),
+    });
+
+    const d = await loadDataset(handle.db, opts);
+    expect(d.briefs.map((b) => b.date)).toEqual(["2026-09-17", "2026-09-16", "2026-09-15"]);
+    expect(d.brief).toMatchObject({ date: "2026-09-17" });
+    expect(d.briefs[0]!.runId).toBe("run_2026-09-17");
+  });
+
   it("surfaces the latest successful brief and run log", async () => {
     await seedFixtures(handle.db);
     const brief = { date: "2026-09-17", changed: ["1 reply"], learned: [], today: ["Approve reply"], risks: [] };
