@@ -78,7 +78,8 @@ export async function loadDataset(db: Database, opts: DatasetOptions): Promise<D
 
   const of = <R extends { endeavourId: string | null }>(rows: readonly R[], id: string) => rows.filter((r) => r.endeavourId === id);
   const pendingApprovals = approvals.filter((a) => a.status === "pending");
-  const latestBrief = runs.find((r) => r.status === "succeeded" && isBrief(r.brief))?.brief;
+  const briefRuns = runs.filter((r) => r.status === "succeeded" && isBrief(r.brief)).slice(0, 14);
+  const latestBrief = briefRuns[0]?.brief;
   const activeCount = endeavours.filter((e) => e.status === "active").length;
 
   return {
@@ -111,6 +112,12 @@ export async function loadDataset(db: Database, opts: DatasetOptions): Promise<D
     activity: buildActivity(events),
     approvals: pendingApprovals.map((a) => buildApproval(a, { ...maps, opportunities })),
     brief: isBrief(latestBrief) ? latestBrief : null,
+    briefs: briefRuns.map((r) => ({
+      runId: r.id,
+      endeavourId: r.endeavourId,
+      date: r.runDate,
+      brief: r.brief as unknown as DailyBrief,
+    })),
     opportunities: opportunities.map((o) => buildOpportunity(o, maps.prospects, maps.companies)),
     insights: insights.map(buildInsight).filter((x) => x !== null),
     segments: buildSegmentPerformance(segments, prospects, messages),
