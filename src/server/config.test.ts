@@ -46,6 +46,11 @@ describe("loadConfig", () => {
     expect(() => loadConfig({ ...prod, TOKEN_ENCRYPTION_KEY: "short" })).toThrow("TOKEN_ENCRYPTION_KEY");
   });
 
+  it("reads an optional notification channel", () => {
+    expect(loadConfig({})).toMatchObject({ notifyNtfyUrl: null, notifyWebhookUrl: null });
+    expect(loadConfig({ NOTIFY_NTFY_URL: "https://ntfy.sh/prospector" }).notifyNtfyUrl).toBe("https://ntfy.sh/prospector");
+  });
+
   it("accepts only long enough API keys", () => {
     expect(loadConfig({}).apiKeys).toEqual([]);
     expect(loadConfig({ API_KEYS: "short, a-key-long-enough-to-use , another-key-long-enough" }).apiKeys).toEqual([
