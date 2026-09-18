@@ -46,6 +46,8 @@ export async function notify(
     kind: notification.kind,
     title: notification.title,
     body: notification.body,
+    // Stored explicitly so the dedupe window is measured against the caller's clock.
+    createdAt: now,
   });
 
   try {
