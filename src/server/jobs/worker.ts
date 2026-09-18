@@ -8,6 +8,7 @@ import { dailyRuns, endeavours, jobs } from "../db/schema";
 import { localDate, OPERATOR_TIMEZONE } from "../read/rows";
 import type { AgentDeps } from "../agent/deps";
 import type { SendDeps } from "../commands/send";
+import type { DeliveryChannel } from "../notify/channels";
 import { runDailyLoop } from "./daily-run";
 import { claimNext, completeJob, enqueue, failJob, recoverStaleJobs, type JobRow } from "./queue";
 
@@ -16,6 +17,7 @@ export const DAILY_RUN_JOB = "endeavour.daily_run";
 export interface JobContext {
   agent: AgentDeps | null;
   mail: SendDeps | null;
+  notifications?: DeliveryChannel;
 }
 
 export type JobHandler = (db: Database, payload: Record<string, unknown>, now: Date, ctx: JobContext) => Promise<void>;
@@ -28,6 +30,7 @@ export const JOB_HANDLERS: Record<string, JobHandler> = {
       now,
       agent: ctx.agent,
       mail: ctx.mail,
+      ...(ctx.notifications ? { notifications: ctx.notifications } : {}),
     });
   },
 };
@@ -83,7 +86,15 @@ export interface TickResult {
 /** One pass: recover, schedule, then drain up to `max` jobs. */
 export async function tick(
   db: Database,
-  opts: { workerId: string; now?: Date; scheduleHour: number; max?: number; agent?: AgentDeps | null; mail?: SendDeps | null },
+  opts: {
+    workerId: string;
+    now?: Date;
+    scheduleHour: number;
+    max?: number;
+    agent?: AgentDeps | null;
+    mail?: SendDeps | null;
+    notifications?: DeliveryChannel;
+  },
 ): Promise<TickResult> {
   const now = opts.now ?? new Date();
   const result: TickResult = { recovered: 0, queued: 0, processed: 0, failed: 0 };
@@ -95,7 +106,11 @@ export async function tick(
     const job = await claimNext(db, opts.workerId, now);
     if (!job) break;
     try {
-      await runJob(db, job, now, { agent: opts.agent ?? null, mail: opts.mail ?? null });
+      await runJob(db, job, now, {
+        agent: opts.agent ?? null,
+        mail: opts.mail ?? null,
+        ...(opts.notifications ? { notifications: opts.notifications } : {}),
+      });
       await completeJob(db, job.id);
       result.processed += 1;
     } catch (err) {
@@ -111,6 +126,7 @@ export interface WorkerOptions {
   scheduleHour: number;
   agent?: AgentDeps | null;
   mail?: SendDeps | null;
+  notifications?: DeliveryChannel;
   pollMs?: number;
   signal?: AbortSignal;
   onTick?: (result: TickResult) => void;
@@ -126,6 +142,7 @@ export async function startWorker(db: Database, opts: WorkerOptions) {
         scheduleHour: opts.scheduleHour,
         agent: opts.agent ?? null,
         mail: opts.mail ?? null,
+        ...(opts.notifications ? { notifications: opts.notifications } : {}),
       });
       opts.onTick?.(result);
     } catch (err) {

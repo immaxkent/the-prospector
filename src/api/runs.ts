@@ -45,6 +45,7 @@ export const runNowFn = createServerFn({ method: "POST" })
         scheduleHour: config.dailyRunHour,
         agent: await createAgentDeps(config, db),
         mail: (await import("../server/commands/send-deps")).createSendDeps(config),
+        notifications: (await import("../server/notify/channels")).channelFor(config),
       });
     }
     return { queued, endeavours: targets.length, executedInline: config.workerMode === "inline" };
