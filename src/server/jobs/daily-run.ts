@@ -77,6 +77,9 @@ const pending = (name: string, workPackage: string, what: string): RunStep => ({
 
 const startOfLocalDay = (now: Date) => new Date(`${localDate(now)}T00:00:00Z`);
 
+/** Intents that should reach you the day they arrive, rather than waiting for the brief. */
+const WORTH_TELLING_YOU = new Set(["interested", "referral", "question"]);
+
 export const DAILY_RUN_STEPS: RunStep[] = [
   {
     name: "load",
@@ -161,6 +164,17 @@ export const DAILY_RUN_STEPS: RunStep[] = [
         await ctx.log("info", `${company?.name ?? reply.id}: ${classification.intent} · ${applied.outcome}`);
         if (applied.outcome === "unsubscribed") {
           await ctx.log("warn", `${company?.name ?? reply.id} asked not to be contacted: suppressed and outreach stopped`);
+        }
+        // A person saying yes is the one thing worth interrupting you for the same day.
+        if (WORTH_TELLING_YOU.has(classification.intent)) {
+          await notify(ctx.db, ctx.notifications, {
+            kind: `reply_${classification.intent}`,
+            title: `${company?.name ?? "A prospect"} replied: ${classification.intent.replace("_", " ")}`,
+            body: classification.summary,
+            endeavourId: ctx.endeavourId,
+            path: "/inbox",
+            priority: "high",
+          }, ctx.now);
         }
       }
     },

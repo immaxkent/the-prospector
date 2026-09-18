@@ -359,6 +359,23 @@ describe("notifications", () => {
     expect(await db.select().from(t.notifications).where(eq(t.notifications.kind, "approvals_waiting"))).toHaveLength(0);
   });
 
+  it("tells the operator the day a prospect replies with interest", async () => {
+    await run({ agent: agent() });
+    const [reply] = await db.select().from(t.notifications).where(eq(t.notifications.kind, "reply_question"));
+    expect(reply!.title).toContain("Northbridge Protocol");
+    expect(reply!.body.length).toBeGreaterThan(0);
+  });
+
+  it("says nothing about a reply that only asks to be left alone", async () => {
+    await db
+      .update(t.messages)
+      .set({ body: "Please unsubscribe me from this list.", classification: null })
+      .where(eq(t.messages.direction, "inbound"));
+    await run({ agent: agent() });
+    const kinds = (await db.select().from(t.notifications)).map((n) => n.kind);
+    expect(kinds.some((k) => k.startsWith("reply_"))).toBe(false);
+  });
+
   it("reports a failed run and a mailbox that needs reconnecting", async () => {
     await db.update(t.mailboxes).set({ status: "needs_reauth" }).where(eq(t.mailboxes.id, FIXTURE_IDS.mailbox));
     await run({ agent: agent() });
