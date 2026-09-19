@@ -20,6 +20,25 @@ test.describe("settings: mailboxes", () => {
     await expect(select.locator("option")).toHaveCount(4);
   });
 
+  test("offers to create an address on the domain, and shows the ones that exist", async ({ page }) => {
+    await page.goto("/settings");
+    const row = page.getByTestId("mailbox-row").first();
+    await expect(row.getByTestId("mailbox-aliases")).toContainText("hello@consulting.example");
+
+    await row.getByRole("button", { name: "Add an address" }).click();
+    const form = row.getByTestId("alias-form");
+    await expect(form).toContainText("shares this mailbox\u2019s caps");
+    await form.getByLabel("New address").fill("sales");
+    await row.getByRole("button", { name: "Create address" }).click();
+    await expect(page.locator("[data-sonner-toast]")).toContainText("Demo mode");
+  });
+
+  test("a mailbox without the consent asks for it instead of offering the button", async ({ page }) => {
+    await page.goto("/settings");
+    const row = page.getByTestId("mailbox-row").nth(1);
+    await expect(row.getByRole("button", { name: "Add an address" })).toHaveCount(0);
+  });
+
   test("says where notifications go, and does not offer to send one in demo mode", async ({ page }) => {
     await page.goto("/settings");
     const panel = page.getByTestId("notification-channel");
