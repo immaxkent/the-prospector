@@ -6,7 +6,7 @@
 import { and, desc, eq, gte, inArray, isNotNull } from "drizzle-orm";
 import type { Database } from "../db/client";
 import { endeavours, mailboxes, messages, people, prospects, suppressions, threads } from "../db/schema";
-import { allocateSends, effectiveDailyCap, isQuietHour, remainingSends } from "../domain/mailbox";
+import { allocateSends, effectiveDailyCap, isQuietHour, remainingSends, type MailboxAlias } from "../domain/mailbox";
 import { assertMove, MAX_SEND_ATTEMPTS } from "../domain/outbound";
 import { assertTransition } from "../domain/pipeline";
 import { sealJson, unsealJson } from "../crypto/tokens";
@@ -32,6 +32,20 @@ export interface SendDeps {
   /** Replaced in tests; production uses the real Gmail API. */
   createClient?: (ctx: GmailContext) => GmailClient;
   fetchImpl?: GmailContext["fetchImpl"];
+}
+
+/**
+ * The address this endeavour sends under. An alias the mailbox no longer holds is ignored
+ * rather than used: sending from an address Google has not accepted would bounce.
+ */
+function ownerAlias(
+  owners: readonly { id: string; fromAlias: string | null }[],
+  aliases: readonly MailboxAlias[],
+  endeavourId: string,
+) {
+  const wanted = owners.find((o) => o.id === endeavourId)?.fromAlias?.toLowerCase();
+  if (!wanted) return null;
+  return aliases.find((a) => a.address.toLowerCase() === wanted) ?? null;
 }
 
 /** Follow-up is due three working-ish days later; the follow-up engine refines this. */
@@ -65,7 +79,10 @@ export async function sendApprovedForMailbox(
   outcome.capacity = capacity;
   if (capacity === 0) return { ...outcome, skipped: "no_capacity" };
 
-  const owners = await db.select({ id: endeavours.id }).from(endeavours).where(eq(endeavours.mailboxId, mailbox.id));
+  const owners = await db
+    .select({ id: endeavours.id, fromAlias: endeavours.fromAlias })
+    .from(endeavours)
+    .where(eq(endeavours.mailboxId, mailbox.id));
   if (owners.length === 0) return { ...outcome, skipped: "nothing_approved" };
 
   const approved = await db
@@ -143,15 +160,17 @@ export async function sendApprovedForMailbox(
       .set({ sendState: "sending", sendAttempts: message.sendAttempts + 1 })
       .where(eq(messages.id, message.id));
 
+    // An endeavour may send under one of the mailbox's aliases; the account still owns the send.
+    const alias = ownerAlias(owners, mailbox.aliases, endeavourId);
     const raw = buildRawMessage({
-      fromName: mailbox.displayName,
-      fromAddress: mailbox.address,
+      fromName: alias?.displayName ?? mailbox.displayName,
+      fromAddress: alias?.address ?? mailbox.address,
       toName: person.name,
       toAddress: person.email,
       subject: message.subject,
       body: message.body,
       inReplyTo: lastInbound?.externalMessageId ?? null,
-      unsubscribeMailto: mailbox.address,
+      unsubscribeMailto: alias?.address ?? mailbox.address,
     });
 
     try {
