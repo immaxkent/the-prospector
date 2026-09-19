@@ -7,6 +7,7 @@ import type { GoogleTokenSet } from "../commands/mailboxes";
 import { GOOGLE_TOKEN_URL, type Fetch } from "../auth/google-oauth";
 
 const GMAIL_API = "https://gmail.googleapis.com/gmail/v1/users/me";
+const DIRECTORY_API = "https://admin.googleapis.com/admin/directory/v1";
 /** Refresh a little early so a long request cannot start with an expiring token. */
 const REFRESH_MARGIN_MS = 60_000;
 
@@ -23,6 +24,18 @@ export class GmailError extends Error {
 const refreshSchema = z.object({ access_token: z.string().min(1), expires_in: z.number() });
 
 const sendSchema = z.object({ id: z.string().min(1), threadId: z.string().min(1) });
+
+const aliasSchema = z.object({ alias: z.string().min(3) });
+
+const sendAsSchema = z.object({
+  sendAsEmail: z.string().min(3),
+  displayName: z.string().default(""),
+  isDefault: z.boolean().default(false),
+  /** "accepted" once Google is happy to send from it; an alias of the same account is immediate. */
+  verificationStatus: z.string().default("accepted"),
+});
+
+const sendAsListSchema = z.object({ sendAs: z.array(sendAsSchema).default([]) });
 
 const listSchema = z.object({
   messages: z.array(z.object({ id: z.string(), threadId: z.string() })).default([]),
@@ -78,6 +91,19 @@ export function plainTextOf(message: GmailMessage) {
   return decode(part?.body?.data);
 }
 
+/** Google's errors carry a human sentence; it is far more use than the status alone. */
+export function googleErrorMessage(body: string) {
+  try {
+    const parsed = JSON.parse(body) as { error?: { message?: string } | string };
+    const error = parsed.error;
+    const message = typeof error === "string" ? error : error?.message;
+    if (message) return message.slice(0, 200);
+  } catch {
+    // Not JSON: fall through to the raw text.
+  }
+  return body.trim().slice(0, 200);
+}
+
 export function headerOf(message: GmailMessage, name: string) {
   return message.payload?.headers.find((h) => h.name.toLowerCase() === name.toLowerCase())?.value ?? null;
 }
@@ -130,17 +156,24 @@ export class GmailClient {
     return this.tokens.accessToken;
   }
 
-  private async call(path: string, init: RequestInit = {}) {
+  /** Any Google endpoint, with the token attached and Google's own reason kept on failure. */
+  private async callUrl(url: string, init: RequestInit = {}, what = "Google request") {
     const token = await this.accessToken();
-    const res = await this.fetchImpl(`${GMAIL_API}${path}`, {
+    const res = await this.fetchImpl(url, {
       ...init,
       headers: { ...(init.headers ?? {}), authorization: `Bearer ${token}`, "content-type": "application/json" },
     });
     if (!res.ok) {
       const retryable = res.status === 429 || res.status >= 500;
-      throw new GmailError(`Gmail request failed (${res.status}) for ${path}`, res.status, retryable);
+      const reason = await res.text().catch(() => "");
+      const detail = googleErrorMessage(reason);
+      throw new GmailError(`${what} failed (${res.status})${detail ? `: ${detail}` : ""}`, res.status, retryable);
     }
     return res.json();
+  }
+
+  private call(path: string, init: RequestInit = {}) {
+    return this.callUrl(`${GMAIL_API}${path}`, init, `Gmail request for ${path}`);
   }
 
   async send(raw: string, threadId?: string | null): Promise<SentMessage> {
@@ -156,6 +189,40 @@ export class GmailClient {
     const parsed = listSchema.safeParse(await this.call(`/messages?${params}`));
     if (!parsed.success) throw new GmailError("the message list response was malformed", 500, false);
     return parsed.data.messages;
+  }
+
+  /**
+   * Adds an alias to the Workspace account that owns this mailbox. Needs the Admin SDK and an
+   * administrator's consent: Google answers 403 for anyone else, and that reason is passed on.
+   */
+  async createDomainAlias(userKey: string, alias: string) {
+    const parsed = aliasSchema.safeParse(
+      await this.callUrl(`${DIRECTORY_API}/users/${encodeURIComponent(userKey)}/aliases`, {
+        method: "POST",
+        body: JSON.stringify({ alias }),
+      }, "creating the domain alias"),
+    );
+    if (!parsed.success) throw new GmailError("the alias response was malformed", 500, false);
+    return parsed.data.alias;
+  }
+
+  /** Registers an address this account may send as. An alias of the same account needs no verification. */
+  async createSendAs(sendAsEmail: string, displayName: string) {
+    const parsed = sendAsSchema.safeParse(
+      await this.callUrl(`${GMAIL_API}/settings/sendAs`, {
+        method: "POST",
+        body: JSON.stringify({ sendAsEmail, displayName, treatAsAlias: true }),
+      }, "registering the send-as address"),
+    );
+    if (!parsed.success) throw new GmailError("the send-as response was malformed", 500, false);
+    return parsed.data;
+  }
+
+  /** Every address this account may already send as, including its own. */
+  async listSendAs() {
+    const parsed = sendAsListSchema.safeParse(await this.call("/settings/sendAs"));
+    if (!parsed.success) throw new GmailError("the send-as list was malformed", 500, false);
+    return parsed.data.sendAs;
   }
 
   async get(id: string): Promise<GmailMessage> {

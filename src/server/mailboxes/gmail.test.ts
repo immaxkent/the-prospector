@@ -87,3 +87,54 @@ describe("reading", () => {
     expect(headerOf(multipart, "from")).toBeNull();
   });
 });
+
+describe("aliases", () => {
+  it("asks the Admin SDK for the alias and Gmail for the send-as address", async () => {
+    const calls: { url: string; body: unknown }[] = [];
+    const gmail = client(async (url, init) => {
+      calls.push({ url, body: init?.body ? JSON.parse(String(init.body)) : null });
+      return url.includes("admin.googleapis.com")
+        ? json({ alias: "hello@consulting.example" })
+        : json({ sendAsEmail: "hello@consulting.example", displayName: "Max", verificationStatus: "accepted" });
+    });
+
+    expect(await gmail.createDomainAlias("max@consulting.example", "hello@consulting.example")).toBe(
+      "hello@consulting.example",
+    );
+    expect(calls[0]!.url).toBe(
+      "https://admin.googleapis.com/admin/directory/v1/users/max%40consulting.example/aliases",
+    );
+    expect(calls[0]!.body).toEqual({ alias: "hello@consulting.example" });
+
+    const sendAs = await gmail.createSendAs("hello@consulting.example", "Max");
+    expect(calls[1]!.url).toContain("/settings/sendAs");
+    expect(calls[1]!.body).toMatchObject({ treatAsAlias: true, displayName: "Max" });
+    expect(sendAs.verificationStatus).toBe("accepted");
+  });
+
+  it("passes on Google's own reason when it refuses", async () => {
+    const gmail = client(async () =>
+      json({ error: { code: 403, message: "Not Authorized to access this resource/api" } }, 403),
+    );
+    await expect(gmail.createDomainAlias("max@consulting.example", "hello@consulting.example")).rejects.toThrow(
+      "creating the domain alias failed (403): Not Authorized to access this resource/api",
+    );
+  });
+
+  it("does not retry a refusal, but does retry Google being busy", async () => {
+    const forbidden = client(async () => json({ error: { message: "nope" } }, 403));
+    await expect(forbidden.createSendAs("a@b.example", "A")).rejects.toMatchObject({ retryable: false });
+    const busy = client(async () => json({ error: { message: "backend error" } }, 503));
+    await expect(busy.createSendAs("a@b.example", "A")).rejects.toMatchObject({ retryable: true });
+  });
+
+  it("lists the addresses the account may already send as", async () => {
+    const gmail = client(async () =>
+      json({ sendAs: [{ sendAsEmail: "max@consulting.example", isDefault: true }, { sendAsEmail: "hello@consulting.example" }] }),
+    );
+    expect((await gmail.listSendAs()).map((s) => s.sendAsEmail)).toEqual([
+      "max@consulting.example",
+      "hello@consulting.example",
+    ]);
+  });
+});
