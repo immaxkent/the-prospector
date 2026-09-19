@@ -41,7 +41,8 @@ TOKEN_ENCRYPTION_KEY=   # openssl rand -base64 32
 GOOGLE_CLIENT_ID=
 GOOGLE_CLIENT_SECRET=
 ANTHROPIC_API_KEY=
-ANTHROPIC_MODEL=claude-opus-5
+ANTHROPIC_MODEL=claude-haiku-4-5   # only the first-run default; Settings decides thereafter
+USD_PER_GBP=1.27                   # for showing dollar prices against a budget set in pounds
 NOTIFY_SLACK_WEBHOOK_URL= # optional; see docs/notifications.md
 API_KEYS=               # optional; comma-separated, at least 16 characters each
 DAILY_RUN_HOUR=7
@@ -90,6 +91,8 @@ docker compose -f docker-compose.prod.yml ps               # what is running
    warmed up: start at about five a day and build up.
 3. Create your first Endeavour from a brief, resolve every field, and activate it.
 4. Leave autonomy at DRAFT so nothing is sent without you approving it.
-5. Send a test notification from Settings, so you know the channel works before a run
+5. Set the model and the month's budget in Settings. The month is spread evenly over its days,
+   and the loop stops for the day when the day's share is gone rather than emptying the month.
+6. Send a test notification from Settings, so you know the channel works before a run
    depends on it.
-6. Watch the first daily run's log before trusting it unattended.
+7. Watch the first daily run's log before trusting it unattended.
