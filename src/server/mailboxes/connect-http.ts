@@ -9,7 +9,7 @@ import { buildAuthorizationUrl, createPkce, exchangeCode, fetchUserInfo, OAuthEr
 import { decodePending, encodePending, OAUTH_STATE_TTL_SECONDS } from "../auth/login";
 import { resolveSession, SESSION_COOKIE } from "../auth/sessions";
 import { CommandError } from "../commands/errors";
-import { connectGoogleMailbox, GMAIL_SCOPES } from "../commands/mailboxes";
+import { ALIAS_SCOPES, connectGoogleMailbox, GMAIL_SCOPES } from "../commands/mailboxes";
 import { timingSafeEqual } from "node:crypto";
 
 export const MAILBOX_OAUTH_COOKIE = "prospector_mailbox_oauth";
@@ -44,9 +44,12 @@ export async function handleMailboxConnectStart(request: Request, deps: { config
 
   const { verifier, challenge } = createPkce();
   const state = randomToken(24);
+  // ?alias=1 asks for the extra consent needed to create addresses on the domain.
+  const wantsAlias = new URL(request.url).searchParams.get("alias") === "1";
+  const scopes = wantsAlias ? [...GMAIL_SCOPES, ...ALIAS_SCOPES] : GMAIL_SCOPES;
   const location = buildAuthorizationUrl(
     { ...deps.config.google!, redirectUri: mailboxRedirectUri(deps.config) },
-    { state, codeChallenge: challenge, scopes: GMAIL_SCOPES, offline: true },
+    { state, codeChallenge: challenge, scopes, offline: true },
   );
   return redirect(location, [
     serializeCookie(MAILBOX_OAUTH_COOKIE, encodePending({ state, verifier, returnTo: "/settings" }), {

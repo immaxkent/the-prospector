@@ -23,9 +23,27 @@ export const GMAIL_SCOPES = [
   "https://www.googleapis.com/auth/gmail.readonly",
 ] as const;
 
-export function hasGmailScopes(scope: string) {
+/**
+ * Extra consent for creating an address: one scope to add the alias to the Workspace domain
+ * (administrators only) and one to register it as a send-as address in Gmail. Kept apart from
+ * the connect flow so someone who only wants to send never has to grant them.
+ */
+export const ALIAS_SCOPES = [
+  "https://www.googleapis.com/auth/admin.directory.user.alias",
+  "https://www.googleapis.com/auth/gmail.settings.sharing",
+] as const;
+
+const hasAll = (scope: string, required: readonly string[]) => {
   const granted = new Set(scope.split(" "));
-  return GMAIL_SCOPES.filter((s) => s.startsWith("https://")).every((s) => granted.has(s));
+  return required.filter((s) => s.startsWith("https://")).every((s) => granted.has(s));
+};
+
+export function hasGmailScopes(scope: string) {
+  return hasAll(scope, GMAIL_SCOPES);
+}
+
+export function hasAliasScopes(scope: string) {
+  return hasAll(scope, ALIAS_SCOPES);
 }
 
 /**
