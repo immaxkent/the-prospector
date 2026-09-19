@@ -206,3 +206,11 @@ export const setEndeavourFromAliasFn = createServerFn({ method: "POST" })
     const { setEndeavourFromAlias } = await import("../server/commands/alias");
     return setEndeavourFromAlias(await live(), data);
   });
+
+export const updateSettingsFn = createServerFn({ method: "POST" })
+  .middleware([requireSession])
+  .validator(z.object({ model: z.string().trim().min(1).max(60), monthlyBudgetPence: z.number().int().min(0).max(100_000) }))
+  .handler(async ({ data }) => {
+    const { updateSettings } = await import("../server/commands/settings");
+    return updateSettings(await live(), data);
+  });

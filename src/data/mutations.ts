@@ -17,6 +17,7 @@ import {
   setEndeavourStatusFn,
   suppressProspectFn,
   updateMailboxLimitsFn,
+  updateSettingsFn,
   updateOpportunityFn,
 } from "@/api/mutations";
 import { datasetQuery } from "./queries";
@@ -65,6 +66,8 @@ export const useCreateMailboxAlias = () =>
       ? `${out.alias.address} is ready to send from`
       : `${out.alias.address} was created, but Gmail has not accepted it yet`,
   );
+export const useUpdateSettings = () =>
+  useAction(updateSettingsFn, (input) => `Model ${input.model} · £${(input.monthlyBudgetPence / 100).toFixed(2)} a month`);
 export const useSetEndeavourFromAlias = () =>
   useAction(setEndeavourFromAliasFn, (input) =>
     input.alias ? `Sending as ${input.alias}` : "Sending as the mailbox's own address",

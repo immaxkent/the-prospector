@@ -4,7 +4,7 @@
  */
 import { desc, inArray, ne } from "drizzle-orm";
 import type { AnyPgColumn } from "drizzle-orm/pg-core";
-import type { DailyBrief, NotifyChannelStatus } from "@/data/types";
+import type { BudgetStatus, DailyBrief, NotifyChannelStatus } from "@/data/types";
 import type { Dataset } from "@/data/store";
 import type { Database } from "../db/client";
 import * as t from "../db/schema";
@@ -32,6 +32,8 @@ export interface DatasetOptions {
    * never holds the encryption key: it is given the answer, not the means to work it out.
    */
   aliasConsent?: (tokenCiphertext: string) => boolean;
+  /** Model choice and spend, computed by the settings command so the sums live in one place. */
+  budget?: BudgetStatus;
 }
 
 const byId = <T extends { id: string }>(rows: readonly T[]) => new Map(rows.map((r) => [r.id, r]));
@@ -100,6 +102,17 @@ export async function loadDataset(db: Database, opts: DatasetOptions): Promise<D
       autonomy: "DRAFT",
       researchSources: ["Claude web search"],
       notifications: opts.notifications ?? { channel: "in_app", destination: null },
+      budget: opts.budget ?? {
+        model: opts.model,
+        monthlyBudgetPence: 0,
+        dailyAllowancePence: 0,
+        spentTodayPence: 0,
+        spentMonthPence: 0,
+        remainingTodayPence: 0,
+        allowed: false,
+        reason: "no_budget",
+        usdPerGbp: 1,
+      },
     },
     endeavours: endeavours.map((e) =>
       buildEndeavour({

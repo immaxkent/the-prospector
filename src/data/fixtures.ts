@@ -27,11 +27,22 @@ export const fixtureStatus: SystemStatus = {
   agent: "ONLINE",
   lastRunAt: "2026-09-16T07:32:18Z",
   db: "LOCAL",
-  model: "claude-sonnet-4.5",
-  provider: "LOCAL GATEWAY",
+  model: "claude-haiku-4-5",
+  provider: "ANTHROPIC",
   autonomy: "DRAFT",
   researchSources: ["GitHub", "Company blogs", "Grant registries", "Conference speaker lists"],
   notifications: { channel: "slack", destination: "hooks.slack.com" },
+  budget: {
+    model: "claude-haiku-4-5",
+    monthlyBudgetPence: 1500,
+    dailyAllowancePence: 50,
+    spentTodayPence: 18,
+    spentMonthPence: 412,
+    remainingTodayPence: 32,
+    allowed: true,
+    reason: "ok",
+    usdPerGbp: 1.27,
+  },
 };
 
 export const fixtureEndeavours: Endeavour[] = [

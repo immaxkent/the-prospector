@@ -3,6 +3,7 @@ import { useRouteContext } from "@tanstack/react-router";
 import { useAppMode, useDataset, setDataMode, useDataMode } from "@/data/store";
 import { MailboxRow } from "@/components/os/MailboxRow";
 import { ImportPanel } from "@/components/os/ImportPanel";
+import { BudgetPanel } from "@/components/os/BudgetPanel";
 import { NotificationChannel } from "@/components/os/NotificationChannel";
 import {
   Button,
@@ -111,13 +112,11 @@ function SettingsScreen() {
       )}
 
       <div className="grid grid-cols-1 gap-5 xl:grid-cols-2">
-        <Panel title="MODEL / PROVIDER" bodyClassName="space-y-3 px-4 py-4">
-          <Row label="PROVIDER">
-            <input className={inputCls} defaultValue={status.provider} />
-          </Row>
-          <Row label="MODEL">
-            <input className={inputCls} defaultValue={status.model} />
-          </Row>
+        <Panel title="MODEL / BUDGET" bodyClassName="p-0">
+          <BudgetPanel />
+        </Panel>
+
+        <Panel title="AUTONOMY" bodyClassName="space-y-3 px-4 py-4">
           <Row label="DEFAULT AUTONOMY">
             <select className={inputCls} defaultValue={status.autonomy}>
               <option value="OBSERVE">OBSERVE — research only</option>

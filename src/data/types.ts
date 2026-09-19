@@ -266,6 +266,20 @@ export interface NotifyChannelStatus {
   destination: string | null;
 }
 
+/** The model choice and what it has cost, in pence so the UI never does currency maths. */
+export interface BudgetStatus {
+  model: string;
+  monthlyBudgetPence: number;
+  dailyAllowancePence: number;
+  spentTodayPence: number;
+  spentMonthPence: number;
+  remainingTodayPence: number;
+  allowed: boolean;
+  reason: "ok" | "daily_budget_spent" | "monthly_budget_spent" | "no_budget";
+  /** The dollars-to-pounds assumption these figures were converted with. */
+  usdPerGbp: number;
+}
+
 export interface SystemStatus {
   agent: AgentState;
   lastRunAt: string;
@@ -275,6 +289,7 @@ export interface SystemStatus {
   autonomy: AutonomyLevel;
   researchSources: string[];
   notifications: NotifyChannelStatus;
+  budget: BudgetStatus;
 }
 
 export interface Mailbox {

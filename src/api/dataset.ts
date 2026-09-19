@@ -18,8 +18,15 @@ export const fetchDataset = createServerFn({ method: "GET" })
       import("../server/crypto/tokens"),
     ]);
     const key = config.tokenKey;
-    return loadDataset(getDb(), {
-      model: config.model,
+    const { loadBudgetState, loadSettings } = await import("../server/commands/settings");
+    const db = getDb();
+    const [settings, budgetState] = await Promise.all([
+      loadSettings(db),
+      loadBudgetState(db, config.usdPerGbp),
+    ]);
+    return loadDataset(db, {
+      model: settings.model,
+      budget: { ...budgetState, model: settings.model, usdPerGbp: config.usdPerGbp },
       provider: "ANTHROPIC",
       apiEnabled: config.apiKeys.length > 0,
       notifications: channelStatus(config),
