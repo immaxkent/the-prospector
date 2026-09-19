@@ -18,7 +18,7 @@ import {
   uniqueIndex,
 } from "drizzle-orm/pg-core";
 import type { EndeavourSpec } from "../domain/endeavour-spec";
-import type { MailboxLimits } from "../domain/mailbox";
+import type { MailboxAlias, MailboxLimits } from "../domain/mailbox";
 import { PIPELINE_STAGES } from "../domain/pipeline";
 import { OUTBOUND_STATES } from "../domain/outbound";
 import { AUTONOMY_LEVELS, ENDEAVOUR_KINDS } from "../domain/endeavour-spec";
@@ -104,6 +104,11 @@ export const mailboxes = pgTable(
     limits: jsonb("limits").$type<MailboxLimits>().notNull(),
     /** AES-GCM ciphertext of the OAuth token set. Never plaintext. */
     tokenCiphertext: text("token_ciphertext"),
+    /**
+     * Addresses this account may also send as. They share the account's sending limits,
+     * because Google counts them against the same account, so they are not mailboxes.
+     */
+    aliases: jsonb("aliases").$type<MailboxAlias[]>().notNull().default([]),
     isFixture: fixture(),
     ...timestamps,
   },
@@ -119,6 +124,8 @@ export const endeavours = pgTable(
     status: endeavourStatus("status").notNull().default("draft"),
     autonomyLevel: autonomyLevel("autonomy_level").notNull().default("DRAFT"),
     mailboxId: text("mailbox_id").references(() => mailboxes.id, { onDelete: "restrict" }),
+    /** One of the mailbox's aliases to send as, or null for the account's own address. */
+    fromAlias: text("from_alias"),
     spec: jsonb("spec").$type<EndeavourSpec>().notNull(),
     specVersion: integer("spec_version").notNull().default(1),
     brief: text("brief").notNull(),

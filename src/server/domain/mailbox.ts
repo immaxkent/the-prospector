@@ -98,3 +98,62 @@ export function allocateSends(capacity: number, requests: readonly SendRequest[]
   }
   return granted;
 }
+
+/** An address the account may also send as. Aliases share the account's sending limits. */
+export interface MailboxAlias {
+  address: string;
+  displayName: string;
+  /** ISO timestamp of when this app created or recorded it. */
+  createdAt: string;
+}
+
+/** Personal Google accounts cannot hold domain aliases; only Workspace domains can. */
+export const PERSONAL_GOOGLE_DOMAINS = new Set(["gmail.com", "googlemail.com"]);
+
+export const domainOf = (address: string) => address.split("@")[1]?.toLowerCase() ?? "";
+
+/**
+ * Google accepts a local part of letters, digits and . _ - + ; it must not start or end with
+ * a dot. Checked here so a mistake is a sentence rather than a 400 from Google.
+ */
+export function checkAliasLocalPart(localPart: string): string | null {
+  const value = localPart.trim().toLowerCase();
+  if (!value) return "give the part before the @";
+  if (value.length > 64) return "that is longer than an address can be";
+  if (!/^[a-z0-9._+-]+$/.test(value)) return "use letters, digits and . _ - + only";
+  if (value.startsWith(".") || value.endsWith(".")) return "it cannot start or end with a dot";
+  if (value.includes("..")) return "it cannot contain two dots in a row";
+  return null;
+}
+
+export interface AliasRequest {
+  localPart: string;
+  displayName: string;
+}
+
+/** Everything that must be true before Google is asked to create the alias. */
+export function checkAliasRequest(
+  mailbox: { address: string; status: string; aliases: readonly MailboxAlias[] },
+  request: AliasRequest,
+): { ok: true; address: string; displayName: string } | { ok: false; reason: string } {
+  const problem = checkAliasLocalPart(request.localPart);
+  if (problem) return { ok: false, reason: problem };
+  const domain = domainOf(mailbox.address);
+  if (PERSONAL_GOOGLE_DOMAINS.has(domain)) {
+    return {
+      ok: false,
+      reason: "a personal Google account cannot have aliases on its domain; connect a Workspace address on your own domain",
+    };
+  }
+  if (mailbox.status !== "connected") return { ok: false, reason: "reconnect this mailbox before adding an alias to it" };
+
+  const address = `${request.localPart.trim().toLowerCase()}@${domain}`;
+  if (address === mailbox.address.toLowerCase()) return { ok: false, reason: "that is the account's own address" };
+  if (mailbox.aliases.some((a) => a.address.toLowerCase() === address)) {
+    return { ok: false, reason: "this mailbox already sends as that address" };
+  }
+  const displayName = request.displayName.trim();
+  if (!displayName) return { ok: false, reason: "give the name recipients should see" };
+  if (displayName.length > 80) return { ok: false, reason: "that display name is too long" };
+  return { ok: true, address, displayName };
+}

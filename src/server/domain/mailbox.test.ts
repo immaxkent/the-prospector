@@ -2,10 +2,12 @@ import { describe, expect, it } from "vitest";
 import {
   DEFAULT_MAILBOX_LIMITS,
   allocateSends,
+  checkAliasRequest,
   effectiveDailyCap,
   isQuietHour,
   mailboxLimitsSchema,
   remainingSends,
+  type MailboxAlias,
   type MailboxLimits,
 } from "./mailbox";
 
@@ -97,5 +99,53 @@ describe("allocateSends", () => {
   it("grants nothing with zero or negative capacity", () => {
     const granted = allocateSends(-3, [{ endeavourId: "a", requested: 5, priority: 1 }]);
     expect(granted.get("a")).toBe(0);
+  });
+});
+
+describe("alias requests", () => {
+  const mailbox = { address: "max@consulting.example", status: "connected", aliases: [] as MailboxAlias[] };
+  const request = { localPart: "hello", displayName: "Max at Consulting" };
+
+  it("builds the address on the mailbox's own domain", () => {
+    expect(checkAliasRequest(mailbox, request)).toEqual({
+      ok: true,
+      address: "hello@consulting.example",
+      displayName: "Max at Consulting",
+    });
+  });
+
+  it("refuses a local part Google would refuse", () => {
+    for (const localPart of ["", "has space", ".leading", "trailing.", "two..dots", "a".repeat(65), "quote'd"]) {
+      expect(checkAliasRequest(mailbox, { ...request, localPart })).toMatchObject({ ok: false });
+    }
+  });
+
+  it("explains that a personal Google account cannot hold an alias", () => {
+    const result = checkAliasRequest({ ...mailbox, address: "someone@gmail.com" }, request);
+    expect(result).toMatchObject({ ok: false, reason: expect.stringContaining("Workspace") });
+  });
+
+  it("refuses the account's own address and one it already sends as", () => {
+    expect(checkAliasRequest(mailbox, { ...request, localPart: "max" })).toMatchObject({
+      ok: false,
+      reason: "that is the account's own address",
+    });
+    const withAlias = {
+      ...mailbox,
+      aliases: [{ address: "Hello@consulting.example", displayName: "Max", createdAt: "2026-09-18T00:00:00Z" }],
+    };
+    expect(checkAliasRequest(withAlias, request)).toMatchObject({ ok: false, reason: expect.stringContaining("already") });
+  });
+
+  it("will not add an alias to a mailbox that cannot send", () => {
+    expect(checkAliasRequest({ ...mailbox, status: "needs_reauth" }, request)).toMatchObject({
+      ok: false,
+      reason: expect.stringContaining("reconnect"),
+    });
+  });
+
+  it("requires a display name recipients will see", () => {
+    expect(checkAliasRequest(mailbox, { ...request, displayName: "  " })).toMatchObject({ ok: false });
+    expect(checkAliasRequest(mailbox, { ...request, displayName: "n".repeat(81) })).toMatchObject({ ok: false });
   });
 });

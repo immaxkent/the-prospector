@@ -15,6 +15,13 @@
       "when": 1789757676753,
       "tag": "0001_message_offer",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1789823480122,
+      "tag": "0002_mailbox_aliases",
+      "breakpoints": true
     }
   ]
 }
