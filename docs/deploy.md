@@ -21,6 +21,12 @@ server: a small instance will run out of memory trying.
    the OAuth client:
    - `https://<your domain>/auth/google/callback` (sign in)
    - `https://<your domain>/mailboxes/google/callback` (connecting a mailbox)
+
+   To create addresses on your domain from the app (Settings → a mailbox → **Add an address**),
+   also enable the **Admin SDK API**, and add these two scopes to the OAuth consent screen:
+   `.../auth/admin.directory.user.alias` and `.../auth/gmail.settings.sharing`. Only a Workspace
+   administrator can grant them, and only for a domain you own — a personal gmail.com account
+   cannot hold aliases. Connecting an existing address needs none of this.
 4. **Secrets.** Create `/opt/prospector/.env.production` on the box:
 
 ```bash
