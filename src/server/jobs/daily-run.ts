@@ -15,6 +15,7 @@ import { applyReplyClassification } from "../commands/conversations";
 import { proposeInsights, recordInsights } from "../commands/learning";
 import { notify } from "../commands/notify";
 import { inAppOnly, type DeliveryChannel } from "../notify/channels";
+import { BudgetExceededError } from "../llm/budgeted";
 import { buildObjectionClusters, buildPerformance } from "../read/performance";
 import { sendApprovedForMailbox, type SendDeps } from "../commands/send";
 import { classifyReply } from "../agent/reply";
@@ -76,6 +77,17 @@ const pending = (name: string, workPackage: string, what: string): RunStep => ({
 });
 
 const startOfLocalDay = (now: Date) => new Date(`${localDate(now)}T00:00:00Z`);
+
+/** The brief for a run that stopped early: what it did get done, and why it stopped. */
+function budgetBrief(ctx: RunContext, step: string, why: string) {
+  return {
+    date: localDate(ctx.now),
+    changed: [`${ctx.metrics["prospects"] ?? 0} active prospect(s) in the pipeline`],
+    learned: [],
+    today: [`The run stopped at ${step} before finishing`],
+    risks: [why, ...ctx.gaps],
+  };
+}
 
 /** Intents that should reach you the day they arrive, rather than waiting for the brief. */
 const WORTH_TELLING_YOU = new Set(["interested", "referral", "question"]);
@@ -709,6 +721,33 @@ export async function runDailyLoop(db: Database, input: DailyRunInput) {
     try {
       await step.run(ctx);
     } catch (err) {
+      // Running out of budget is a decision the operator made, not a fault. The run keeps
+      // what it has done, records why it stopped, and picks up when there is budget again.
+      if (err instanceof BudgetExceededError) {
+        await ctx.log("warn", `${step.name} stopped: ${err.message}`);
+        ctx.gaps.push(`The run stopped at ${step.name}: ${err.message}`);
+        ctx.metrics["stoppedOnBudget"] = 1;
+        await db
+          .update(dailyRuns)
+          .set({ status: "succeeded", phase: step.name, finishedAt: new Date(), metrics: ctx.metrics, brief: budgetBrief(ctx, step.name, err.message) })
+          .where(eq(dailyRuns.id, run.id));
+        await notify(db, ctx.notifications, {
+          kind: "budget_spent",
+          title: "The model budget is spent",
+          body: `${err.message}. Nothing was lost: the run stopped at ${step.name} and will carry on when there is budget.`,
+          endeavourId: input.endeavourId,
+          path: "/settings",
+        }, now);
+        await recordEvent(db, {
+          eventType: "run.stopped_on_budget",
+          entityType: "run",
+          entityId: run.id,
+          endeavourId: input.endeavourId,
+          subject: step.name,
+          detail: err.message,
+        });
+        return { runId: run.id, status: "succeeded" as const, skipped: false, stoppedOnBudget: true as const };
+      }
       const message = err instanceof Error ? err.message : String(err);
       await ctx.log("error", `${step.name} failed: ${message}`);
       await db

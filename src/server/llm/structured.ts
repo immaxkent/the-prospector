@@ -5,6 +5,7 @@
 import { createHash } from "node:crypto";
 import { z } from "zod/v4";
 import { newId } from "../ids";
+import { BudgetExceededError } from "./budgeted";
 import { costUsd } from "./pricing";
 import type { Effort, LlmClient, LlmResponse } from "./types";
 
@@ -96,6 +97,8 @@ export async function runStructured<S extends z.ZodType>(call: StructuredCall<S>
       webSearch: call.webSearch,
     });
   } catch (err) {
+    // A call refused for budget never reached the model, so it is not one of its calls.
+    if (err instanceof BudgetExceededError) throw err;
     await call.record({ ...base, model: call.model, inputTokens: 0, outputTokens: 0, costUsd: 0, status: "error" });
     throw err;
   }
