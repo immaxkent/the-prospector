@@ -1,4 +1,8 @@
-/** Builds the agent's model client: the real Claude, the fixture, or none when unconfigured. */
+/**
+ * Builds the agent's model client: the real Claude, the fixture, or none when unconfigured.
+ * The stored settings choose the model and cap the spend; the guard refuses a call that would
+ * go over, so the ceiling holds even mid-run.
+ */
 import type { AppConfig } from "../config";
 import type { Database } from "../db/client";
 import { dbRecorder } from "../llm/recorder";
@@ -16,6 +20,17 @@ export async function createAgentDeps(config: AppConfig, db: Database): Promise<
   const record = dbRecorder(db);
   if (config.plannerFixture) return { llm: new FixtureAgentLlm(), model: config.model, record };
   if (!config.anthropicApiKey) return null;
-  const [{ AnthropicLlm }, Anthropic] = await Promise.all([import("../llm/anthropic"), import("@anthropic-ai/sdk")]);
-  return { llm: new AnthropicLlm(new Anthropic.default({ apiKey: config.anthropicApiKey })), model: config.model, record };
+
+  const [{ AnthropicLlm }, Anthropic, { budgetedLlm }, { loadBudgetState, loadSettings }] = await Promise.all([
+    import("../llm/anthropic"),
+    import("@anthropic-ai/sdk"),
+    import("../llm/budgeted"),
+    import("../commands/settings"),
+  ]);
+  const settings = await loadSettings(db);
+  const llm = budgetedLlm(
+    new AnthropicLlm(new Anthropic.default({ apiKey: config.anthropicApiKey })),
+    () => loadBudgetState(db, config.usdPerGbp),
+  );
+  return { llm, model: settings.model, record };
 }

@@ -16,7 +16,8 @@ const prod = {
 describe("loadConfig", () => {
   it("runs in demo mode without a database", () => {
     const c = loadConfig({});
-    expect(c).toMatchObject({ mode: "demo", production: false, appUrl: "http://localhost:3000", google: null, model: "claude-opus-5" });
+    // The cheapest model is the default: an unattended loop should not spend more than asked.
+    expect(c).toMatchObject({ mode: "demo", production: false, appUrl: "http://localhost:3000", google: null, model: "claude-haiku-4-5" });
     expect(loadConfig({ ANTHROPIC_MODEL: "claude-sonnet-5" }).model).toBe("claude-sonnet-5");
   });
 

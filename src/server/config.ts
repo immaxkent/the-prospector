@@ -22,8 +22,10 @@ export interface AppConfig {
   allowlist: string[];
   /** Encrypts stored OAuth tokens. Null when unset or invalid; mailbox connection is then unavailable. */
   tokenKey: Buffer | null;
-  /** Claude model used by the agent roles. */
+  /** Claude model used by the agent roles when no choice has been stored yet. */
   model: string;
+  /** Dollars to the pound, for showing spend against a budget set in pounds. An assumption, not a feed. */
+  usdPerGbp: number;
   /** Slack incoming webhook, when set. Free on Slack's own free plan. */
   notifySlackWebhookUrl: string | null;
   /** Phone push through ntfy, when set. */
@@ -70,7 +72,8 @@ export function loadConfig(env: Env = process.env): AppConfig {
     workerMode: env["WORKER_MODE"] === "inline" ? "inline" : "external",
     anthropicApiKey: env["ANTHROPIC_API_KEY"] || null,
     plannerFixture: env["INTAKE_PLANNER_FIXTURE"] === "1",
-    model: env["ANTHROPIC_MODEL"] || "claude-opus-5",
+    model: env["ANTHROPIC_MODEL"] || "claude-haiku-4-5",
+    usdPerGbp: Number(env["USD_PER_GBP"] ?? 1.27) || 1.27,
     testLoginSecret,
   };
 
