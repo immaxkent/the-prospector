@@ -512,6 +512,19 @@ export const llmCalls = pgTable("llm_calls", {
   createdAt: timestamps.createdAt,
 });
 
+/**
+ * Operator settings that must outlive a restart and be changeable without a deploy.
+ * One row, id "singleton": there is one operator and one set of choices.
+ */
+export const appSettings = pgTable("app_settings", {
+  id: text("id").primaryKey(),
+  /** Claude model the agent roles use. */
+  model: text("model").notNull(),
+  /** Ceiling for a calendar month of model spend, in pence. */
+  monthlyBudgetPence: integer("monthly_budget_pence").notNull(),
+  ...timestamps,
+});
+
 export const events = pgTable(
   "events",
   {

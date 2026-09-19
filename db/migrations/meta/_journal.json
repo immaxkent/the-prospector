@@ -22,6 +22,13 @@
       "when": 1789823480122,
       "tag": "0002_mailbox_aliases",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1789827221138,
+      "tag": "0003_app_settings",
+      "breakpoints": true
     }
   ]
 }
