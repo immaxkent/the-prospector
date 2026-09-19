@@ -2,7 +2,7 @@ import { useState } from "react";
 import { toast } from "sonner";
 import type { Mailbox } from "@/data/types";
 import { useAppMode } from "@/data/store";
-import { useDisconnectMailbox, useUpdateMailboxLimits } from "@/data/mutations";
+import { useCreateMailboxAlias, useDisconnectMailbox, useUpdateMailboxLimits } from "@/data/mutations";
 import { Button, MachineLabel, Tag } from "./primitives";
 
 const inputCls =
@@ -15,7 +15,10 @@ export function MailboxRow({ mailbox: m }: { mailbox: Mailbox }) {
   const mode = useAppMode();
   const save = useUpdateMailboxLimits();
   const disconnect = useDisconnectMailbox();
-  const [panel, setPanel] = useState<"none" | "limits" | "disconnect">("none");
+  const [panel, setPanel] = useState<"none" | "limits" | "disconnect" | "alias">("none");
+  const addAlias = useCreateMailboxAlias();
+  const domain = m.address.slice(m.address.indexOf("@"));
+  const [alias, setAlias] = useState({ localPart: "", displayName: m.displayName });
   const [form, setForm] = useState({
     dailyCap: String(m.limits.dailyCap),
     weeklyCap: String(m.limits.weeklyCap),
@@ -31,7 +34,7 @@ export function MailboxRow({ mailbox: m }: { mailbox: Mailbox }) {
       ...f,
       [k]: e.target.type === "checkbox" ? e.target.checked : e.target.value,
     }));
-  const busy = save.isPending || disconnect.isPending;
+  const busy = save.isPending || disconnect.isPending || addAlias.isPending;
 
   const inDemo = () => {
     if (mode === "demo") toast("Demo mode: nothing was saved");
@@ -85,7 +88,43 @@ export function MailboxRow({ mailbox: m }: { mailbox: Mailbox }) {
         <span>
           {m.endeavourIds.length} {m.endeavourIds.length === 1 ? "ENDEAVOUR" : "ENDEAVOURS"}
         </span>
+        {m.aliases.length > 0 && (
+          <span data-testid="mailbox-aliases">ALSO SENDS AS {m.aliases.map((a) => a.address).join(", ")}</span>
+        )}
       </div>
+
+      {panel === "alias" && (
+        <div className="mt-3 space-y-2" data-testid="alias-form">
+          <p className="text-[13px] text-muted-foreground">
+            A new address on {domain.slice(1)}, added to this account. It shares this mailbox&rsquo;s caps,
+            because Google counts its sends against the same account.
+          </p>
+          <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
+            <label className="space-y-1">
+              <MachineLabel>ADDRESS</MachineLabel>
+              <div className="flex items-center gap-1">
+                <input
+                  aria-label="New address"
+                  className={inputCls}
+                  placeholder="hello"
+                  value={alias.localPart}
+                  onChange={(e) => setAlias((a) => ({ ...a, localPart: e.target.value }))}
+                />
+                <span className="machine whitespace-nowrap">{domain}</span>
+              </div>
+            </label>
+            <label className="space-y-1">
+              <MachineLabel>NAME RECIPIENTS SEE</MachineLabel>
+              <input
+                aria-label="Alias display name"
+                className={inputCls}
+                value={alias.displayName}
+                onChange={(e) => setAlias((a) => ({ ...a, displayName: e.target.value }))}
+              />
+            </label>
+          </div>
+        </div>
+      )}
 
       {panel === "limits" && (
         <div className="mt-3 grid grid-cols-2 gap-2 md:grid-cols-4">
@@ -178,6 +217,26 @@ export function MailboxRow({ mailbox: m }: { mailbox: Mailbox }) {
               Cancel
             </Button>
           </>
+        ) : panel === "alias" ? (
+          <>
+            <Button
+              variant="primary"
+              size="sm"
+              disabled={busy || !alias.localPart.trim() || !alias.displayName.trim()}
+              onClick={() =>
+                inDemo() ||
+                addAlias.mutate(
+                  { mailboxId: m.id, localPart: alias.localPart.trim(), displayName: alias.displayName.trim() },
+                  { onSuccess: () => { setPanel("none"); setAlias((a) => ({ ...a, localPart: "" })); } },
+                )
+              }
+            >
+              {addAlias.isPending ? "Creating…" : "Create address"}
+            </Button>
+            <Button size="sm" onClick={() => setPanel("none")}>
+              Cancel
+            </Button>
+          </>
         ) : panel === "disconnect" ? (
           <>
             <Button
@@ -205,6 +264,20 @@ export function MailboxRow({ mailbox: m }: { mailbox: Mailbox }) {
             <Button size="sm" onClick={() => setPanel("limits")}>
               Edit limits
             </Button>
+            {m.status === "connected" &&
+              (m.canCreateAliases ? (
+                <Button size="sm" onClick={() => setPanel("alias")}>
+                  Add an address
+                </Button>
+              ) : (
+                <a
+                  href="/mailboxes/google/connect?alias=1"
+                  className="machine inline-flex h-7 items-center rounded-full border border-border px-3 hover:bg-accent"
+                  title="Creating an address needs an administrator's consent, which this connection was not granted."
+                >
+                  Allow new addresses
+                </a>
+              ))}
             {m.status !== "connected" && (
               <a
                 href="/mailboxes/google/connect"

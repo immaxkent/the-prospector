@@ -6,12 +6,14 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import {
   assignEndeavourMailboxFn,
+  createMailboxAliasFn,
   decideApprovalFn,
   disconnectMailboxFn,
   markThreadReadFn,
   moveProspectStageFn,
   rejectProspectFn,
   restoreProspectFn,
+  setEndeavourFromAliasFn,
   setEndeavourStatusFn,
   suppressProspectFn,
   updateMailboxLimitsFn,
@@ -57,3 +59,13 @@ export const useMarkThreadRead = () => useAction(markThreadReadFn, null);
 export const useUpdateMailboxLimits = () => useAction(updateMailboxLimitsFn, "Mailbox limits saved");
 export const useDisconnectMailbox = () => useAction(disconnectMailboxFn, "Mailbox disconnected");
 export const useAssignEndeavourMailbox = () => useAction(assignEndeavourMailboxFn, "Sending mailbox changed");
+export const useCreateMailboxAlias = () =>
+  useAction(createMailboxAliasFn, (_i, out) =>
+    out.sendAsReady
+      ? `${out.alias.address} is ready to send from`
+      : `${out.alias.address} was created, but Gmail has not accepted it yet`,
+  );
+export const useSetEndeavourFromAlias = () =>
+  useAction(setEndeavourFromAliasFn, (input) =>
+    input.alias ? `Sending as ${input.alias}` : "Sending as the mailbox's own address",
+  );
