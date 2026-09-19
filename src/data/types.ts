@@ -29,6 +29,8 @@ export interface Endeavour {
   status: "draft" | "active" | "paused" | "archived";
   /** Mailbox this endeavour sends through. Null until one is chosen. */
   mailboxId: string | null;
+  /** Alias of that mailbox this endeavour sends under, or null for the account's own address. */
+  fromAlias: string | null;
   objective: string;
   unit: "GBP" | "COUNT";
   targetValue: number;
@@ -297,6 +299,10 @@ export interface Mailbox {
   };
   /** Endeavours sending through this mailbox; caps are shared between them. */
   endeavourIds: string[];
+  /** Addresses this account may also send as. They share the account's caps. */
+  aliases: { address: string; displayName: string }[];
+  /** True when this connection was granted the consent needed to create an address. */
+  canCreateAliases: boolean;
 }
 
 /** One day's brief, with the run that produced it. */

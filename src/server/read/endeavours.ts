@@ -133,6 +133,7 @@ export function buildEndeavour(input: EndeavourInputs): Endeavour {
     kind: e.kind,
     status: e.status,
     mailboxId: e.mailboxId,
+    fromAlias: e.fromAlias,
     objective: objectiveText(spec),
     unit: isRevenue ? "GBP" : "COUNT",
     targetValue: target,

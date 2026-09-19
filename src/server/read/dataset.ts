@@ -27,6 +27,11 @@ export interface DatasetOptions {
   apiEnabled?: boolean;
   /** Where notifications go, for the Settings screen. In-app only when nothing is configured. */
   notifications?: NotifyChannelStatus;
+  /**
+   * Whether a mailbox's stored consent covers creating addresses. Injected so the read model
+   * never holds the encryption key: it is given the answer, not the means to work it out.
+   */
+  aliasConsent?: (tokenCiphertext: string) => boolean;
 }
 
 const byId = <T extends { id: string }>(rows: readonly T[]) => new Map(rows.map((r) => [r.id, r]));
@@ -108,7 +113,16 @@ export async function loadDataset(db: Database, opts: DatasetOptions): Promise<D
         now,
       }),
     ),
-    mailboxes: mailboxes.map((m) => buildMailbox(m, endeavours, maps.threads, messages, now)),
+    mailboxes: mailboxes.map((m) =>
+      buildMailbox(
+        m,
+        endeavours,
+        maps.threads,
+        messages,
+        now,
+        !!m.tokenCiphertext && !!opts.aliasConsent?.(m.tokenCiphertext),
+      ),
+    ),
     prospects: prospects.map((p) =>
       buildProspect(p, { ...maps, evidence, triggers, messages, opportunities }),
     ),

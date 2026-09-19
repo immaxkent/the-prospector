@@ -41,6 +41,7 @@ export const fixtureEndeavours: Endeavour[] = [
     kind: "sprint",
     status: "active",
     mailboxId: "mbx_consulting",
+    fromAlias: null,
     period: null,
     objective: "Generate £3,000 in Solidity audit and consulting revenue",
     unit: "GBP",
@@ -86,6 +87,7 @@ export const fixtureEndeavours: Endeavour[] = [
     kind: "sprint",
     status: "active",
     mailboxId: "mbx_desk",
+    fromAlias: null,
     period: null,
     objective: "Acquire 10 liquidity providers for the market-making desk",
     unit: "COUNT",
@@ -131,6 +133,7 @@ export const fixtureEndeavours: Endeavour[] = [
     kind: "sprint",
     status: "active",
     mailboxId: "mbx_consulting",
+    fromAlias: null,
     period: null,
     objective: "Sign five paid pilots for the compliance reporting module",
     unit: "COUNT",
@@ -894,6 +897,8 @@ export const fixtureMailboxes: Mailbox[] = [
     quietHours: "20:00 – 07:00",
     limits: { dailyCap: 30, weeklyCap: 150, warmup: { startedOn: "2026-09-10", startCap: 5, incrementPerDay: 2 }, quietHours: { start: 20, end: 7 }, timezone: "Europe/London" },
     endeavourIds: ["end_solidity", "end_pilots"],
+    aliases: [{ address: "hello@consulting.example", displayName: "Max at Consulting" }],
+    canCreateAliases: true,
   },
   {
     id: "mbx_desk",
@@ -908,6 +913,8 @@ export const fixtureMailboxes: Mailbox[] = [
     quietHours: "20:00 – 07:00",
     limits: { dailyCap: 40, weeklyCap: 200, warmup: null, quietHours: { start: 20, end: 7 }, timezone: "Europe/London" },
     endeavourIds: ["end_liquidity"],
+    aliases: [],
+    canCreateAliases: false,
   },
 ];
 

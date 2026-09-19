@@ -167,3 +167,42 @@ export const importProspectsFn = createServerFn({ method: "POST" })
       rows,
     });
   });
+
+export const createMailboxAliasFn = createServerFn({ method: "POST" })
+  .middleware([requireSession])
+  .validator(
+    z.object({
+      mailboxId: id,
+      localPart: z.string().trim().min(1).max(64),
+      displayName: z.string().trim().min(1).max(80),
+    }),
+  )
+  .handler(async ({ data }) => {
+    const db = await live();
+    const [{ getConfig }, { createMailboxAlias, ALIAS_CONSENT_NEEDED }] = await Promise.all([
+      import("../server/config"),
+      import("../server/commands/alias"),
+    ]);
+    const config = getConfig();
+    if (!config.google) throw new Error("Google is not configured on this server.");
+    if (!config.tokenKey) throw new Error("TOKEN_ENCRYPTION_KEY is not set, so mailbox tokens cannot be read.");
+
+    try {
+      return await createMailboxAlias(db, { clientId: config.google.clientId, clientSecret: config.google.clientSecret, tokenKey: config.tokenKey }, data);
+    } catch (err) {
+      if (err instanceof Error && err.message === ALIAS_CONSENT_NEEDED) {
+        throw new Error(
+          "This mailbox was connected without permission to create addresses. Reconnect it with alias permissions from Settings.",
+        );
+      }
+      throw err;
+    }
+  });
+
+export const setEndeavourFromAliasFn = createServerFn({ method: "POST" })
+  .middleware([requireSession])
+  .validator(z.object({ endeavourId: id, alias: z.string().trim().max(320).nullable() }))
+  .handler(async ({ data }) => {
+    const { setEndeavourFromAlias } = await import("../server/commands/alias");
+    return setEndeavourFromAlias(await live(), data);
+  });

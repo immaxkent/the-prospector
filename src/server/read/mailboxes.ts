@@ -10,6 +10,8 @@ export function buildMailbox(
   threads: ReadonlyMap<string, ThreadRow>,
   messages: readonly MessageRow[],
   now: Date,
+  /** Whether this connection holds the consent to create addresses. The token itself never leaves the server. */
+  canCreateAliases?: boolean,
 ): Mailbox {
   const today = localDate(now, m.limits.timezone);
   const capToday = effectiveDailyCap(m.limits, today);
@@ -33,5 +35,7 @@ export function buildMailbox(
     quietHours: `${hour(m.limits.quietHours.start)} – ${hour(m.limits.quietHours.end)}`,
     limits: m.limits,
     endeavourIds: endeavours.filter((e) => e.mailboxId === m.id && e.status !== "archived").map((e) => e.id),
+    aliases: m.aliases.map((a) => ({ address: a.address, displayName: a.displayName })),
+    canCreateAliases: canCreateAliases ?? false,
   };
 }
