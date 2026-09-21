@@ -41,6 +41,7 @@ import {
 } from "../db/schema";
 import { PROGRESSION } from "../domain/pipeline";
 import { decideFollowUp, sequenceFinished } from "../domain/followup";
+import { normaliseSettings } from "../domain/endeavour-settings";
 import { newId } from "../ids";
 import { localDate, OPERATOR_TIMEZONE } from "../read/rows";
 import { notFound } from "../commands/errors";
@@ -297,6 +298,7 @@ export const DAILY_RUN_STEPS: RunStep[] = [
         return;
       }
 
+      const { followUpDays } = normaliseSettings((await endeavourBrief(ctx)).endeavour.settings);
       const contacted = await ctx.db
         .select()
         .from(prospects)
@@ -325,9 +327,10 @@ export const DAILY_RUN_STEPS: RunStep[] = [
           lastInboundAt,
           followUpsSoFar,
           now: ctx.now,
+          cadenceDays: followUpDays,
         });
         if (!decision.due) {
-          if (decision.reason === "sequence_finished" && sequenceFinished(followUpsSoFar)) {
+          if (decision.reason === "sequence_finished" && sequenceFinished(followUpsSoFar, followUpDays)) {
             await ctx.db
               .update(prospects)
               .set({ stage: "nurture", nextAction: "No reply after the full sequence", nextActionAt: null })
