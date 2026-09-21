@@ -18,7 +18,13 @@ export const evidenceClaimSchema = z.object({
 });
 
 export const candidateSchema = z.object({
-  company: z.object({ name: nonEmpty.max(200), domain: z.string().max(200).optional(), description: z.string().max(600).optional() }),
+  company: z.object({
+    name: nonEmpty.max(200),
+    domain: z.string().max(200).optional(),
+    description: z.string().max(600).optional(),
+    /** IANA timezone of where the team works, when the sources say. Used to send in their morning. */
+    timezone: z.string().max(60).optional(),
+  }),
   person: z
     .object({ name: nonEmpty.max(120), role: z.string().max(120).optional(), email: z.email().optional(), linkedinUrl: z.url().optional() })
     .optional(),

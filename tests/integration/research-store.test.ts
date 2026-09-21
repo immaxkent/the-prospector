@@ -29,6 +29,24 @@ const store = (candidates: Candidate[]) =>
   storeCandidates(db, { endeavourId: FIXTURE_IDS.endeavour, segmentId: FIXTURE_IDS.segment, candidates, runId: "run_1" });
 
 describe("storeCandidates", () => {
+  it("records a timezone research established, and fills one in later", async () => {
+    await store([candidate({ company: { name: "Havsledd Labs", domain: "havsledd.example", timezone: "Europe/Stockholm" } })]);
+    const [company] = await db.select().from(t.companies).where(eq(t.companies.name, "Havsledd Labs"));
+    expect(company!.timezone).toBe("Europe/Stockholm");
+
+    // A second sighting of a company we already knew fills in what was missing.
+    await db.update(t.companies).set({ timezone: null }).where(eq(t.companies.id, company!.id));
+    await store([candidate({ company: { name: "Havsledd Labs", domain: "havsledd.example", timezone: "Europe/Stockholm" } })]);
+    const [again] = await db.select().from(t.companies).where(eq(t.companies.id, company!.id));
+    expect(again!.timezone).toBe("Europe/Stockholm");
+  });
+
+  it("drops a timezone this runtime cannot resolve rather than mis-aiming a send", async () => {
+    await store([candidate({ company: { name: "Nowhere Labs", timezone: "Mars/Olympus" } })]);
+    const [company] = await db.select().from(t.companies).where(eq(t.companies.name, "Nowhere Labs"));
+    expect(company!.timezone).toBeNull();
+  });
+
   it("creates the company, person, prospect, evidence and trigger", async () => {
     const result = await store([candidate()]);
     expect(result).toMatchObject({ suppressed: 0, duplicates: 0 });

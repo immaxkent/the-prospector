@@ -7,6 +7,7 @@ import type { Database } from "../db/client";
 import { companies, evidence, people, prospects, suppressions, triggers } from "../db/schema";
 import type { ScoreFactor } from "../db/schema";
 import type { Candidate } from "../agent/research";
+import { isKnownTimezone } from "../domain/pacing";
 import { newId } from "../ids";
 import { notFound } from "./errors";
 import { recordEvent, type Executor } from "./events";
@@ -34,13 +35,22 @@ async function upsertCompany(tx: Executor, candidate: Candidate) {
   const domain = candidate.company.domain?.toLowerCase() ?? null;
   const [byDomain] = domain ? await tx.select().from(companies).where(eq(companies.domain, domain)) : [];
   const [byName] = byDomain ? [byDomain] : await tx.select().from(companies).where(eq(companies.name, candidate.company.name));
-  if (byName) return byName.id;
+  // A timezone we can trust is worth filling in on a company we already knew; a name the
+  // runtime does not recognise is dropped rather than stored, so a send is never mis-aimed.
+  const timezone = isKnownTimezone(candidate.company.timezone) ? candidate.company.timezone : null;
+  if (byName) {
+    if (timezone && !byName.timezone) {
+      await tx.update(companies).set({ timezone }).where(eq(companies.id, byName.id));
+    }
+    return byName.id;
+  }
   const id = newId("company");
   await tx.insert(companies).values({
     id,
     name: candidate.company.name,
     domain,
     description: candidate.company.description ?? null,
+    timezone,
   });
   return id;
 }
