@@ -214,3 +214,23 @@ export const updateSettingsFn = createServerFn({ method: "POST" })
     const { updateSettings } = await import("../server/commands/settings");
     return updateSettings(await live(), data);
   });
+
+export const updateEndeavourSettingsFn = createServerFn({ method: "POST" })
+  .middleware([requireSession])
+  .validator(
+    z.object({
+      endeavourId: id,
+      pacing: z.object({
+        window: z.object({ startHour: z.number().int().min(0).max(23), endHour: z.number().int().min(1).max(24) }),
+        minGapMinutes: z.number().int().min(1).max(240),
+        maxGapMinutes: z.number().int().min(1).max(240),
+        useRecipientTimezone: z.boolean(),
+        minReplyDelayMinutes: z.number().int().min(0).max(10_080),
+      }),
+      followUpDays: z.array(z.number().int().min(1).max(180)).max(6),
+    }),
+  )
+  .handler(async ({ data }) => {
+    const { updateEndeavourSettings } = await import("../server/commands/endeavour-settings");
+    return updateEndeavourSettings(await live(), data);
+  });

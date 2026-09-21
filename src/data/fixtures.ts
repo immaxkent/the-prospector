@@ -53,6 +53,10 @@ export const fixtureEndeavours: Endeavour[] = [
     status: "active",
     mailboxId: "mbx_consulting",
     fromAlias: null,
+    settings: {
+      pacing: { window: { startHour: 8, endHour: 17 }, minGapMinutes: 4, maxGapMinutes: 25, useRecipientTimezone: true, minReplyDelayMinutes: 90 },
+      followUpDays: [3, 7, 14],
+    },
     period: null,
     objective: "Generate £3,000 in Solidity audit and consulting revenue",
     unit: "GBP",
@@ -99,6 +103,10 @@ export const fixtureEndeavours: Endeavour[] = [
     status: "active",
     mailboxId: "mbx_desk",
     fromAlias: null,
+    settings: {
+      pacing: { window: { startHour: 8, endHour: 17 }, minGapMinutes: 4, maxGapMinutes: 25, useRecipientTimezone: true, minReplyDelayMinutes: 90 },
+      followUpDays: [3, 7, 14],
+    },
     period: null,
     objective: "Acquire 10 liquidity providers for the market-making desk",
     unit: "COUNT",
@@ -145,6 +153,10 @@ export const fixtureEndeavours: Endeavour[] = [
     status: "active",
     mailboxId: "mbx_consulting",
     fromAlias: null,
+    settings: {
+      pacing: { window: { startHour: 8, endHour: 17 }, minGapMinutes: 4, maxGapMinutes: 25, useRecipientTimezone: true, minReplyDelayMinutes: 90 },
+      followUpDays: [3, 7, 14],
+    },
     period: null,
     objective: "Sign five paid pilots for the compliance reporting module",
     unit: "COUNT",

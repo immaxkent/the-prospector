@@ -16,6 +16,7 @@ import {
   setEndeavourFromAliasFn,
   setEndeavourStatusFn,
   suppressProspectFn,
+  updateEndeavourSettingsFn,
   updateMailboxLimitsFn,
   updateSettingsFn,
   updateOpportunityFn,
@@ -66,6 +67,7 @@ export const useCreateMailboxAlias = () =>
       ? `${out.alias.address} is ready to send from`
       : `${out.alias.address} was created, but Gmail has not accepted it yet`,
   );
+export const useUpdateEndeavourSettings = () => useAction(updateEndeavourSettingsFn, "Configuration saved");
 export const useUpdateSettings = () =>
   useAction(updateSettingsFn, (input) => `Model ${input.model} · £${(input.monthlyBudgetPence / 100).toFixed(2)} a month`);
 export const useSetEndeavourFromAlias = () =>

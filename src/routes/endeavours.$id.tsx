@@ -19,6 +19,7 @@ import {
 import { ApprovalTicket } from "@/components/os/ApprovalTicket";
 import { EndeavourStatusControls } from "@/components/os/EndeavourStatusControls";
 import { EndeavourMailboxSelect } from "@/components/os/EndeavourMailboxSelect";
+import { EndeavourConfig } from "@/components/os/EndeavourConfig";
 import { StrategyEditor } from "@/components/os/StrategyEditor";
 import { gbp, num, pct, shortDate, stamp, daysUntil } from "@/lib/format";
 import type { PipelineStage } from "@/data/types";
@@ -39,7 +40,7 @@ export const Route = createFileRoute("/endeavours/$id")({
   component: EndeavourDetail,
 });
 
-const TABS = ["OVERVIEW", "PROSPECTS", "PIPELINE", "OUTREACH", "STRATEGY", "INTELLIGENCE", "RUNS"] as const;
+const TABS = ["OVERVIEW", "PROSPECTS", "PIPELINE", "OUTREACH", "STRATEGY", "CONFIGURATION", "INTELLIGENCE", "RUNS"] as const;
 type Tab = (typeof TABS)[number];
 
 const STAGES: PipelineStage[] = ["researched", "qualified", "contacted", "replied", "meeting", "proposal", "won"];
@@ -285,6 +286,16 @@ function EndeavourDetail() {
       {tab === "STRATEGY" && (
         <Panel title="STRATEGY" meta={<MachineLabel>EVERY CHANGE IS A NEW VERSION WITH A REASON</MachineLabel>} bodyClassName="p-0">
           <StrategyEditor endeavourId={e.id} />
+        </Panel>
+      )}
+
+      {tab === "CONFIGURATION" && (
+        <Panel
+          title="CONFIGURATION"
+          meta={<MachineLabel>PACING, NOT STRATEGY: THESE CHANGES ARE NOT VERSIONED</MachineLabel>}
+          bodyClassName="p-0"
+        >
+          <EndeavourConfig endeavour={e} />
         </Panel>
       )}
 

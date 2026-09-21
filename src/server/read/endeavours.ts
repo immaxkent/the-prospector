@@ -1,3 +1,4 @@
+import { normaliseSettings } from "../domain/endeavour-settings";
 import type { Endeavour, Health, PipelineStage as ViewStage } from "@/data/types";
 import type { EndeavourSpec, FieldState } from "../domain/endeavour-spec";
 import { PROGRESSION } from "../domain/pipeline";
@@ -134,6 +135,7 @@ export function buildEndeavour(input: EndeavourInputs): Endeavour {
     status: e.status,
     mailboxId: e.mailboxId,
     fromAlias: e.fromAlias,
+    settings: normaliseSettings(e.settings),
     objective: objectiveText(spec),
     unit: isRevenue ? "GBP" : "COUNT",
     targetValue: target,

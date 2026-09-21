@@ -31,6 +31,17 @@ export interface Endeavour {
   mailboxId: string | null;
   /** Alias of that mailbox this endeavour sends under, or null for the account's own address. */
   fromAlias: string | null;
+  /** How this endeavour paces itself. Every default is filled in before it reaches the screen. */
+  settings: {
+    pacing: {
+      window: { startHour: number; endHour: number };
+      minGapMinutes: number;
+      maxGapMinutes: number;
+      useRecipientTimezone: boolean;
+      minReplyDelayMinutes: number;
+    };
+    followUpDays: number[];
+  };
   objective: string;
   unit: "GBP" | "COUNT";
   targetValue: number;
