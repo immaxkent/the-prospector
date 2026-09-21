@@ -14,8 +14,16 @@ server: a small instance will run out of memory trying.
 
 ## Before the first deploy
 
-1. **A box.** Two CPUs and 2 GB of memory is enough. Install Docker and Docker Compose. Open
-   ports 80 and 443; restrict SSH to your own address.
+1. **A box.** Two CPUs and 2 GB of memory is enough; 4 GB is more comfortable. Install Docker
+   and Docker Compose. Open ports 80 and 443; restrict SSH to your own address.
+
+   Put it in the same jurisdiction as the people you are prospecting: the database holds their
+   names and addresses, and keeping EU personal data in the EU avoids a transfer question you
+   do not need to answer.
+
+   On an Arm box (Hetzner's CAX line, AWS Graviton) set `PROSPECTOR_PLATFORM=linux/arm64` when
+   deploying. On an Apple Silicon Mac that also builds natively, which is faster than the
+   default x86 cross-build.
 2. **DNS.** Point your domain's A record at the box's address.
 3. **Google.** In the Cloud project: enable the Gmail API, and register both redirect URIs on
    the OAuth client:
