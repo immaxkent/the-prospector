@@ -21,8 +21,10 @@ export interface SendOutcome {
   sent: number;
   failed: number;
   suppressed: number;
-  skipped: "quiet_hours" | "no_capacity" | "nothing_approved" | null;
+  skipped: "quiet_hours" | "no_capacity" | "nothing_approved" | "waiting_for_slot" | null;
   capacity: number;
+  /** Approved messages whose slot has not arrived yet. */
+  waiting: number;
 }
 
 export interface SendDeps {
@@ -61,7 +63,7 @@ export async function sendApprovedForMailbox(
   if (!mailbox) throw notFound("mailbox");
   if (mailbox.status !== "connected" || !mailbox.tokenCiphertext) throw conflict(`${mailbox.address} is not connected`);
 
-  const outcome: SendOutcome = { sent: 0, failed: 0, suppressed: 0, skipped: null, capacity: 0 };
+  const outcome: SendOutcome = { sent: 0, failed: 0, suppressed: 0, skipped: null, capacity: 0, waiting: 0 };
   if (isQuietHour(mailbox.limits, now)) return { ...outcome, skipped: "quiet_hours" };
 
   const today = localDate(now, mailbox.limits.timezone);
@@ -85,7 +87,7 @@ export async function sendApprovedForMailbox(
     .where(eq(endeavours.mailboxId, mailbox.id));
   if (owners.length === 0) return { ...outcome, skipped: "nothing_approved" };
 
-  const approved = await db
+  const allApproved = await db
     .select()
     .from(messages)
     .where(
@@ -95,8 +97,14 @@ export async function sendApprovedForMailbox(
         isNotNull(messages.prospectId),
       ),
     )
-    .orderBy(messages.approvedAt);
-  if (approved.length === 0) return { ...outcome, skipped: "nothing_approved" };
+    .orderBy(messages.scheduledSendAt, messages.approvedAt);
+  if (allApproved.length === 0) return { ...outcome, skipped: "nothing_approved" };
+
+  // A message waits for the slot pacing gave it. One with no slot — approved before pacing
+  // existed, or with no mailbox at the time — goes now rather than waiting forever.
+  const approved = allApproved.filter((m) => !m.scheduledSendAt || m.scheduledSendAt <= now);
+  outcome.waiting = allApproved.length - approved.length;
+  if (approved.length === 0) return { ...outcome, skipped: "waiting_for_slot" };
 
   // Capacity is split between the endeavours sharing this mailbox.
   const requests = [...new Set(approved.map((m) => m.endeavourId))].map((id) => ({

@@ -1,6 +1,7 @@
 /**
- * Human decisions on the approval queue. Approving copy never sends it:
- * it moves the message to `approved`, and the send worker (W10) queues it within mailbox caps.
+ * Human decisions on the approval queue. Approving copy never sends it: it moves the message to
+ * `approved` and gives it a slot, and the send worker delivers it when that slot arrives, within
+ * the mailbox's caps.
  */
 import { and, eq } from "drizzle-orm";
 import type { Database } from "../db/client";
@@ -9,6 +10,7 @@ import { assertMove } from "../domain/outbound";
 import { newId } from "../ids";
 import { conflict, invalid, notFound } from "./errors";
 import { recordEvent, type Executor } from "./events";
+import { scheduleSend } from "./schedule-send";
 
 export interface DecideApprovalInput {
   approvalId: string;
@@ -45,6 +47,8 @@ export async function decideApproval(db: Database, input: DecideApprovalInput, n
           .update(messages)
           .set({ sendState: to, ...(approve && copy ? { body: copy } : {}), ...(approve ? { approvedAt: now } : {}) })
           .where(eq(messages.id, message.id));
+        // Approving decides that it goes; pacing decides when.
+        if (approve) await scheduleSend(tx, { messageId: message.id, now });
         await recordEvent(tx, {
           eventType: approve ? "message.approved" : "message.rejected",
           entityType: "message",
@@ -76,6 +80,7 @@ export async function decideApproval(db: Database, input: DecideApprovalInput, n
           sendState: "approved",
           approvedAt: now,
         });
+        await scheduleSend(tx, { messageId: id, now });
         await recordEvent(tx, {
           eventType: "message.approved",
           entityType: "message",
