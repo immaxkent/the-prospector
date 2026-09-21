@@ -19,6 +19,7 @@ import {
 } from "drizzle-orm/pg-core";
 import type { EndeavourSpec } from "../domain/endeavour-spec";
 import type { MailboxAlias, MailboxLimits } from "../domain/mailbox";
+import type { EndeavourSettings } from "../domain/endeavour-settings";
 import { PIPELINE_STAGES } from "../domain/pipeline";
 import { OUTBOUND_STATES } from "../domain/outbound";
 import { AUTONOMY_LEVELS, ENDEAVOUR_KINDS } from "../domain/endeavour-spec";
@@ -126,6 +127,8 @@ export const endeavours = pgTable(
     mailboxId: text("mailbox_id").references(() => mailboxes.id, { onDelete: "restrict" }),
     /** One of the mailbox's aliases to send as, or null for the account's own address. */
     fromAlias: text("from_alias"),
+    /** How this endeavour paces itself: sending window, gaps, follow-up days. Defaults when null. */
+    settings: jsonb("settings").$type<Partial<EndeavourSettings>>().notNull().default({}),
     spec: jsonb("spec").$type<EndeavourSpec>().notNull(),
     specVersion: integer("spec_version").notNull().default(1),
     brief: text("brief").notNull(),
@@ -201,6 +204,8 @@ export const companies = pgTable(
     name: text("name").notNull(),
     domain: text("domain"),
     description: text("description"),
+    /** IANA timezone of where the company works, when research established it. Aims a send at their morning. */
+    timezone: text("timezone"),
     metadata: jsonb("metadata").$type<Record<string, unknown>>().notNull().default({}),
     isFixture: fixture(),
     ...timestamps,
@@ -337,6 +342,8 @@ export const messages = pgTable(
     sendAttempts: integer("send_attempts").notNull().default(0),
     lastError: text("last_error"),
     approvedAt: timestamp("approved_at", { withTimezone: true }),
+    /** The slot this message was given: it is not sent before this moment. */
+    scheduledSendAt: timestamp("scheduled_send_at", { withTimezone: true }),
     sentAt: timestamp("sent_at", { withTimezone: true }),
     receivedAt: timestamp("received_at", { withTimezone: true }),
     ...timestamps,

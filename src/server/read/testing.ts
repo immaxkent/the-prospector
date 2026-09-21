@@ -28,6 +28,7 @@ export function endeavourRow(o: Partial<EndeavourRow> = {}): EndeavourRow {
     autonomyLevel: "DRAFT",
     mailboxId: "mbx_1",
     fromAlias: null,
+    settings: {},
     spec: fixtureSpec("mbx_1"),
     specVersion: 1,
     brief: FIXTURE_BRIEF,
@@ -79,7 +80,18 @@ export function prospectRow(o: Partial<ProspectRow> = {}): ProspectRow {
 }
 
 export function companyRow(o: Partial<CompanyRow> = {}): CompanyRow {
-  return { id: "com_1", name: "Northbridge", domain: "northbridge.example", description: null, metadata: {}, isFixture: false, createdAt: T0, updatedAt: T0, ...o };
+  return {
+    id: "com_1",
+    name: "Northbridge",
+    domain: "northbridge.example",
+    description: null,
+    timezone: null,
+    metadata: {},
+    isFixture: false,
+    createdAt: T0,
+    updatedAt: T0,
+    ...o,
+  };
 }
 
 export function personRow(o: Partial<PersonRow> = {}): PersonRow {
@@ -184,6 +196,7 @@ export function messageRow(o: Partial<MessageRow> = {}): MessageRow {
     sendAttempts: 1,
     lastError: null,
     approvedAt: null,
+    scheduledSendAt: null,
     sentAt: T0,
     receivedAt: null,
     createdAt: T0,
