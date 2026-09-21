@@ -8,7 +8,7 @@ server: a small instance will run out of memory trying.
 | Container | What it does |
 |---|---|
 | `web` | The app and the API, on port 3000 behind Caddy |
-| `worker` | The daily loop: scheduling, research, drafting, sending, reading replies |
+| `worker` | The daily loop, plus a send pass every 5 minutes and an inbox pass every 20 |
 | `db` | Postgres, with a volume and nightly dumps |
 | `caddy` | HTTPS on your domain, certificate obtained and renewed automatically |
 
