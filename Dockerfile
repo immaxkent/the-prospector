@@ -14,6 +14,8 @@ COPY --from=build /app/.output ./.output
 COPY --from=build /app/node_modules ./node_modules
 COPY --from=build /app/db ./db
 COPY --from=build /app/src ./src
+# The migration command runs scripts/db.ts inside this image.
+COPY --from=build /app/scripts ./scripts
 COPY --from=build /app/package.json ./package.json
 EXPOSE 3000
 CMD ["node", ".output/server/index.mjs"]
