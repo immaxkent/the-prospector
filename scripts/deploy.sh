@@ -36,12 +36,12 @@ ssh "$HOST" "mkdir -p $REMOTE_DIR/backups"
 scp docker-compose.prod.yml Caddyfile "$HOST:$REMOTE_DIR/"
 
 echo "==> applying migrations"
-ssh "$HOST" "cd $REMOTE_DIR && docker compose -f docker-compose.prod.yml run --rm web npx tsx scripts/db.ts migrate"
+ssh "$HOST" "cd $REMOTE_DIR && docker compose --env-file .env.production -f docker-compose.prod.yml run --rm web npx tsx scripts/db.ts migrate"
 
 echo "==> restarting"
-ssh "$HOST" "cd $REMOTE_DIR && docker compose -f docker-compose.prod.yml up -d"
+ssh "$HOST" "cd $REMOTE_DIR && docker compose --env-file .env.production -f docker-compose.prod.yml up -d"
 
 echo "==> health"
-ssh "$HOST" "cd $REMOTE_DIR && docker compose -f docker-compose.prod.yml exec -T web node -e \"fetch('http://localhost:3000/healthz').then(r=>r.json()).then(b=>{console.log(b);process.exit(b.status==='ok'?0:1)})\""
+ssh "$HOST" "cd $REMOTE_DIR && docker compose --env-file .env.production -f docker-compose.prod.yml exec -T web node -e \"fetch('http://localhost:3000/healthz').then(r=>r.json()).then(b=>{console.log(b);process.exit(b.status==='ok'?0:1)})\""
 
 echo "==> deployed $REVISION"

@@ -86,8 +86,8 @@ is not a backup.
 
 ```bash
 curl https://your.domain/healthz                      # app and database
-docker compose -f docker-compose.prod.yml logs -f worker   # what the loop is doing
-docker compose -f docker-compose.prod.yml ps               # what is running
+docker compose --env-file .env.production -f docker-compose.prod.yml logs -f worker
+docker compose --env-file .env.production -f docker-compose.prod.yml ps
 ```
 
 `/healthz` returns 503 when the database is unreachable, so an uptime monitor can watch it.

@@ -6,8 +6,8 @@ DIR="${PROSPECTOR_DIR:-/opt/prospector}"
 STAMP="$(date -u +%Y-%m-%dT%H-%M-%SZ)"
 cd "$DIR"
 
-docker compose -f docker-compose.prod.yml exec -T db pg_dump -U prospector prospector | gzip > "backups/prospector-$STAMP.sql.gz"
-docker compose -f docker-compose.prod.yml exec -T web node -e "
+docker compose --env-file .env.production -f docker-compose.prod.yml exec -T db pg_dump -U prospector prospector | gzip > "backups/prospector-$STAMP.sql.gz"
+docker compose --env-file .env.production -f docker-compose.prod.yml exec -T web node -e "
   fetch('http://localhost:3000/api/v1/export', { headers: { 'x-api-key': process.env.BACKUP_API_KEY } })
     .then(r => r.text())
     .then(t => process.stdout.write(t))
