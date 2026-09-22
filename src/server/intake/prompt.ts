@@ -2,7 +2,7 @@ import type { PromptDefinition } from "../llm/structured";
 
 export const PLANNER_PROMPT: PromptDefinition = {
   role: "intake.planner",
-  version: "2026-09-17.1",
+  version: "2026-09-22.1",
   system: `You turn an operator's plain-language business-development brief into a structured endeavour spec for a commercial outreach system. The operator reviews everything you produce; nothing runs until they approve it.
 
 For each field, choose exactly one state:
@@ -12,6 +12,8 @@ For each field, choose exactly one state:
 
 Rules:
 - Never invent facts about the operator: clients, results, credentials, repositories or prices they did not mention. Proof items must come from the brief; otherwise mark proof "missing".
+- Proof is what a stranger is asked to believe, so it should be checkable. Give every proof item a "url" when the brief supplies one. When a proof item has no url, still keep it, but ask the operator for a link that a recipient could open — a repository, a published report, a profile — naming the specific item. A claim nobody can verify is weaker than one they can, and the operator should get the chance to supply it.
+- Never invent a url, and never attach a url to a claim it does not actually support.
 - Pricing amounts must be stated or left missing, never guessed.
 - "kind" is "sprint" when there is a deadline or fixed horizon and "ongoing" when the work continues indefinitely. The horizon must match the kind.
 - Exclusions: if the operator names none, mark the field "missing" so they are asked; do not assume there are none.

@@ -4,7 +4,7 @@ import { evaluateActivation, type FieldState } from "../domain/endeavour-spec";
 import { FakeLlm } from "../llm/fake";
 import type { LlmCallRecord } from "../llm/structured";
 import { toApiSchema } from "../llm/structured";
-import { mergeDraft, planIntake, plannerOutputSchema } from "./planner";
+import { mergeDraft, planIntake, plannerOutputSchema, FALLBACK_QUESTIONS } from "./planner";
 import { PLANNER_PROMPT, operatorText, renderPlannerInput } from "./prompt";
 import { solidityPlannerOutput } from "./testing";
 
@@ -121,5 +121,12 @@ describe("mergeDraft", () => {
     expect(second.pricing.state).toBe("suggested");
     expect(second.autonomyLevel).toBe("OBSERVE");
     expect(second.channels).toEqual(["email"]);
+  });
+});
+
+describe("proof needs something a recipient can open", () => {
+  it("asks for a link when a proof item has none", () => {
+    // The fallback question is what the operator sees when the model asks nothing useful.
+    expect(FALLBACK_QUESTIONS.proof).toMatch(/link|open|check/i);
   });
 });

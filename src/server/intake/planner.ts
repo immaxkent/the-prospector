@@ -29,12 +29,12 @@ export interface PlannerQuestion {
   question: string;
 }
 
-const FALLBACK_QUESTIONS: Record<Exclude<FieldKey, "mailboxId">, string> = {
+export const FALLBACK_QUESTIONS: Record<Exclude<FieldKey, "mailboxId">, string> = {
   objective: "What outcome should this endeavour achieve, and how will you measure it?",
   horizon: "By when should it be achieved, or how often should progress be reviewed if it is ongoing?",
   offering: "What exactly do you sell here, and what does the buyer receive?",
   pricing: "What is the price or rate, and what is the smallest deal you would accept?",
-  proof: "What proof can outreach point to: repos, past clients, products or results?",
+  proof: "What proof can outreach point to, and what link can a recipient open to check it: repos, published reports, products, profiles or results?",
   buyers: "Who buys this, and what signals show they need it now?",
   exclusions: "Who will you not work with? Say 'none' if there are no exclusions.",
   cadence: "How many new prospects and follow-ups should be handled each day?",
