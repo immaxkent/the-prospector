@@ -11,8 +11,12 @@ test.describe("live data", () => {
 
   test("a clean install shows empty states, never design fixtures", async ({ page }) => {
     await signIn(page, "/command");
-    await expect(page.getByText("NO ACTIVE ENDEAVOURS")).toBeVisible();
+    // Command reports on running work and sends you to Endeavours to create some.
+    await expect(page.getByText("NOTHING RUNNING YET")).toBeVisible();
     await expect(page.getByText("£3K Solidity Sprint")).toHaveCount(0);
+
+    await page.goto("/endeavours");
+    await expect(page.getByText("NO ACTIVE ENDEAVOURS")).toBeVisible();
 
     await page.goto("/prospects");
     await expect(page.getByText("NO PROSPECTS DISCOVERED")).toBeVisible();

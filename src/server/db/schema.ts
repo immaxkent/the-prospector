@@ -516,6 +516,8 @@ export const llmCalls = pgTable("llm_calls", {
   outputTokens: integer("output_tokens").notNull(),
   costUsd: doublePrecision("cost_usd").notNull(),
   status: text("status", { enum: ["ok", "invalid_output", "error"] }).notNull(),
+  /** Why it failed. A call that fails silently teaches nobody anything. */
+  error: text("error"),
   createdAt: timestamps.createdAt,
 });
 

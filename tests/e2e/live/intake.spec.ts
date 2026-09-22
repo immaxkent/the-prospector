@@ -99,3 +99,18 @@ test.describe("intake", () => {
     await expect(page.locator("[data-sonner-toast]").getByText(/dailyNewTarget/)).toBeVisible({ timeout: 20_000 });
   });
 });
+
+test("the brief box grows with the brief instead of scrolling in ten rows", async ({ page }) => {
+  await signIn(page, "/endeavours/new");
+  const box = page.getByLabel("Brief");
+  const before = await box.evaluate((el) => el.clientHeight);
+
+  await box.fill(Array.from({ length: 40 }, (_, i) => `Line ${i + 1} of a long brief.`).join("\n"));
+  const after = await box.evaluate((el) => el.clientHeight);
+  expect(after).toBeGreaterThan(before);
+
+  // It stops growing before it swallows the window, so the button stays reachable.
+  const viewport = page.viewportSize()!.height;
+  expect(after).toBeLessThanOrEqual(viewport * 0.72);
+  await expect(page.getByRole("button", { name: /plan this endeavour/i })).toBeVisible();
+});

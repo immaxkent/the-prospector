@@ -16,6 +16,7 @@ export function dbRecorder(db: Database): CallRecorder {
       outputTokens: r.outputTokens,
       costUsd: r.costUsd,
       status: r.status,
+      error: r.error ?? null,
     });
   };
 }

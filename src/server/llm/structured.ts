@@ -28,6 +28,8 @@ export interface LlmCallRecord {
   outputTokens: number;
   costUsd: number;
   status: "ok" | "invalid_output" | "error";
+  /** Present when the call failed: the provider's own words, trimmed. */
+  error?: string | null;
 }
 
 export type CallRecorder = (record: LlmCallRecord) => Promise<void>;
@@ -99,7 +101,10 @@ export async function runStructured<S extends z.ZodType>(call: StructuredCall<S>
   } catch (err) {
     // A call refused for budget never reached the model, so it is not one of its calls.
     if (err instanceof BudgetExceededError) throw err;
-    await call.record({ ...base, model: call.model, inputTokens: 0, outputTokens: 0, costUsd: 0, status: "error" });
+    const reason = err instanceof Error ? err.message : String(err);
+    // Recorded and logged: a provider's refusal is the most useful thing it ever says.
+    console.error(`llm call ${base.role} failed: ${reason}`);
+    await call.record({ ...base, model: call.model, inputTokens: 0, outputTokens: 0, costUsd: 0, status: "error", error: reason.slice(0, 2000) });
     throw err;
   }
 
@@ -114,13 +119,14 @@ export async function runStructured<S extends z.ZodType>(call: StructuredCall<S>
   try {
     parsed = JSON.parse(response.text);
   } catch {
-    await call.record({ ...base, ...spend, status: "invalid_output" });
+    await call.record({ ...base, ...spend, status: "invalid_output", error: "the response was not JSON" });
     throw new LlmOutputError(call.prompt.role, "response was not JSON");
   }
   const result = call.schema.safeParse(parsed);
   if (!result.success) {
-    await call.record({ ...base, ...spend, status: "invalid_output" });
-    throw new LlmOutputError(call.prompt.role, z.prettifyError(result.error));
+    const issues = z.prettifyError(result.error);
+    await call.record({ ...base, ...spend, status: "invalid_output", error: issues.slice(0, 2000) });
+    throw new LlmOutputError(call.prompt.role, issues);
   }
   await call.record({ ...base, ...spend, status: "ok" });
   return { output: result.data, response };

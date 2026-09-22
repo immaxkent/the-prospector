@@ -40,6 +40,8 @@ export interface AppConfig {
   workerMode: "external" | "inline";
   /** Anthropic key for the agent roles. Null means the planner and daily run are unavailable. */
   anthropicApiKey: string | null;
+  /** Required when the key is organisation-level rather than scoped to one workspace. */
+  anthropicWorkspaceId: string | null;
   /** Answers the planner from a fixture instead of calling Claude. E2E only, never in production. */
   plannerFixture: boolean;
   /** Enables /auth/test-login for e2e. Never set in production. */
@@ -71,6 +73,7 @@ export function loadConfig(env: Env = process.env): AppConfig {
     dailyRunHour: Number(env["DAILY_RUN_HOUR"] ?? 7),
     workerMode: env["WORKER_MODE"] === "inline" ? "inline" : "external",
     anthropicApiKey: env["ANTHROPIC_API_KEY"] || null,
+    anthropicWorkspaceId: env["ANTHROPIC_WORKSPACE_ID"] || null,
     plannerFixture: env["INTAKE_PLANNER_FIXTURE"] === "1",
     model: env["ANTHROPIC_MODEL"] || "claude-haiku-4-5",
     usdPerGbp: Number(env["USD_PER_GBP"] ?? 1.27) || 1.27,

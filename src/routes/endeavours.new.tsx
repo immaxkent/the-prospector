@@ -1,5 +1,5 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import {
@@ -105,6 +105,15 @@ function NewEndeavourScreen() {
     );
   }
 
+  // Auto-size: the box follows the text instead of making a long brief scroll in ten rows.
+  const briefBox = useRef<HTMLTextAreaElement>(null);
+  useEffect(() => {
+    const el = briefBox.current;
+    if (!el) return;
+    el.style.height = "auto";
+    el.style.height = `${el.scrollHeight}px`;
+  }, [brief]);
+
   if (!view) {
     return (
       <div className="space-y-5">
@@ -113,10 +122,14 @@ function NewEndeavourScreen() {
           summary="Describe the commercial outcome in your own words. The planner drafts a spec; nothing runs until you approve it."
         />
         <Panel title="BRIEF" bodyClassName="space-y-3 px-4 py-4">
+          {/* Grows with the brief so a long one can be read and edited whole, up to most of the
+              window, after which it scrolls rather than pushing the button off the screen. */}
           <textarea
+            ref={briefBox}
             aria-label="Brief"
-            className={inputCls}
+            className={`${inputCls} resize-y overflow-auto`}
             rows={10}
+            style={{ maxHeight: "70vh" }}
             placeholder="What do you want to achieve, what do you sell, who buys it, by when, and how much outreach a day?"
             value={brief}
             onChange={(e) => setBrief(e.target.value)}

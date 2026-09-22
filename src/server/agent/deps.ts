@@ -29,7 +29,15 @@ export async function createAgentDeps(config: AppConfig, db: Database): Promise<
   ]);
   const settings = await loadSettings(db);
   const llm = budgetedLlm(
-    new AnthropicLlm(new Anthropic.default({ apiKey: config.anthropicApiKey })),
+    new AnthropicLlm(
+      new Anthropic.default({
+        apiKey: config.anthropicApiKey,
+        // An organisation-level key is refused without this; a workspace-scoped key ignores it.
+        ...(config.anthropicWorkspaceId
+          ? { defaultHeaders: { "anthropic-workspace-id": config.anthropicWorkspaceId } }
+          : {}),
+      }),
+    ),
     () => loadBudgetState(db, config.usdPerGbp),
   );
   return { llm, model: settings.model, record };
