@@ -4,6 +4,11 @@ WORKDIR /app
 COPY package.json bun.lock bunfig.toml ./
 RUN bun install --frozen-lockfile
 COPY . .
+# Stamped into the bundle so the running app can say which deploy it is.
+ARG APP_VERSION=dev
+ARG APP_COMMIT=local
+ARG APP_BUILT_AT=
+ENV VITE_APP_VERSION=$APP_VERSION VITE_APP_COMMIT=$APP_COMMIT VITE_APP_BUILT_AT=$APP_BUILT_AT
 RUN bun run build
 
 FROM node:22-slim AS runtime

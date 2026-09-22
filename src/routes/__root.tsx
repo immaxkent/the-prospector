@@ -10,6 +10,7 @@ import {
   useRouterState,
 } from "@tanstack/react-router";
 import { useEffect, type ReactNode } from "react";
+import { buildLine } from "@/build-info";
 
 import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
@@ -146,6 +147,12 @@ function RootShell({ children }: { children: ReactNode }) {
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
   const pathname = useRouterState({ select: (s) => s.location.pathname });
+
+  // Printed once per load so anyone can see which deploy they are looking at without
+  // asking the server, or anyone else.
+  useEffect(() => {
+    console.log(`THE PROSPECTOR ${buildLine()}`);
+  }, []);
 
   if (PUBLIC_PATHS.includes(pathname)) {
     return (

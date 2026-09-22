@@ -65,3 +65,14 @@ test("an empty command screen points at endeavours rather than repeating its pit
   await expect(page.getByText("NO ACTIVE ENDEAVOURS")).toBeVisible();
   await expect(page.getByRole("link", { name: /create first endeavour/i })).toBeVisible();
 });
+
+test("the app announces which deploy it is in the console", async ({ page }) => {
+  const logs: string[] = [];
+  page.on("console", (m) => logs.push(m.text()));
+  await page.goto("/command");
+  await expect.poll(() => logs.find((l) => l.includes("THE PROSPECTOR"))).toBeTruthy();
+
+  // Version and commit are always present; a build time only on a release build.
+  const line = logs.find((l) => l.includes("THE PROSPECTOR"))!;
+  expect(line).toMatch(/^THE PROSPECTOR \S+ · \S+/);
+});

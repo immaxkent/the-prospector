@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { sql } from "drizzle-orm";
+import { BUILD_INFO } from "@/build-info";
 import { getConfig } from "@/server/config";
 import { getDb } from "@/server/db/client";
 
@@ -9,7 +10,14 @@ export const Route = createFileRoute("/healthz")({
     handlers: {
       GET: async () => {
         const config = getConfig();
-        const body: Record<string, unknown> = { mode: config.mode, model: config.model, time: new Date().toISOString() };
+        const body: Record<string, unknown> = {
+          mode: config.mode,
+          model: config.model,
+          version: BUILD_INFO.version,
+          commit: BUILD_INFO.commit,
+          builtAt: BUILD_INFO.builtAt,
+          time: new Date().toISOString(),
+        };
         if (config.mode !== "live") {
           return new Response(JSON.stringify({ status: "ok", ...body }), {
             headers: { "content-type": "application/json", "cache-control": "no-store" },

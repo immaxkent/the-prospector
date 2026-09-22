@@ -21,12 +21,20 @@ if [[ -n "$(git status --porcelain)" ]]; then
   exit 1
 fi
 REVISION="$(git rev-parse --short HEAD)"
+# Incremental and automatic: the third part counts commits, so every deploy is higher
+# than the last without anyone remembering to bump a file.
+VERSION="0.1.$(git rev-list --count HEAD)"
+BUILT_AT="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 
 echo "==> running the checks"
 npm run check
 
-echo "==> building the image ($REVISION) for $PLATFORM"
-docker build --platform "$PLATFORM" -t "$IMAGE" .
+echo "==> building the image $VERSION ($REVISION) for $PLATFORM"
+docker build --platform "$PLATFORM" \
+  --build-arg "APP_VERSION=$VERSION" \
+  --build-arg "APP_COMMIT=$REVISION" \
+  --build-arg "APP_BUILT_AT=$BUILT_AT" \
+  -t "$IMAGE" .
 
 echo "==> copying the image to $HOST"
 docker save "$IMAGE" | gzip | ssh "$HOST" "gunzip | docker load"
@@ -44,4 +52,4 @@ ssh "$HOST" "cd $REMOTE_DIR && docker compose --env-file .env.production -f dock
 echo "==> health"
 ssh "$HOST" "cd $REMOTE_DIR && docker compose --env-file .env.production -f docker-compose.prod.yml exec -T web node -e \"fetch('http://localhost:3000/healthz').then(r=>r.json()).then(b=>{console.log(b);process.exit(b.status==='ok'?0:1)})\""
 
-echo "==> deployed $REVISION"
+echo "==> deployed $VERSION ($REVISION) at $BUILT_AT"
