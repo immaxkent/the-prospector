@@ -27,8 +27,8 @@ export interface AliasDeps {
 
 export interface CreateAliasInput {
   mailboxId: string;
-  /** The part before the @; the domain always comes from the mailbox. */
-  localPart: string;
+  /** The whole address, on any domain the Workspace holds. */
+  address: string;
   displayName: string;
 }
 

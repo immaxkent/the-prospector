@@ -28,7 +28,7 @@ test.describe("settings: mailboxes", () => {
     await row.getByRole("button", { name: "Add an address" }).click();
     const form = row.getByTestId("alias-form");
     await expect(form).toContainText("shares this mailbox\u2019s caps");
-    await form.getByLabel("New address").fill("sales");
+    await form.getByLabel("New address").fill("sales@immaxkent.xyz");
     await row.getByRole("button", { name: "Create address" }).click();
     await expect(page.locator("[data-sonner-toast]")).toContainText("Demo mode");
   });

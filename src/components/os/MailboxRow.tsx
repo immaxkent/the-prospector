@@ -18,7 +18,7 @@ export function MailboxRow({ mailbox: m }: { mailbox: Mailbox }) {
   const [panel, setPanel] = useState<"none" | "limits" | "disconnect" | "alias">("none");
   const addAlias = useCreateMailboxAlias();
   const domain = m.address.slice(m.address.indexOf("@"));
-  const [alias, setAlias] = useState({ localPart: "", displayName: m.displayName });
+  const [alias, setAlias] = useState({ address: "", displayName: m.displayName });
   const [form, setForm] = useState({
     dailyCap: String(m.limits.dailyCap),
     weeklyCap: String(m.limits.weeklyCap),
@@ -96,22 +96,19 @@ export function MailboxRow({ mailbox: m }: { mailbox: Mailbox }) {
       {panel === "alias" && (
         <div className="mt-3 space-y-2" data-testid="alias-form">
           <p className="text-[13px] text-muted-foreground">
-            A new address on {domain.slice(1)}, added to this account. It shares this mailbox&rsquo;s caps,
-            because Google counts its sends against the same account.
+            A new address on any domain your Workspace owns, added to this account. It shares this
+            mailbox&rsquo;s caps, because Google counts its sends against the same account.
           </p>
           <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
             <label className="space-y-1">
               <MachineLabel>ADDRESS</MachineLabel>
-              <div className="flex items-center gap-1">
-                <input
-                  aria-label="New address"
-                  className={inputCls}
-                  placeholder="hello"
-                  value={alias.localPart}
-                  onChange={(e) => setAlias((a) => ({ ...a, localPart: e.target.value }))}
-                />
-                <span className="machine whitespace-nowrap">{domain}</span>
-              </div>
+              <input
+                aria-label="New address"
+                className={inputCls}
+                placeholder={`hello${domain}`}
+                value={alias.address}
+                onChange={(e) => setAlias((a) => ({ ...a, address: e.target.value }))}
+              />
             </label>
             <label className="space-y-1">
               <MachineLabel>NAME RECIPIENTS SEE</MachineLabel>
@@ -222,12 +219,12 @@ export function MailboxRow({ mailbox: m }: { mailbox: Mailbox }) {
             <Button
               variant="primary"
               size="sm"
-              disabled={busy || !alias.localPart.trim() || !alias.displayName.trim()}
+              disabled={busy || !alias.address.includes("@") || !alias.displayName.trim()}
               onClick={() =>
                 inDemo() ||
                 addAlias.mutate(
-                  { mailboxId: m.id, localPart: alias.localPart.trim(), displayName: alias.displayName.trim() },
-                  { onSuccess: () => { setPanel("none"); setAlias((a) => ({ ...a, localPart: "" })); } },
+                  { mailboxId: m.id, address: alias.address.trim(), displayName: alias.displayName.trim() },
+                  { onSuccess: () => { setPanel("none"); setAlias((a) => ({ ...a, address: "" })); } },
                 )
               }
             >

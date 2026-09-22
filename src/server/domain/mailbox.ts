@@ -127,31 +127,44 @@ export function checkAliasLocalPart(localPart: string): string | null {
 }
 
 export interface AliasRequest {
-  localPart: string;
+  /** The whole address. Any domain the Workspace holds is allowed, not only the account's own. */
+  address: string;
   displayName: string;
 }
 
 /** Everything that must be true before Google is asked to create the alias. */
+/**
+ * Everything that must be true before Google is asked to create the alias.
+ *
+ * The domain is not required to match the account's own: a Workspace holds several, and an
+ * alias may sit on any of them. Google decides whether it holds this one — asking it and
+ * reporting its answer beats a guess that refuses a perfectly good address.
+ */
 export function checkAliasRequest(
   mailbox: { address: string; status: string; aliases: readonly MailboxAlias[] },
   request: AliasRequest,
 ): { ok: true; address: string; displayName: string } | { ok: false; reason: string } {
-  const problem = checkAliasLocalPart(request.localPart);
-  if (problem) return { ok: false, reason: problem };
-  const domain = domainOf(mailbox.address);
-  if (PERSONAL_GOOGLE_DOMAINS.has(domain)) {
-    return {
-      ok: false,
-      reason: "a personal Google account cannot have aliases on its domain; connect a Workspace address on your own domain",
-    };
-  }
   if (mailbox.status !== "connected") return { ok: false, reason: "reconnect this mailbox before adding an alias to it" };
 
-  const address = `${request.localPart.trim().toLowerCase()}@${domain}`;
+  const address = request.address.trim().toLowerCase();
+  const at = address.indexOf("@");
+  if (at < 1 || at !== address.lastIndexOf("@")) return { ok: false, reason: "write the whole address, like hello@yourdomain.com" };
+
+  const problem = checkAliasLocalPart(address.slice(0, at));
+  if (problem) return { ok: false, reason: problem };
+
+  const domain = address.slice(at + 1);
+  if (!/^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)+$/.test(domain)) {
+    return { ok: false, reason: "that domain does not look like a domain" };
+  }
+  if (PERSONAL_GOOGLE_DOMAINS.has(domain)) {
+    return { ok: false, reason: "Google does not allow aliases on gmail.com; use a domain your Workspace owns" };
+  }
   if (address === mailbox.address.toLowerCase()) return { ok: false, reason: "that is the account's own address" };
   if (mailbox.aliases.some((a) => a.address.toLowerCase() === address)) {
     return { ok: false, reason: "this mailbox already sends as that address" };
   }
+
   const displayName = request.displayName.trim();
   if (!displayName) return { ok: false, reason: "give the name recipients should see" };
   if (displayName.length > 80) return { ok: false, reason: "that display name is too long" };

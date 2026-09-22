@@ -103,36 +103,51 @@ describe("allocateSends", () => {
 });
 
 describe("alias requests", () => {
-  const mailbox = { address: "max@consulting.example", status: "connected", aliases: [] as MailboxAlias[] };
-  const request = { localPart: "hello", displayName: "Max at Consulting" };
+  const mailbox = { address: "max@goodpaper.io", status: "connected", aliases: [] as MailboxAlias[] };
+  const request = { address: "partnerships@immaxkent.xyz", displayName: "Max Kent" };
 
-  it("builds the address on the mailbox's own domain", () => {
+  it("accepts an address on another domain the Workspace holds", () => {
     expect(checkAliasRequest(mailbox, request)).toEqual({
       ok: true,
-      address: "hello@consulting.example",
-      displayName: "Max at Consulting",
+      address: "partnerships@immaxkent.xyz",
+      displayName: "Max Kent",
+    });
+  });
+
+  it("normalises case", () => {
+    expect(checkAliasRequest(mailbox, { ...request, address: "  Partnerships@ImMaxKent.XYZ " })).toMatchObject({
+      ok: true,
+      address: "partnerships@immaxkent.xyz",
     });
   });
 
   it("refuses a local part Google would refuse", () => {
-    for (const localPart of ["", "has space", ".leading", "trailing.", "two..dots", "a".repeat(65), "quote'd"]) {
-      expect(checkAliasRequest(mailbox, { ...request, localPart })).toMatchObject({ ok: false });
+    for (const local of ["", "has space", ".leading", "trailing.", "two..dots", "a".repeat(65), "quote'd"]) {
+      expect(checkAliasRequest(mailbox, { ...request, address: `${local}@immaxkent.xyz` })).toMatchObject({ ok: false });
     }
   });
 
-  it("explains that a personal Google account cannot hold an alias", () => {
-    const result = checkAliasRequest({ ...mailbox, address: "someone@gmail.com" }, request);
-    expect(result).toMatchObject({ ok: false, reason: expect.stringContaining("Workspace") });
+  it("refuses something that is not a whole address", () => {
+    for (const address of ["partnerships", "@immaxkent.xyz", "a@b@c.com", "partnerships@", "partnerships@nodot"]) {
+      expect(checkAliasRequest(mailbox, { ...request, address })).toMatchObject({ ok: false });
+    }
+  });
+
+  it("explains that gmail.com cannot hold an alias", () => {
+    expect(checkAliasRequest(mailbox, { ...request, address: "someone@gmail.com" })).toMatchObject({
+      ok: false,
+      reason: expect.stringContaining("gmail.com"),
+    });
   });
 
   it("refuses the account's own address and one it already sends as", () => {
-    expect(checkAliasRequest(mailbox, { ...request, localPart: "max" })).toMatchObject({
+    expect(checkAliasRequest(mailbox, { ...request, address: "max@goodpaper.io" })).toMatchObject({
       ok: false,
       reason: "that is the account's own address",
     });
     const withAlias = {
       ...mailbox,
-      aliases: [{ address: "Hello@consulting.example", displayName: "Max", createdAt: "2026-09-18T00:00:00Z" }],
+      aliases: [{ address: "Partnerships@immaxkent.xyz", displayName: "Max", createdAt: "2026-09-18T00:00:00Z" }],
     };
     expect(checkAliasRequest(withAlias, request)).toMatchObject({ ok: false, reason: expect.stringContaining("already") });
   });

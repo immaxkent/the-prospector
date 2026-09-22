@@ -42,8 +42,8 @@ function fakeGoogle(behaviour: { aliasError?: GmailError; sendAsError?: GmailErr
 }
 
 const mailbox = async () => (await db.select().from(t.mailboxes).where(eq(t.mailboxes.id, FIXTURE_IDS.mailbox)))[0]!;
-const create = (deps: AliasDeps, over: Partial<{ localPart: string; displayName: string }> = {}) =>
-  createMailboxAlias(db, deps, { mailboxId: FIXTURE_IDS.mailbox, localPart: "hello", displayName: "Max at Consulting", ...over }, NOW);
+const create = (deps: AliasDeps, over: Partial<{ address: string; displayName: string }> = {}) =>
+  createMailboxAlias(db, deps, { mailboxId: FIXTURE_IDS.mailbox, address: "hello@consulting.example", displayName: "Max at Consulting", ...over }, NOW);
 
 async function expectCode(p: Promise<unknown>, code: string) {
   await expect(p).rejects.toBeInstanceOf(CommandError);
@@ -112,9 +112,18 @@ describe("createMailboxAlias", () => {
 
   it("refuses an address the rules reject before Google is asked", async () => {
     const { calls, deps } = fakeGoogle();
-    await expectCode(create(deps, { localPart: "not valid" }), "invalid");
-    await expectCode(create(deps, { localPart: "max" }), "invalid");
+    await expectCode(create(deps, { address: "not valid@consulting.example" }), "invalid");
+    await expectCode(create(deps, { address: "max@consulting.example" }), "invalid");
+    await expectCode(create(deps, { address: "no-at-sign" }), "invalid");
     expect(calls).toEqual([]);
+  });
+
+  it("creates an address on another domain the Workspace holds", async () => {
+    const { calls, deps } = fakeGoogle();
+    const result = await create(deps, { address: "partnerships@immaxkent.xyz", displayName: "Max Kent" });
+    expect(result.alias.address).toBe("partnerships@immaxkent.xyz");
+    // The account is still the one that owns the send; only the From address differs.
+    expect(calls[0]).toBe("alias:max@consulting.example:partnerships@immaxkent.xyz");
   });
 
   it("will not create an address the mailbox already sends as", async () => {
@@ -132,7 +141,7 @@ describe("createMailboxAlias", () => {
       Object.defineProperty(client, "currentTokens", { get: () => ({ ...ctx.tokens, accessToken: "refreshed" }) });
       return client;
     } } satisfies AliasDeps;
-    await createMailboxAlias(db, create2, { mailboxId: FIXTURE_IDS.mailbox, localPart: "hi", displayName: "Max" }, NOW);
+    await createMailboxAlias(db, create2, { mailboxId: FIXTURE_IDS.mailbox, address: "hi@consulting.example", displayName: "Max" }, NOW);
     const stored = unsealJson<{ accessToken: string }>((await mailbox()).tokenCiphertext!, key);
     expect(stored.accessToken).toBe("refreshed");
   });

@@ -173,7 +173,7 @@ export const createMailboxAliasFn = createServerFn({ method: "POST" })
   .validator(
     z.object({
       mailboxId: id,
-      localPart: z.string().trim().min(1).max(64),
+      address: z.string().trim().min(3).max(320),
       displayName: z.string().trim().min(1).max(80),
     }),
   )
