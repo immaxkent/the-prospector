@@ -6,7 +6,7 @@ import type { LlmCallRecord } from "../llm/structured";
 import { toApiSchema } from "../llm/structured";
 import { mergeDraft, planIntake, plannerOutputSchema, FALLBACK_QUESTIONS } from "./planner";
 import { PLANNER_PROMPT, operatorText, renderPlannerInput } from "./prompt";
-import { solidityPlannerOutput } from "./testing";
+import { solidityPlannerPasses } from "./testing";
 
 const BRIEF = readFileSync("fixtures/endeavours/solidity-sprint.brief.md", "utf8").replace(/<!--[\s\S]*?-->\n?/, "");
 const EXPECTED = JSON.parse(readFileSync("fixtures/endeavours/solidity-sprint.expected.json", "utf8")) as {
@@ -51,7 +51,7 @@ describe("prompt rendering", () => {
 
 describe("planIntake on the Solidity fixture", () => {
   it("produces the expected field states and asks about every open field", async () => {
-    const { deps: d, llm, records } = deps([solidityPlannerOutput()]);
+    const { deps: d, llm, records } = deps(solidityPlannerPasses());
     const { spec, questions } = await planIntake(d, { brief: BRIEF, answers: [], today: "2026-09-17" });
 
     expect(spec.kind).toBe(EXPECTED.kind);
@@ -69,24 +69,24 @@ describe("planIntake on the Solidity fixture", () => {
   });
 
   it("downgrades a stated field whose quote is not in the operator's words", async () => {
-    const invented = solidityPlannerOutput({
+    const invented = solidityPlannerPasses({
       proof: {
         state: "stated",
         quote: "I audited Uniswap",
         value: [{ kind: "client", title: "Uniswap", claim: "Audited Uniswap" }],
       },
     });
-    const { deps: d } = deps([invented]);
+    const { deps: d } = deps(invented);
     const { spec, questions } = await planIntake(d, { brief: BRIEF, answers: [], today: "2026-09-17" });
     expect(spec.proof.state).toBe("suggested");
     expect(questions.map((q) => q.field)).toContain("proof");
   });
 
   it("accepts quotes taken from the operator's answers", async () => {
-    const answered = solidityPlannerOutput({
+    const answered = solidityPlannerPasses({
       pricing: { state: "stated", quote: "£750 per review", value: { model: "package", amount: 750, currency: "GBP" } },
     });
-    const { deps: d } = deps([answered]);
+    const { deps: d } = deps(answered);
     const { spec } = await planIntake(d, {
       brief: BRIEF,
       answers: [{ field: "pricing", question: "Price?", answer: "£750 per review" }],
@@ -96,7 +96,7 @@ describe("planIntake on the Solidity fixture", () => {
   });
 
   it("the fixture draft stays blocked until the operator fills the gaps", async () => {
-    const { deps: d } = deps([solidityPlannerOutput()]);
+    const { deps: d } = deps(solidityPlannerPasses());
     const { spec } = await planIntake(d, { brief: BRIEF, answers: [], today: "2026-09-17" });
     const draft = mergeDraft(null, spec);
     const gate = evaluateActivation(draft, { brief: BRIEF, connectedMailboxIds: [] });
@@ -107,7 +107,7 @@ describe("planIntake on the Solidity fixture", () => {
 
 describe("mergeDraft", () => {
   it("keeps operator confirmations and not-applicable marks across re-planning", async () => {
-    const { deps: d } = deps([solidityPlannerOutput(), solidityPlannerOutput()]);
+    const { deps: d } = deps([...solidityPlannerPasses(), ...solidityPlannerPasses()]);
     const first = mergeDraft(null, (await planIntake(d, { brief: BRIEF, answers: [], today: "2026-09-17" })).spec);
     const edited = {
       ...first,

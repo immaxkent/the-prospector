@@ -1,3 +1,5 @@
+import { PLANNER_PASSES } from "./planner";
+
 /** A plausible planner response for the Solidity fixture brief, used by tests. Test-only. */
 export function solidityPlannerOutput(overrides: Record<string, unknown> = {}) {
   return {
@@ -47,4 +49,21 @@ export function solidityPlannerOutput(overrides: Record<string, unknown> = {}) {
       { field: "proof", question: "What can outreach point to as proof of your Solidity work?" },
     ],
   };
+}
+
+/**
+ * The same fixture, split the way the planner asks for it: one response per pass.
+ * Keeping the whole spec as the source of truth means a test never has to know how many
+ * calls the planner happens to make today.
+ */
+export function solidityPlannerPasses(overrides: Record<string, unknown> = {}) {
+  const full = solidityPlannerOutput(overrides) as {
+    spec: Record<string, unknown>;
+    questions: { field: string; question: string }[];
+  };
+  return PLANNER_PASSES.map((fields) => {
+    const spec: Record<string, unknown> = { name: full.spec["name"], kind: full.spec["kind"] };
+    for (const field of fields) spec[field] = full.spec[field];
+    return { spec, questions: full.questions.filter((q) => (fields as readonly string[]).includes(q.field)) };
+  });
 }

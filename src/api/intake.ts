@@ -22,11 +22,11 @@ async function planner() {
   const [{ dbRecorder }] = await Promise.all([import("../server/llm/recorder")]);
   const record = dbRecorder(db);
   if (config.plannerFixture) {
-    const [{ FakeLlm }, { solidityPlannerOutput }] = await Promise.all([
+    const [{ FakeLlm }, { solidityPlannerPasses }] = await Promise.all([
       import("../server/llm/fake"),
       import("../server/intake/testing"),
     ]);
-    return { db, deps: { llm: new FakeLlm([solidityPlannerOutput(), solidityPlannerOutput()]), model: config.model, record } };
+    return { db, deps: { llm: new FakeLlm([...solidityPlannerPasses(), ...solidityPlannerPasses()]), model: config.model, record } };
   }
   if (!config.anthropicApiKey) throw new Error("Claude is not configured on this server: set ANTHROPIC_API_KEY.");
   const [{ AnthropicLlm }, AnthropicModule] = await Promise.all([import("../server/llm/anthropic"), import("@anthropic-ai/sdk")]);

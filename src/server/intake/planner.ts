@@ -19,6 +19,21 @@ import { PLANNER_PROMPT, operatorText, renderPlannerInput, type IntakeAnswer } f
 
 const PLANNER_FIELDS = FIELD_KEYS.filter((k): k is Exclude<FieldKey, "mailboxId"> => k !== "mailboxId");
 
+/**
+ * The planner runs in passes rather than one call.
+ *
+ * Every field is a union of states, each with its own value type, and asking for all nine at
+ * once compiles to a grammar the API refuses outright ("the compiled grammar is too large").
+ * Grouping related fields keeps each grammar small, and intake happens once per endeavour, so
+ * a few cheap calls cost nothing worth saving.
+ */
+export const PLANNER_PASSES: readonly (readonly Exclude<FieldKey, "mailboxId">[])[] = [
+  ["objective", "horizon", "cadence"],
+  ["offering", "pricing"],
+  ["proof"],
+  ["buyers", "exclusions"],
+];
+
 export const plannerOutputSchema = z.object({
   spec: plannerSpecSchema,
   questions: z.array(z.object({ field: z.enum(PLANNER_FIELDS), question: z.string().trim().min(1) })),
@@ -52,17 +67,49 @@ export interface PlanDeps {
   model: string;
 }
 
-export async function planIntake(deps: PlanDeps, input: PlanInput) {
-  const { output } = await runStructured({
-    llm: deps.llm,
-    record: deps.record,
-    prompt: PLANNER_PROMPT,
-    schema: plannerOutputSchema,
-    user: renderPlannerInput(input.brief, input.answers, input.today),
-    model: deps.model,
-    effort: "high",
+/** The output schema for one pass: the same shapes, narrowed to the fields it is asked for. */
+export function passSchema(fields: readonly Exclude<FieldKey, "mailboxId">[]) {
+  const shape = plannerSpecSchema.shape as Record<string, z.ZodTypeAny>;
+  const picked: Record<string, z.ZodTypeAny> = { name: shape["name"]!, kind: shape["kind"]! };
+  for (const field of fields) picked[field] = shape[field]!;
+  return z.object({
+    spec: z.object(picked),
+    questions: z.array(z.object({ field: z.enum(fields as [string, ...string[]]), question: z.string().trim().min(1) })),
   });
+}
 
+export async function planIntake(deps: PlanDeps, input: PlanInput) {
+  const user = renderPlannerInput(input.brief, input.answers, input.today);
+
+  // Passes are independent: each reads the whole brief and fills only its own fields.
+  const results = await Promise.all(
+    PLANNER_PASSES.map((fields) =>
+      runStructured({
+        llm: deps.llm,
+        record: deps.record,
+        prompt: PLANNER_PROMPT,
+        schema: passSchema(fields),
+        user: `${user}\n\nFill only these fields on this pass: ${fields.join(", ")}. Ask a question for each one you mark "suggested" or "missing".`,
+        model: deps.model,
+        effort: "high",
+      }),
+    ),
+  );
+
+  const merged: Record<string, unknown> = { name: "", kind: "sprint" };
+  const rawQuestions: { field: string; question: string }[] = [];
+  for (const [index, { output }] of results.entries()) {
+    const spec = output.spec as Record<string, unknown>;
+    // The first pass names the endeavour; later passes repeat it and are ignored.
+    if (index === 0) {
+      merged["name"] = spec["name"];
+      merged["kind"] = spec["kind"];
+    }
+    for (const field of PLANNER_PASSES[index]!) merged[field] = spec[field];
+    rawQuestions.push(...(output.questions as { field: string; question: string }[]));
+  }
+
+  const output = plannerOutputSchema.parse({ spec: merged, questions: rawQuestions });
   const verified = downgradeUnverifiedQuotes(output.spec, operatorText(input.brief, input.answers));
 
   // Every open field gets exactly one question, even if the model skipped it.

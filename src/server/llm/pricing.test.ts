@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { costUsd } from "./pricing";
+import { costUsd, basePriceKey } from "./pricing";
 
 const zero = { inputTokens: 0, outputTokens: 0, cacheCreationInputTokens: 0, cacheReadInputTokens: 0, webSearchRequests: 0 };
 
@@ -17,5 +17,20 @@ describe("costUsd", () => {
 
   it("never understates an unknown model", () => {
     expect(costUsd("claude-future-9", { ...zero, inputTokens: 1_000_000 })).toBe(5);
+  });
+});
+
+describe("dated model variants", () => {
+  it("prices the dated name the API returns as the model it is", () => {
+    const usage = { inputTokens: 1_000_000, outputTokens: 0, cacheCreationInputTokens: 0, cacheReadInputTokens: 0, webSearchRequests: 0 };
+    expect(costUsd("claude-haiku-4-5-20251001", usage)).toBe(costUsd("claude-haiku-4-5", usage));
+    expect(costUsd("claude-sonnet-5-20260101", usage)).toBe(costUsd("claude-sonnet-5", usage));
+    expect(basePriceKey("claude-haiku-4-5-20251001")).toBe("claude-haiku-4-5");
+  });
+
+  it("still charges the top rate for a model it genuinely does not know", () => {
+    const usage = { inputTokens: 1_000_000, outputTokens: 0, cacheCreationInputTokens: 0, cacheReadInputTokens: 0, webSearchRequests: 0 };
+    // Never understate spend for something unrecognised.
+    expect(costUsd("some-future-model", usage)).toBe(5);
   });
 });

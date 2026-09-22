@@ -12,7 +12,7 @@ import * as t from "../../src/server/db/schema";
 import { DEFAULT_MAILBOX_LIMITS } from "../../src/server/domain/mailbox";
 import { FakeLlm } from "../../src/server/llm/fake";
 import type { LlmCallRecord } from "../../src/server/llm/structured";
-import { solidityPlannerOutput } from "../../src/server/intake/testing";
+import { solidityPlannerPasses } from "../../src/server/intake/testing";
 import { testDb, truncateAll } from "./helpers";
 
 const handle = testDb();
@@ -25,7 +25,7 @@ Target launch-stage protocol teams that are close to mainnet.
 I can do 10 new prospects and 8 follow-ups a day, by email.`;
 const TODAY = "2026-09-17";
 
-function planner(responses: unknown[] = [solidityPlannerOutput()]) {
+function planner(responses: unknown[] = solidityPlannerPasses()) {
   const records: LlmCallRecord[] = [];
   return { llm: new FakeLlm(responses), model: "claude-opus-5", record: async (r: LlmCallRecord) => void records.push(r), records };
 }
@@ -73,8 +73,8 @@ describe("startIntake", () => {
 describe("answerIntake", () => {
   it("re-plans with the answer and keeps answered questions", async () => {
     const deps = planner([
-      solidityPlannerOutput(),
-      solidityPlannerOutput({
+      ...solidityPlannerPasses(),
+      ...solidityPlannerPasses({
         pricing: { state: "stated", quote: "£750 per review", value: { model: "package", amount: 750, currency: "GBP" } },
       }),
     ]);
@@ -86,7 +86,8 @@ describe("answerIntake", () => {
     });
     expect(view.spec?.pricing.state).toBe("stated");
     expect(view.questions.find((q) => q.field === "pricing")?.answer).toBe("£750 per review");
-    expect(deps.llm.requests[1]!.user).toContain("£750 per review");
+    // The re-plan's first pass is the call after every pass of the first plan.
+    expect(deps.llm.requests.at(-1)!.user).toContain("£750 per review");
   });
 
   it("needs at least one answer", async () => {
