@@ -9,6 +9,7 @@ import {
   startIntakeFn,
   updateIntakeSettingsFn,
 } from "@/api/intake";
+import { FIELD_EXAMPLES } from "@/components/os/field-examples";
 import { IntakeFieldRow, type IntakeFieldState } from "@/components/os/IntakeFieldRow";
 import { Button, MachineLabel, PageHeader, Panel, Tag } from "@/components/os/primitives";
 import { errorMessage } from "@/data/mutations";
@@ -114,6 +115,18 @@ function NewEndeavourScreen() {
     el.style.height = `${el.scrollHeight}px`;
   }, [brief]);
 
+  /**
+   * Sending the operator to the field a blocker names. Scrolling alone is easy to miss on a
+   * long form, so the field also glows briefly; the mark clears itself so the page does not
+   * stay decorated once it has been found.
+   */
+  const [highlighted, setHighlighted] = useState<string | null>(null);
+  const revealField = (field: string) => {
+    document.getElementById(`intake-field-${field}`)?.scrollIntoView({ behavior: "smooth", block: "center" });
+    setHighlighted(field);
+    window.setTimeout(() => setHighlighted((current) => (current === field ? null : current)), 2400);
+  };
+
   if (!view) {
     return (
       <div className="space-y-5">
@@ -167,6 +180,8 @@ function NewEndeavourScreen() {
               onConfirm={() => edit.mutate({ intakeId: view.id, field, action: "confirm" })}
               onNotApplicable={(reason) => edit.mutate({ intakeId: view.id, field, action: "not_applicable", reason })}
               onSet={(value) => edit.mutate({ intakeId: view.id, field, action: "set", value })}
+              highlighted={highlighted === field}
+              {...(FIELD_EXAMPLES[field] ? { example: FIELD_EXAMPLES[field] } : {})}
             />
           ))}
           <div className="flex flex-wrap items-center gap-3 px-4 py-3">
@@ -251,8 +266,14 @@ function NewEndeavourScreen() {
             {view.blockers.length > 0 && (
               <ul className="space-y-1" data-testid="activation-blockers">
                 {view.blockers.map((b) => (
-                  <li key={`${b.field}-${b.code}`} className="text-[13px] text-warn">
-                    {FIELD_LABELS[b.field] ?? b.field}: {b.message}
+                  <li key={`${b.field}-${b.code}`}>
+                    <button
+                      type="button"
+                      className="text-left text-[13px] text-warn underline decoration-dotted underline-offset-2 hover:decoration-solid"
+                      onClick={() => revealField(b.field)}
+                    >
+                      {FIELD_LABELS[b.field] ?? b.field}: {b.message}
+                    </button>
                   </li>
                 ))}
               </ul>

@@ -244,8 +244,16 @@ export function evaluateActivation(spec: EndeavourSpec, ctx: ActivationContext) 
   }
 
   const horizon = resolved(spec.horizon);
-  if (horizon && horizon.kind !== spec.kind)
-    block("horizon", "horizon_kind_mismatch", `a ${spec.kind} endeavour needs a ${spec.kind} horizon`);
+  if (horizon && horizon.kind !== spec.kind) {
+    // Say what the field must contain: "kinds do not match" leaves nothing to act on.
+    block(
+      "horizon",
+      "horizon_kind_mismatch",
+      spec.kind === "ongoing"
+        ? 'this is an ongoing endeavour, so its horizon needs a period ("week", "month" or "quarter") and how many periods between reviews — it currently has an end date'
+        : 'this is a sprint, so its horizon needs an end date (YYYY-MM-DD) — it currently has a review period',
+    );
+  }
 
   const objective = resolved(spec.objective);
   if (objective?.metric === "revenue") {

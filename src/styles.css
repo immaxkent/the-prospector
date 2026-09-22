@@ -406,3 +406,29 @@
     transition: none;
   }
 }
+
+/*
+ * A field the operator was just sent to by an activation blocker. The glow fades on its own
+ * so the page does not stay decorated after it has done its job.
+ */
+@keyframes prospector-surge {
+  0% {
+    background-color: color-mix(in oklch, var(--signal) 26%, transparent);
+    box-shadow: inset 0 0 0 1px var(--signal);
+  }
+  100% {
+    background-color: transparent;
+    box-shadow: inset 0 0 0 1px transparent;
+  }
+}
+
+.surge {
+  animation: prospector-surge 2.2s ease-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .surge {
+    animation: none;
+    box-shadow: inset 0 0 0 1px var(--signal);
+  }
+}

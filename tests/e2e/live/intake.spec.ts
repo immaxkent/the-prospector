@@ -114,3 +114,28 @@ test("the brief box grows with the brief instead of scrolling in ten rows", asyn
   expect(after).toBeLessThanOrEqual(viewport * 0.72);
   await expect(page.getByRole("button", { name: /plan this endeavour/i })).toBeVisible();
 });
+
+test("a blocker sends you to the field it is about, and the field shows the shape it wants", async ({ page }) => {
+  await signIn(page, "/endeavours/new");
+  await page.getByLabel("Brief").fill(BRIEF);
+  await page.getByRole("button", { name: /plan this endeavour/i }).click();
+  await expect(page.getByTestId("activation-blockers")).toBeVisible({ timeout: 30_000 });
+
+  // Switching to an ongoing endeavour leaves the sprint horizon behind, which blocks activation.
+  await page.getByLabel("Endeavour kind").selectOption("ongoing");
+  const blocker = page.getByTestId("activation-blockers").getByRole("button", { name: /Horizon/ });
+  await expect(blocker).toBeVisible();
+  // The message says what to do, not merely that something is wrong.
+  await expect(blocker).toContainText("period");
+
+  await blocker.click();
+  const row = page.getByTestId("intake-field-horizon");
+  await expect(row).toBeInViewport();
+  await expect(row).toHaveClass(/surge/);
+
+  // The editor offers the shape rather than leaving the operator to guess at the JSON.
+  await row.getByRole("button", { name: "Edit" }).click();
+  await expect(row.getByText("SHAPE THIS FIELD EXPECTS")).toBeVisible();
+  await row.getByRole("button", { name: "USE THIS SHAPE" }).click();
+  await expect(row.getByLabel(/Value for/)).toHaveValue(/"kind": "ongoing"/);
+});

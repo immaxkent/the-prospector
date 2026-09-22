@@ -45,6 +45,8 @@ export function IntakeFieldRow({
   onConfirm,
   onNotApplicable,
   onSet,
+  highlighted = false,
+  example,
 }: {
   field: string;
   label: string;
@@ -56,6 +58,10 @@ export function IntakeFieldRow({
   onConfirm: () => void;
   onNotApplicable: (reason: string) => void;
   onSet: (value: unknown) => void;
+  /** True when an activation blocker has just sent the operator here. */
+  highlighted?: boolean;
+  /** The shape this field expects, shown while editing so nobody has to guess at the JSON. */
+  example?: string;
 }) {
   const [panel, setPanel] = useState<"none" | "edit" | "na">("none");
   const [draft, setDraft] = useState("");
@@ -79,7 +85,11 @@ export function IntakeFieldRow({
   };
 
   return (
-    <div className="px-4 py-3" data-testid={`intake-field-${field}`}>
+    <div
+      id={`intake-field-${field}`}
+      className={`px-4 py-3 ${highlighted ? "surge" : ""}`}
+      data-testid={`intake-field-${field}`}
+    >
       <div className="flex flex-wrap items-center justify-between gap-2">
         <span className="text-[13px] font-medium">{label}</span>
         <Tag tone={TONE[state.state]}>{state.state.replace("_", " ").toUpperCase()}</Tag>
@@ -113,6 +123,21 @@ export function IntakeFieldRow({
         <div className="mt-2 space-y-1.5">
           <MachineLabel>VALUE (JSON)</MachineLabel>
           <textarea aria-label={`Value for ${label}`} className={`${inputCls} font-mono`} rows={6} value={draft} onChange={(e) => setDraft(e.target.value)} />
+          {example && (
+            <div className="space-y-1">
+              <MachineLabel>SHAPE THIS FIELD EXPECTS</MachineLabel>
+              <pre className="overflow-x-auto rounded-[3px] border border-border bg-card px-2 py-1.5 font-mono text-[11px] text-muted-foreground">
+                {example}
+              </pre>
+              <button
+                type="button"
+                className="machine text-signal hover:underline"
+                onClick={() => { setDraft(example); setJsonError(null); }}
+              >
+                USE THIS SHAPE
+              </button>
+            </div>
+          )}
           {jsonError && <p className="text-[12px] text-warn">{jsonError}</p>}
         </div>
       )}
