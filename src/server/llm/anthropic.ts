@@ -3,6 +3,7 @@
  * paused server-tool turns are resumed, and usage is reported for cost accounting.
  */
 import Anthropic from "@anthropic-ai/sdk";
+import { capabilitiesOf, thinkingBudget } from "./capabilities";
 import type { LlmClient, LlmRequest, LlmResponse, WebSource } from "./types";
 import { LlmRefusalError } from "./types";
 
@@ -16,6 +17,16 @@ export class AnthropicLlm implements LlmClient {
     const usage = { inputTokens: 0, outputTokens: 0, cacheCreationInputTokens: 0, cacheReadInputTokens: 0, webSearchRequests: 0 };
     const sources: WebSource[] = [];
 
+    // What the model accepts differs by model; sending the wrong shape is a 400, not a downgrade.
+    const caps = capabilitiesOf(req.model);
+    const budget = caps.thinking === "budget" ? thinkingBudget(req.maxTokens) : null;
+    const thinking =
+      caps.thinking === "adaptive"
+        ? ({ type: "adaptive" } as const)
+        : budget !== null
+          ? ({ type: "enabled", budget_tokens: budget } as const)
+          : undefined;
+
     for (let attempt = 0; attempt <= MAX_RESUMES; attempt++) {
       const message = await this.client.beta.messages
         .stream({
@@ -23,15 +34,15 @@ export class AnthropicLlm implements LlmClient {
           max_tokens: req.maxTokens,
           betas: ["server-side-fallback-2026-07-01"],
           fallbacks: "default",
-          thinking: { type: "adaptive" },
+          ...(thinking ? { thinking } : {}),
           system: [{ type: "text", text: req.system, cache_control: { type: "ephemeral" } }],
           messages,
           output_config: {
             format: { type: "json_schema", schema: req.jsonSchema },
-            ...(req.effort ? { effort: req.effort } : {}),
+            ...(req.effort && caps.effort ? { effort: req.effort } : {}),
           },
           ...(req.webSearch
-            ? { tools: [{ type: "web_search_20260209" as const, name: "web_search" as const, max_uses: req.webSearch.maxUses }] }
+            ? { tools: [{ type: caps.webSearchTool, name: "web_search" as const, max_uses: req.webSearch.maxUses }] }
             : {}),
         })
         .finalMessage();
