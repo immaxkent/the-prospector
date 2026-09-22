@@ -44,6 +44,10 @@ services:
   caddy:
     image: caddy:2-alpine
     restart: unless-stopped
+    # The Caddyfile reads {$APP_DOMAIN} from this container's own environment: without it
+    # the site address is empty and Caddy parses the file as a global options block.
+    environment:
+      APP_DOMAIN: ${APP_DOMAIN:?set APP_DOMAIN}
     ports:
       - "80:80"
       - "443:443"
