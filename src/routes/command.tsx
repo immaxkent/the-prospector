@@ -66,12 +66,13 @@ function CommandScreen() {
           agent={status.agent}
           lastRun={status.lastRunAt}
         />
+        {/* This screen reports on work in progress; creating that work belongs to Endeavours. */}
         <EmptyState
-          title="NO ACTIVE ENDEAVOURS"
-          body="Define a commercial outcome. CBO OS will build the target model, research queue, outreach cadence and daily execution loop around it."
+          title="NOTHING RUNNING YET"
+          body="Command is the daily view: today's brief, what is waiting for your decision, and what the loop did overnight. It fills once an endeavour is active. Head over to Endeavours to create your first one."
           action={
             <Link to="/endeavours">
-              <Button variant="primary">Create first endeavour</Button>
+              <Button variant="primary">Go to endeavours</Button>
             </Link>
           }
         />

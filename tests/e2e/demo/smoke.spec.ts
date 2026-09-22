@@ -50,3 +50,18 @@ test("intelligence shows performance cut every way the read model cuts it", asyn
   const offers = page.locator("section", { hasText: "PERFORMANCE BY OFFER" });
   await expect(offers.getByRole("row", { name: /Pre-audit review/ })).toContainText("63");
 });
+
+test("an empty command screen points at endeavours rather than repeating its pitch", async ({ page }) => {
+  await page.goto("/settings");
+  await page.getByRole("button", { name: "CLEAN / EMPTY" }).click();
+
+  await page.goto("/command");
+  await expect(page.getByText("NOTHING RUNNING YET")).toBeVisible();
+  await expect(page.getByRole("link", { name: /go to endeavours/i })).toBeVisible();
+  await expect(page.getByText("NO ACTIVE ENDEAVOURS")).toHaveCount(0);
+
+  // Endeavours keeps the invitation to create one, and the button that does it.
+  await page.goto("/endeavours");
+  await expect(page.getByText("NO ACTIVE ENDEAVOURS")).toBeVisible();
+  await expect(page.getByRole("link", { name: /create first endeavour/i })).toBeVisible();
+});
