@@ -342,6 +342,43 @@ describe("learning", () => {
   });
 });
 
+describe("workload", () => {
+  /** The cadence is a ceiling; what the day actually needs falls as the pipeline fills. */
+  const logFor = async () => (await db.select().from(t.runLog)).map((l) => l.text).join("\n");
+
+  it("explains the day's target in the log, and admits when rates are assumed", async () => {
+    await run({ agent: agent() });
+    const log = await logFor();
+    expect(log).toMatch(/still to win over \d+ day\(s\)/);
+    expect(log).toContain("assumed rates, not measured ones");
+  });
+
+  it("asks for less work once the objective is already covered", async () => {
+    // Enough won value to cover the objective outright.
+    await db.insert(t.opportunities).values({
+      id: "opp_big",
+      endeavourId: FIXTURE_IDS.endeavour,
+      prospectId: FIXTURE_IDS.prospect,
+      name: "Closed",
+      value: 999_999,
+      currency: "GBP",
+      stage: "won",
+    });
+    await run({ agent: agent() });
+    const [runRow] = await db.select().from(t.dailyRuns);
+    expect(runRow!.metrics).toMatchObject({ targetToday: 0 });
+    expect(await logFor()).toContain("no new prospects are needed today");
+  });
+
+  it("says so when the objective cannot be reached at these rates", async () => {
+    await run({ agent: agent() });
+    const [runRow] = await db.select().from(t.dailyRuns);
+    const brief = runRow!.brief as { risks: string[] } | null;
+    // The fixture objective is far beyond what a 5% reply rate reaches in the time left.
+    expect((brief?.risks ?? []).join(" ")).toContain("out of reach");
+  });
+});
+
 describe("notifications", () => {
   it("tells the operator when approvals are waiting after a run", async () => {
     await run({ agent: agent() });

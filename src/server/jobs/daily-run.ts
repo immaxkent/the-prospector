@@ -41,6 +41,9 @@ import {
 } from "../db/schema";
 import { PROGRESSION } from "../domain/pipeline";
 import { decideFollowUp, sequenceFinished } from "../domain/followup";
+import { effectiveDailyCap } from "../domain/mailbox";
+import { planWorkload, type Workload } from "../domain/workload";
+import { DEFAULT_STAGE_PROBABILITY } from "../read/pipeline";
 import { normaliseSettings } from "../domain/endeavour-settings";
 import { newId } from "../ids";
 import { localDate, OPERATOR_TIMEZONE } from "../read/rows";
@@ -154,14 +157,19 @@ export const DAILY_RUN_STEPS: RunStep[] = [
         ctx.gaps.push("Research did not run: Claude is not configured");
         return;
       }
-      const { offering, exclusions, dailyNewTarget } = await endeavourBrief(ctx);
+      const { offering, exclusions } = await endeavourBrief(ctx);
+      const workload = await todaysWorkload(ctx);
+      ctx.metrics["targetToday"] = workload.newProspects;
+      for (const note of workload.notes) await ctx.log("info", note);
+      if (!workload.feasible) ctx.gaps.push(workload.notes.find((n) => n.includes("out of reach")) ?? "The objective is out of reach at these rates");
+
       const found = await ctx.db
         .select({ id: prospects.id })
         .from(prospects)
         .where(and(eq(prospects.endeavourId, ctx.endeavourId), gte(prospects.createdAt, startOfLocalDay(ctx.now))));
-      const wanted = Math.max(0, dailyNewTarget - found.length);
+      const wanted = Math.max(0, workload.newProspects - found.length);
       if (wanted === 0) {
-        await ctx.log("info", `today's target of ${dailyNewTarget} new prospect(s) is already met`);
+        await ctx.log("info", `today's target of ${workload.newProspects} new prospect(s) is already met`);
         return;
       }
 
@@ -409,7 +417,9 @@ export const DAILY_RUN_STEPS: RunStep[] = [
         ctx.gaps.push("Drafting did not run: Claude is not configured");
         return;
       }
-      const { endeavour, offering, pricing, proof, dailyNewTarget } = await endeavourBrief(ctx);
+      const { endeavour, offering, pricing, proof } = await endeavourBrief(ctx);
+      // Drafting follows the same day's figure as research, so the two cannot disagree.
+      const outreachTarget = (ctx.metrics["targetToday"] as number | undefined) ?? (await todaysWorkload(ctx)).newProspects;
       const today = startOfLocalDay(ctx.now);
       const alreadyToday = await ctx.db
         .select({ id: messages.id })
@@ -422,9 +432,9 @@ export const DAILY_RUN_STEPS: RunStep[] = [
             gte(messages.createdAt, today),
           ),
         );
-      const room = Math.max(0, dailyNewTarget - alreadyToday.length);
+      const room = Math.max(0, outreachTarget - alreadyToday.length);
       if (room === 0) {
-        await ctx.log("info", `today's outreach target of ${dailyNewTarget} is already prepared`);
+        await ctx.log("info", `today's outreach target of ${outreachTarget} is already prepared`);
         return;
       }
 
@@ -613,6 +623,65 @@ async function endeavourBrief(ctx: RunContext) {
     pricing: pricing?.amount ? `${pricing.currency ?? ""} ${pricing.amount} (${pricing.model})`.trim() : null,
     proof: proofItems.map((p, i): ProofItemRef => ({ id: `proof_${i + 1}`, title: p.title, claim: p.claim, url: p.url })),
   };
+}
+
+
+/**
+ * What the endeavour needs today, rather than what its cadence says. The pipeline already
+ * carries part of the objective, so only the remainder has to be started now.
+ */
+async function todaysWorkload(ctx: RunContext): Promise<Workload> {
+  const { endeavour, dailyNewTarget } = await endeavourBrief(ctx);
+  const value = <T>(f: { state: string } & Record<string, unknown>) =>
+    f.state === "stated" || f.state === "confirmed" ? (f["value"] as T) : undefined;
+  const objective = value<{ metric: string; target: number }>(endeavour.spec.objective);
+  const pricing = value<{ amount?: number }>(endeavour.spec.pricing);
+  const horizon = value<{ kind: string; endsOn?: string }>(endeavour.spec.horizon);
+
+  const own = await ctx.db.select().from(prospects).where(eq(prospects.endeavourId, ctx.endeavourId));
+  const live = own.filter((p) => p.reviewStatus !== "rejected" && p.stage !== "won" && p.stage !== "lost");
+  const byStage = new Map<string, number>();
+  for (const p of live) byStage.set(p.stage, (byStage.get(p.stage) ?? 0) + 1);
+
+  const opportunityRows = await ctx.db.select().from(opportunities).where(eq(opportunities.endeavourId, ctx.endeavourId));
+  const wonValue = opportunityRows.filter((o) => o.stage === "won").reduce((sum, o) => sum + o.value, 0);
+
+  const own_ids = new Set(own.map((p) => p.id));
+  const messageRows = await ctx.db.select().from(messages).where(eq(messages.endeavourId, ctx.endeavourId));
+  const sent = messageRows.filter((m) => m.direction === "outbound" && m.sendState === "sent");
+  const repliedProspects = new Set(
+    messageRows.filter((m) => m.direction === "inbound" && m.prospectId && own_ids.has(m.prospectId)).map((m) => m.prospectId),
+  );
+
+  // Days left in the sprint; an ongoing endeavour is paced a review period at a time.
+  const endsOn = horizon?.kind === "sprint" ? horizon.endsOn : undefined;
+  const daysRemaining = endsOn
+    ? Math.max(1, Math.ceil((new Date(`${endsOn}T23:59:59Z`).getTime() - ctx.now.getTime()) / 86_400_000))
+    : 30;
+
+  const [mailbox] = endeavour.mailboxId
+    ? await ctx.db.select().from(mailboxes).where(eq(mailboxes.id, endeavour.mailboxId))
+    : [];
+  const capacityToday = mailbox ? effectiveDailyCap(mailbox.limits, localDate(ctx.now, mailbox.limits.timezone)) : dailyNewTarget;
+
+  return planWorkload({
+    objectiveValue: objective?.metric === "revenue" ? objective.target : 0,
+    wonValue,
+    dealValue: pricing?.amount ?? 0,
+    pipeline: [...byStage.entries()].map(([stage, count]) => ({
+      count,
+      probability: DEFAULT_STAGE_PROBABILITY[stage as keyof typeof DEFAULT_STAGE_PROBABILITY] ?? 0,
+    })),
+    observed: {
+      sent: sent.length,
+      replies: repliedProspects.size,
+      meetings: own.filter((p) => ["meeting", "proposal", "won"].includes(p.stage)).length,
+      wins: own.filter((p) => p.stage === "won").length,
+    },
+    dailyCeiling: dailyNewTarget,
+    capacityToday,
+    daysRemaining,
+  });
 }
 
 /** Starts today's run, or returns the existing one so a repeated trigger never duplicates work. */
