@@ -635,7 +635,7 @@ async function todaysWorkload(ctx: RunContext): Promise<Workload> {
   const value = <T>(f: { state: string } & Record<string, unknown>) =>
     f.state === "stated" || f.state === "confirmed" ? (f["value"] as T) : undefined;
   const objective = value<{ metric: string; target: number }>(endeavour.spec.objective);
-  const pricing = value<{ amount?: number }>(endeavour.spec.pricing);
+  const pricing = value<{ amount?: number; expectedDeal?: number; minimumDeal?: number }>(endeavour.spec.pricing);
   const horizon = value<{ kind: string; endsOn?: string }>(endeavour.spec.horizon);
 
   const own = await ctx.db.select().from(prospects).where(eq(prospects.endeavourId, ctx.endeavourId));
@@ -644,7 +644,19 @@ async function todaysWorkload(ctx: RunContext): Promise<Workload> {
   for (const p of live) byStage.set(p.stage, (byStage.get(p.stage) ?? 0) + 1);
 
   const opportunityRows = await ctx.db.select().from(opportunities).where(eq(opportunities.endeavourId, ctx.endeavourId));
-  const wonValue = opportunityRows.filter((o) => o.stage === "won").reduce((sum, o) => sum + o.value, 0);
+  const wonDeals = opportunityRows.filter((o) => o.stage === "won");
+  const wonValue = wonDeals.reduce((sum, o) => sum + o.value, 0);
+
+  // Evidence first: what deals actually turned out to be worth beats any estimate of them.
+  const deal = wonDeals.length
+    ? { value: wonValue / wonDeals.length, source: "measured" as const }
+    : pricing?.expectedDeal
+      ? { value: pricing.expectedDeal, source: "expected" as const }
+      : pricing?.amount
+        ? { value: pricing.amount, source: "fixed" as const }
+        : pricing?.minimumDeal
+          ? { value: pricing.minimumDeal, source: "minimum" as const }
+          : { value: 0, source: "expected" as const };
 
   const own_ids = new Set(own.map((p) => p.id));
   const messageRows = await ctx.db.select().from(messages).where(eq(messages.endeavourId, ctx.endeavourId));
@@ -667,7 +679,8 @@ async function todaysWorkload(ctx: RunContext): Promise<Workload> {
   return planWorkload({
     objectiveValue: objective?.metric === "revenue" ? objective.target : 0,
     wonValue,
-    dealValue: pricing?.amount ?? 0,
+    dealValue: deal.value,
+    dealValueSource: deal.source,
     pipeline: [...byStage.entries()].map(([stage, count]) => ({
       count,
       probability: DEFAULT_STAGE_PROBABILITY[stage as keyof typeof DEFAULT_STAGE_PROBABILITY] ?? 0,

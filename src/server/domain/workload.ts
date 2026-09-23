@@ -44,6 +44,8 @@ export interface WorkloadInput {
   wonValue: number;
   /** What one win is worth. Zero when unknown, which makes the forecast unavailable. */
   dealValue: number;
+  /** Where that figure came from, so the brief can say whether it is evidence or an estimate. */
+  dealValueSource?: "measured" | "expected" | "fixed" | "minimum";
   /** Live prospects by stage, with each stage's chance of becoming a win. */
   pipeline: readonly PipelineStage[];
   observed: Observed;
@@ -132,6 +134,13 @@ export function planWorkload(input: WorkloadInput): Workload {
   }
   if (limitedBy === "capacity") {
     notes.push(`The mailbox can only send ${input.capacityToday} more today, so that is the limit.`);
+  }
+  if (input.dealValueSource === "minimum") {
+    notes.push(
+      "There is no typical deal value set, so the forecast uses the minimum you would accept. That is the pessimistic case: set a typical value to see a realistic one.",
+    );
+  } else if (input.dealValueSource === "measured") {
+    notes.push(`A deal is worth £${Math.round(input.dealValue)} on the evidence of the ones actually won.`);
   }
   if (source !== "measured") {
     notes.push(

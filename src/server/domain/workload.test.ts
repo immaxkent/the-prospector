@@ -120,3 +120,23 @@ describe("time", () => {
     expect(result.wanted).toBeGreaterThan(0);
   });
 });
+
+describe("what a deal is worth", () => {
+  it("says so when the forecast is running on the minimum you would accept", () => {
+    const result = plan({ dealValue: 95, dealValueSource: "minimum" });
+    expect(result.notes.join(" ")).toContain("pessimistic case");
+    // A floor makes the objective look far harder than a typical deal would.
+    expect(result.wanted).toBeGreaterThan(plan({ dealValue: 2000, dealValueSource: "expected" }).wanted);
+  });
+
+  it("prefers evidence once deals have actually been won, and says it is evidence", () => {
+    const result = plan({ dealValue: 2400, dealValueSource: "measured" });
+    expect(result.notes.join(" ")).toContain("on the evidence of the ones actually won");
+  });
+
+  it("a bigger typical deal closes the gap with less work", () => {
+    const small = plan({ dealValue: 500, dealValueSource: "expected", dailyCeiling: 1000 });
+    const large = plan({ dealValue: 6000, dealValueSource: "expected", dailyCeiling: 1000 });
+    expect(large.wanted).toBeLessThan(small.wanted);
+  });
+});
