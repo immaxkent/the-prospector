@@ -48,7 +48,8 @@ describe("classifyReply", () => {
     const { promise, llm, records } = run(output());
     const result = await promise;
     expect(result).toMatchObject({ intent: "interested", requestedNextStep: "Send cost and scope" });
-    expect(llm.requests[0]).toMatchObject({ system: REPLY_PROMPT.system, effort: "medium" });
+    // Reading one email is judgement-light: the role asks for the cheapest deliberation.
+    expect(llm.requests[0]).toMatchObject({ system: REPLY_PROMPT.system, depth: "light" });
     expect(records[0]).toMatchObject({ role: "conversation.classify", status: "ok" });
   });
 

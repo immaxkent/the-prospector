@@ -92,7 +92,7 @@ export async function classifyReply(deps: ReplyDeps, req: ReplyRequest) {
     schema: replyOutputSchema,
     user: renderReplyInput(req),
     model: deps.model,
-    effort: "medium",
+    depth: "light",
     runId: deps.runId ?? null,
   });
   // An unsubscribe is never answered with a sales reply, whatever the model proposes.

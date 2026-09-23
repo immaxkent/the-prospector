@@ -162,6 +162,7 @@ export async function qualifyProspect(deps: QualifyDeps, req: QualifyRequest): P
     schema: qualifyOutputSchema,
     user: renderQualifyInput(req),
     model: deps.model,
+    depth: "light",
     effort: "medium",
     runId: deps.runId ?? null,
   });

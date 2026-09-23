@@ -92,6 +92,7 @@ export async function planIntake(deps: PlanDeps, input: PlanInput) {
         user: `${user}\n\nFill only these fields on this pass: ${fields.join(", ")}. Ask a question for each one you mark "suggested" or "missing".`,
         model: deps.model,
         effort: "high",
+        depth: "standard",
       }),
     ),
   );

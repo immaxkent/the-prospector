@@ -185,6 +185,7 @@ export async function draftOutreach(deps: DraftDeps, req: DraftRequest): Promise
     schema: draftOutputSchema,
     user: renderDraftInput(req),
     model: deps.model,
+    depth: "standard",
     effort: "medium",
     runId: deps.runId ?? null,
   });

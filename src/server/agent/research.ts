@@ -130,6 +130,7 @@ export async function researchCandidates(deps: ResearchDeps, req: ResearchReques
     user: renderResearchInput(req),
     model: deps.model,
     effort: "high",
+    depth: "deep",
     webSearch: { maxUses: deps.maxSearches ?? 8 },
     runId: deps.runId ?? null,
   });
