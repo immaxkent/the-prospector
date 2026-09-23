@@ -71,7 +71,14 @@ export const pricingValue = z.object({
   model: z.enum(PRICING_MODELS),
   amount: z.number().positive().optional(),
   currency: currency.optional(),
+  /** Below this, decline. A floor, not a forecast. */
   minimumDeal: z.number().positive().optional(),
+  /**
+   * What a typical engagement is worth. This is the number the forecast uses, and it is
+   * deliberately separate from both a fixed price and the floor: with open-ended work, the
+   * price of the cheapest thing you will accept says nothing about what a deal is worth.
+   */
+  expectedDeal: z.number().positive().optional(),
 });
 
 export const proofItem = z.object({
@@ -261,8 +268,14 @@ export function evaluateActivation(spec: EndeavourSpec, ctx: ActivationContext) 
     if (spec.pricing.state === "not_applicable")
       block("pricing", "pricing_required_for_revenue", "a revenue objective needs pricing");
     const pricing = resolved(spec.pricing);
-    if (pricing && pricing.model !== "free" && pricing.amount === undefined)
-      block("pricing", "pricing_amount_required", "pricing needs an amount for a revenue objective");
+    // Variable-price work has no single amount; what the forecast needs is what a deal is
+    // worth, which an expected or minimum figure gives just as well.
+    if (pricing && pricing.model !== "free" && pricing.amount === undefined && pricing.expectedDeal === undefined && pricing.minimumDeal === undefined)
+      block(
+        "pricing",
+        "pricing_amount_required",
+        "a revenue objective needs a figure to forecast from: a fixed amount, a typical deal value, or at least a minimum",
+      );
   }
 
   if (spec.exclusions.state === "stated" && spec.exclusions.value.length === 0)
