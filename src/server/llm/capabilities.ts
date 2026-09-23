@@ -5,6 +5,8 @@
  * the current web-search tool, each returns a 400. Keeping the differences in one table means
  * changing the model in Settings cannot silently break a role that uses a newer feature.
  */
+import type { Depth, Effort } from "./types";
+
 export interface ModelCapabilities {
   /** "adaptive" on 4.6 and later; "budget" on Haiku 4.5 and older; "none" to send nothing. */
   thinking: "adaptive" | "budget" | "none";
@@ -31,10 +33,20 @@ export function capabilitiesOf(model: string): ModelCapabilities {
 export const MIN_THINKING_BUDGET = 1024;
 
 /**
+ * How many thinking tokens each depth is worth. Thinking bills as output, so this is the
+ * single biggest lever on what a run costs: classifying a reply does not need the same
+ * deliberation as researching a company, and paying for it anyway is waste, not safety.
+ */
+export const DEPTH_BUDGET: Record<Depth, number> = { light: 1200, standard: 2500, deep: 4000 };
+
+/** The effort level a depth means on models that take effort instead of a budget. */
+export const DEPTH_EFFORT: Record<Depth, Effort> = { light: "low", standard: "medium", deep: "high" };
+
+/**
  * A thinking budget for models that take one, or null when there is no room for it.
  * It must be smaller than max_tokens, so a short call simply does not think.
  */
-export function thinkingBudget(maxTokens: number) {
-  const budget = Math.min(4000, Math.floor(maxTokens / 2));
+export function thinkingBudget(maxTokens: number, depth: Depth = "deep") {
+  const budget = Math.min(DEPTH_BUDGET[depth], Math.floor(maxTokens / 2));
   return budget >= MIN_THINKING_BUDGET ? budget : null;
 }

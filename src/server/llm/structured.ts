@@ -7,7 +7,7 @@ import { z } from "zod/v4";
 import { newId } from "../ids";
 import { BudgetExceededError } from "./budgeted";
 import { costUsd } from "./pricing";
-import type { Effort, LlmClient, LlmResponse } from "./types";
+import type { Depth, Effort, LlmClient, LlmResponse } from "./types";
 
 export interface PromptDefinition {
   /** Stable role name, e.g. "intake.planner". */
@@ -74,6 +74,8 @@ export interface StructuredCall<S extends z.ZodType> {
   maxTokens?: number;
   effort?: Effort;
   webSearch?: { maxUses: number };
+  /** How much deliberation this role needs; defaults to deep when unstated. */
+  depth?: Depth;
   runId?: string | null;
 }
 
@@ -97,6 +99,7 @@ export async function runStructured<S extends z.ZodType>(call: StructuredCall<S>
       maxTokens: call.maxTokens ?? 16_000,
       effort: call.effort,
       webSearch: call.webSearch,
+      depth: call.depth,
     });
   } catch (err) {
     // A call refused for budget never reached the model, so it is not one of its calls.

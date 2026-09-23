@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { capabilitiesOf, thinkingBudget, MIN_THINKING_BUDGET } from "./capabilities";
+import { capabilitiesOf, thinkingBudget, MIN_THINKING_BUDGET, DEPTH_BUDGET, DEPTH_EFFORT } from "./capabilities";
 
 describe("model capabilities", () => {
   it("knows Haiku 4.5 takes a thinking budget, no effort, and the older search tool", () => {
@@ -36,5 +36,26 @@ describe("thinkingBudget", () => {
     expect(thinkingBudget(2046)).toBeNull();
     expect(thinkingBudget(256)).toBeNull();
     expect(MIN_THINKING_BUDGET).toBe(1024);
+  });
+});
+
+describe("deliberation depth", () => {
+  it("spends thinking tokens in proportion to what the role needs", () => {
+    expect(thinkingBudget(16_000, "light")).toBe(1200);
+    expect(thinkingBudget(16_000, "standard")).toBe(2500);
+    expect(thinkingBudget(16_000, "deep")).toBe(4000);
+  });
+
+  it("still leaves room for the answer whatever the depth asks for", () => {
+    expect(thinkingBudget(3000, "deep")).toBe(1500);
+    expect(thinkingBudget(2000, "deep")).toBeNull();
+  });
+
+  it("maps depth to an effort level for models that take effort instead", () => {
+    expect(DEPTH_EFFORT).toEqual({ light: "low", standard: "medium", deep: "high" });
+  });
+
+  it("defaults to deep, so an unstated depth is never quietly cheapened", () => {
+    expect(thinkingBudget(16_000)).toBe(DEPTH_BUDGET.deep);
   });
 });

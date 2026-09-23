@@ -2,6 +2,9 @@ import type { UsageForCost } from "./pricing";
 
 export type Effort = "low" | "medium" | "high" | "xhigh" | "max";
 
+/** What a role needs: reading a reply is not the same work as researching a company. */
+export type Depth = "light" | "standard" | "deep";
+
 export interface LlmRequest {
   model: string;
   system: string;
@@ -12,6 +15,11 @@ export interface LlmRequest {
   effort?: Effort | undefined;
   /** Enables Claude's server-side web search with a per-call cap. */
   webSearch?: { maxUses: number } | undefined;
+  /**
+   * How much deliberation the role needs. Thinking bills as output, so spending it on
+   * judgement-light work is most of what a cheap model costs for no benefit.
+   */
+  depth?: Depth | undefined;
 }
 
 export interface WebSource {

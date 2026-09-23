@@ -3,7 +3,7 @@
  * paused server-tool turns are resumed, and usage is reported for cost accounting.
  */
 import Anthropic from "@anthropic-ai/sdk";
-import { capabilitiesOf, thinkingBudget } from "./capabilities";
+import { DEPTH_EFFORT, capabilitiesOf, thinkingBudget } from "./capabilities";
 import type { LlmClient, LlmRequest, LlmResponse, WebSource } from "./types";
 import { LlmRefusalError } from "./types";
 
@@ -19,7 +19,7 @@ export class AnthropicLlm implements LlmClient {
 
     // What the model accepts differs by model; sending the wrong shape is a 400, not a downgrade.
     const caps = capabilitiesOf(req.model);
-    const budget = caps.thinking === "budget" ? thinkingBudget(req.maxTokens) : null;
+    const budget = caps.thinking === "budget" ? thinkingBudget(req.maxTokens, req.depth ?? "deep") : null;
     const thinking =
       caps.thinking === "adaptive"
         ? ({ type: "adaptive" } as const)
@@ -39,7 +39,8 @@ export class AnthropicLlm implements LlmClient {
           messages,
           output_config: {
             format: { type: "json_schema", schema: req.jsonSchema },
-            ...(req.effort && caps.effort ? { effort: req.effort } : {}),
+            // An explicit effort wins; otherwise the role's depth chooses one.
+            ...(caps.effort ? { effort: req.effort ?? DEPTH_EFFORT[req.depth ?? "deep"] } : {}),
           },
           ...(req.webSearch
             ? { tools: [{ type: caps.webSearchTool, name: "web_search" as const, max_uses: req.webSearch.maxUses }] }
