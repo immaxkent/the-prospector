@@ -7,6 +7,7 @@ import type { AppConfig } from "../config";
 import type { Database } from "../db/client";
 import { dbRecorder } from "../llm/recorder";
 import type { CallRecorder } from "../llm/structured";
+import type { BatchLlmClient } from "../llm/batch";
 import type { LlmClient } from "../llm/types";
 import { FixtureAgentLlm } from "./fixture";
 
@@ -14,6 +15,8 @@ export interface AgentDeps {
   llm: LlmClient;
   model: string;
   record: CallRecorder;
+  /** Present when work can be batched at half the token price. Absent in fixtures. */
+  batch?: BatchLlmClient;
 }
 
 export async function createAgentDeps(config: AppConfig, db: Database): Promise<AgentDeps | null> {
@@ -27,18 +30,16 @@ export async function createAgentDeps(config: AppConfig, db: Database): Promise<
     import("../llm/budgeted"),
     import("../commands/settings"),
   ]);
+  const { AnthropicBatchLlm } = await import("../llm/batch");
   const settings = await loadSettings(db);
-  const llm = budgetedLlm(
-    new AnthropicLlm(
-      new Anthropic.default({
-        apiKey: config.anthropicApiKey,
-        // An organisation-level key is refused without this; a workspace-scoped key ignores it.
-        ...(config.anthropicWorkspaceId
-          ? { defaultHeaders: { "anthropic-workspace-id": config.anthropicWorkspaceId } }
-          : {}),
-      }),
-    ),
-    () => loadBudgetState(db, config.usdPerGbp),
-  );
-  return { llm, model: settings.model, record };
+
+  const client = new Anthropic.default({
+    apiKey: config.anthropicApiKey,
+    // An organisation-level key is refused without this; a workspace-scoped key ignores it.
+    ...(config.anthropicWorkspaceId ? { defaultHeaders: { "anthropic-workspace-id": config.anthropicWorkspaceId } } : {}),
+  });
+  const llm = budgetedLlm(new AnthropicLlm(client), () => loadBudgetState(db, config.usdPerGbp));
+
+  // The same credentials, used two ways: one call at a time, or a day's work at once.
+  return { llm, model: settings.model, record, batch: new AnthropicBatchLlm(client) };
 }
