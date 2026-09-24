@@ -5,7 +5,8 @@
  */
 import { z } from "zod/v4";
 import type { PromptDefinition } from "../llm/structured";
-import { runStructured } from "../llm/structured";
+import type { BatchLlmClient } from "../llm/batch";
+import { runStructured, runStructuredMany } from "../llm/structured";
 import type { CallRecorder } from "../llm/structured";
 import type { LlmClient } from "../llm/types";
 
@@ -175,6 +176,35 @@ export interface DraftResult {
   violations: Violation[];
   /** Evidence the email actually leans on, stored with the message. */
   citedEvidenceIds: string[];
+}
+
+/** The day's drafts written together. Every one is checked exactly as a single draft is. */
+export async function draftOutreachMany(
+  deps: DraftDeps & { batch: BatchLlmClient },
+  items: readonly { id: string; req: DraftRequest }[],
+): Promise<{ id: string; result?: DraftResult; error?: string }[]> {
+  const byId = new Map(items.map((i) => [i.id, i.req]));
+  const results = await runStructuredMany({
+    llm: deps.llm,
+    batch: deps.batch,
+    record: deps.record,
+    prompt: DRAFT_PROMPT,
+    schema: draftOutputSchema,
+    items: items.map((i) => ({ id: i.id, user: renderDraftInput(i.req) })),
+    model: deps.model,
+    depth: "standard",
+    effort: "medium",
+    runId: deps.runId ?? null,
+  });
+
+  return results.map((r) => {
+    const req = byId.get(r.id);
+    if (!r.output || !req) return { id: r.id, error: r.error ?? "no answer" };
+    const evidenceIds = req.evidence.map((e) => e.id);
+    const check = checkDraft(r.output, { evidenceIds, proof: req.proof, senderClaimsAllowed: req.proof.length > 0 });
+    const cited = r.output.citations.filter((c) => evidenceIds.includes(c.id)).map((c) => c.id);
+    return { id: r.id, result: { ok: check.ok, draft: r.output, violations: check.violations, citedEvidenceIds: [...new Set(cited)] } };
+  });
 }
 
 export async function draftOutreach(deps: DraftDeps, req: DraftRequest): Promise<DraftResult> {
