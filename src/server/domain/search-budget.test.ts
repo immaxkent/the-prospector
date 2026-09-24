@@ -31,22 +31,28 @@ describe("searchesFor", () => {
 });
 
 describe("escalatedSearches", () => {
-  it("looks harder after a thin result", () => {
-    expect(escalatedSearches(2, 1, 10)).toBe(4);
-    expect(escalatedSearches(3, 0, 10)).toBe(6);
+  it("looks harder after a thin result that used up its budget", () => {
+    expect(escalatedSearches(2, 1, 10, 2)).toBe(4);
+    expect(escalatedSearches(3, 0, 10, 3)).toBe(6);
+  });
+
+  it("will not pay to look again when the budget went unspent", () => {
+    // The model stopped searching of its own accord: the segment is thin, not under-searched.
+    expect(escalatedSearches(4, 1, 10, 1)).toBeNull();
+    expect(escalatedSearches(8, 0, 10, 2)).toBeNull();
   });
 
   it("does not escalate a call that found a fair share", () => {
-    expect(escalatedSearches(2, 5, 10)).toBeNull();
-    expect(escalatedSearches(2, 10, 10)).toBeNull();
+    expect(escalatedSearches(2, 5, 10, 2)).toBeNull();
+    expect(escalatedSearches(2, 10, 10, 2)).toBeNull();
   });
 
   it("stops at the ceiling rather than escalating forever", () => {
-    expect(escalatedSearches(MAX_SEARCHES, 0, 10)).toBeNull();
-    expect(escalatedSearches(6, 0, 10)).toBe(MAX_SEARCHES);
+    expect(escalatedSearches(MAX_SEARCHES, 0, 10, MAX_SEARCHES)).toBeNull();
+    expect(escalatedSearches(6, 0, 10, 6)).toBe(MAX_SEARCHES);
   });
 
   it("has nothing to escalate when nothing was asked for", () => {
-    expect(escalatedSearches(2, 0, 0)).toBeNull();
+    expect(escalatedSearches(2, 0, 0, 2)).toBeNull();
   });
 });

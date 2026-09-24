@@ -28,12 +28,17 @@ export function searchesFor(remaining: number) {
 }
 
 /**
- * The cap to retry with after a thin result, or null when retrying is not worth it: the
- * call already looked as hard as it is allowed to, or it found a fair share of what it needed.
+ * The cap to retry with after a thin result, or null when retrying is not worth it.
+ *
+ * A bigger budget only helps a call that ran out of the one it had. When the model stopped
+ * searching before reaching its cap, the segment is thin and paying to look again buys
+ * nothing — which is the difference between a shortfall worth chasing and one that is simply
+ * the market.
  */
-export function escalatedSearches(previousCap: number, found: number, asked: number) {
+export function escalatedSearches(previousCap: number, found: number, asked: number, searchesUsed: number) {
   if (previousCap >= MAX_SEARCHES) return null;
   if (asked <= 0) return null;
   if (found / asked >= THIN_YIELD) return null;
+  if (searchesUsed < previousCap) return null;
   return Math.min(MAX_SEARCHES, Math.max(previousCap + 2, previousCap * 2));
 }
