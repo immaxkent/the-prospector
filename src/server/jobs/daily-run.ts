@@ -42,6 +42,7 @@ import {
 import { PROGRESSION } from "../domain/pipeline";
 import { decideFollowUp, sequenceFinished } from "../domain/followup";
 import { effectiveDailyCap } from "../domain/mailbox";
+import { escalatedSearches, searchesFor } from "../domain/search-budget";
 import { planWorkload, type Workload } from "../domain/workload";
 import { DEFAULT_STAGE_PROBABILITY } from "../read/pipeline";
 import { normaliseSettings } from "../domain/endeavour-settings";
@@ -184,35 +185,51 @@ export const DAILY_RUN_STEPS: RunStep[] = [
       }
       const known = await knownTargetNames(ctx.db, ctx.endeavourId);
       let created = 0;
+      let searchesUsed = 0;
       for (const segment of active.sort((a, b) => a.priority - b.priority)) {
         if (created >= wanted) break;
-        const result = await researchCandidates(
-          { ...ctx.agent, runId: ctx.runId },
-          {
-            segment: { name: segment.name, definition: segment.definition, signals: segment.signals, painHypothesis: segment.painHypothesis },
-            offering,
-            exclusions,
-            knownTargets: known,
-            wanted: wanted - created,
-            today: localDate(ctx.now),
-          },
-        );
-        const stored = await storeCandidates(ctx.db, {
-          endeavourId: ctx.endeavourId,
-          segmentId: segment.id,
-          candidates: result.candidates,
-          runId: ctx.runId,
-        });
-        created += stored.created.length;
-        await ctx.log(
-          "info",
-          `${segment.name}: ${result.proposed} proposed · ${result.droppedCandidates} unverifiable · ${stored.suppressed} suppressed · ${stored.duplicates} already known · ${stored.created.length} added`,
-        );
-        if (result.droppedClaims > 0) {
-          await ctx.log("warn", `${result.droppedClaims} claim(s) cited a page search never returned and were dropped`);
+        const need = wanted - created;
+
+        // Start at what the shortfall justifies, and look harder only if that came back thin.
+        let cap = searchesFor(need);
+        let addedForSegment = 0;
+        for (let attempt = 0; attempt < 2 && cap > 0; attempt++) {
+          const result = await researchCandidates(
+            { ...ctx.agent, runId: ctx.runId, maxSearches: cap },
+            {
+              segment: { name: segment.name, definition: segment.definition, signals: segment.signals, painHypothesis: segment.painHypothesis },
+              offering,
+              exclusions,
+              knownTargets: known,
+              wanted: need - addedForSegment,
+              today: localDate(ctx.now),
+            },
+          );
+          searchesUsed += result.searches ?? 0;
+          const stored = await storeCandidates(ctx.db, {
+            endeavourId: ctx.endeavourId,
+            segmentId: segment.id,
+            candidates: result.candidates,
+            runId: ctx.runId,
+          });
+          addedForSegment += stored.created.length;
+          created += stored.created.length;
+          await ctx.log(
+            "info",
+            `${segment.name}: ${result.proposed} proposed · ${result.droppedCandidates} unverifiable · ${stored.suppressed} suppressed · ${stored.duplicates} already known · ${stored.created.length} added (${cap} search cap)`,
+          );
+          if (result.droppedClaims > 0) {
+            await ctx.log("warn", `${result.droppedClaims} claim(s) cited a page search never returned and were dropped`);
+          }
+
+          const harder = escalatedSearches(cap, addedForSegment, need, result.searches ?? 0);
+          if (harder === null || created >= wanted) break;
+          await ctx.log("info", `${segment.name} came back thin, so the next look is allowed ${harder} searches`);
+          cap = harder;
         }
       }
       ctx.metrics["discovered"] = created;
+      ctx.metrics["searches"] = searchesUsed;
       if (created < wanted) ctx.gaps.push(`Research found ${created} of ${wanted} new prospect(s) wanted today`);
     },
   },

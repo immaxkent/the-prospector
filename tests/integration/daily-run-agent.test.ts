@@ -342,6 +342,26 @@ describe("learning", () => {
   });
 });
 
+describe("search budget", () => {
+  it("looks only as hard as the shortfall justifies, and records what it cost", async () => {
+    const { runId } = await run({ agent: agent() });
+    const [runRow] = await db.select().from(t.dailyRuns).where(eq(t.dailyRuns.id, runId));
+    // The fixture agent reports one search per call; the point is that it is counted.
+    expect(runRow!.metrics).toHaveProperty("searches");
+    expect(await logText()).toMatch(/search cap\)/);
+  });
+
+  it("never asks for more searches than the ceiling allows", async () => {
+    await run({ agent: agent() });
+    const caps = [...(await logText()).matchAll(/\((\d+) search cap\)/g)].map((m) => Number(m[1]));
+    expect(caps.length).toBeGreaterThan(0);
+    for (const cap of caps) {
+      expect(cap).toBeGreaterThanOrEqual(2);
+      expect(cap).toBeLessThanOrEqual(8);
+    }
+  });
+});
+
 describe("workload", () => {
   /** The cadence is a ceiling; what the day actually needs falls as the pipeline fills. */
   const logFor = async () => (await db.select().from(t.runLog)).map((l) => l.text).join("\n");
