@@ -2,7 +2,8 @@ import { afterAll, beforeEach, describe, expect, it } from "vitest";
 import { eq } from "drizzle-orm";
 import type { Candidate } from "../../src/server/agent/research";
 import { knownTargetNames, storeCandidates } from "../../src/server/commands/research";
-import { FIXTURE_IDS, seedFixtures } from "../../src/server/db/fixtures";
+import { FIXTURE_IDS, fixtureSpec, seedFixtures } from "../../src/server/db/fixtures";
+import { DEFAULT_MAILBOX_LIMITS } from "../../src/server/domain/mailbox";
 import * as t from "../../src/server/db/schema";
 import { testDb, truncateAll } from "./helpers";
 
@@ -99,5 +100,64 @@ describe("knownTargetNames", () => {
     await store([candidate()]);
     const names = await knownTargetNames(db, FIXTURE_IDS.endeavour);
     expect(names).toEqual(expect.arrayContaining(["Havsledd Labs", "Northbridge Protocol"]));
+  });
+});
+
+describe("knownTargetNames", () => {
+  it("includes companies another endeavour on the same mailbox is already contacting", async () => {
+    // A second endeavour, sending from the same mailbox as the fixture one.
+    await db.insert(t.endeavours).values({
+      id: "end_sibling",
+      name: "Another campaign",
+      kind: "sprint",
+      status: "active",
+      mailboxId: FIXTURE_IDS.mailbox,
+      spec: fixtureSpec(FIXTURE_IDS.mailbox),
+      brief: "A second endeavour sharing the mailbox.",
+    });
+    await db.insert(t.companies).values({ id: "com_sib", name: "Sibling Target" });
+    await db.insert(t.prospects).values({
+      id: "pro_sib",
+      endeavourId: "end_sibling",
+      companyId: "com_sib",
+      stage: "contacted",
+      reviewStatus: "qualified",
+      source: "web",
+    });
+
+    const names = await knownTargetNames(db, FIXTURE_IDS.endeavour);
+    // One address writing to one company twice reads as spam, whatever the two campaigns are.
+    expect(names).toContain("Sibling Target");
+    expect(names).toContain("Northbridge Protocol");
+  });
+
+  it("leaves out an endeavour sending from a different mailbox", async () => {
+    await db.insert(t.mailboxes).values({
+      id: "mbx_other",
+      address: "other@elsewhere.example",
+      displayName: "Other",
+      provider: "google",
+      limits: DEFAULT_MAILBOX_LIMITS,
+    });
+    await db.insert(t.endeavours).values({
+      id: "end_other",
+      name: "Elsewhere",
+      kind: "sprint",
+      status: "active",
+      mailboxId: "mbx_other",
+      spec: fixtureSpec("mbx_other"),
+      brief: "A different sender entirely.",
+    });
+    await db.insert(t.companies).values({ id: "com_other", name: "Unrelated Target" });
+    await db.insert(t.prospects).values({
+      id: "pro_other",
+      endeavourId: "end_other",
+      companyId: "com_other",
+      stage: "contacted",
+      reviewStatus: "qualified",
+      source: "web",
+    });
+
+    expect(await knownTargetNames(db, FIXTURE_IDS.endeavour)).not.toContain("Unrelated Target");
   });
 });

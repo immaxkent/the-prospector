@@ -4,7 +4,7 @@
  */
 import { and, eq, inArray, sql } from "drizzle-orm";
 import type { Database } from "../db/client";
-import { companies, evidence, people, prospects, suppressions, triggers } from "../db/schema";
+import { companies, endeavours, evidence, people, prospects, suppressions, triggers } from "../db/schema";
 import type { ScoreFactor } from "../db/schema";
 import type { Candidate } from "../agent/research";
 import { isKnownTimezone } from "../domain/pacing";
@@ -159,16 +159,29 @@ export async function storeCandidates(db: Database, input: StoreInput): Promise<
   return result;
 }
 
-/** Names already targeted by this endeavour, so research does not look for them again. */
+/**
+ * Names research should not go looking for again.
+ *
+ * This endeavour's own targets, plus those of any endeavour sending from the same mailbox.
+ * Two cold emails to one company from one address read as spam however different the two
+ * offerings are, and the company cannot tell that two endeavours exist. Avoiding the repeat
+ * saves the research as well, but reputation is the reason.
+ */
 export async function knownTargetNames(db: Database, endeavourId: string, limit = 200) {
+  const [own] = await db.select({ mailboxId: endeavours.mailboxId }).from(endeavours).where(eq(endeavours.id, endeavourId));
+  const siblings = own?.mailboxId
+    ? await db.select({ id: endeavours.id }).from(endeavours).where(eq(endeavours.mailboxId, own.mailboxId))
+    : [];
+  const ids = [...new Set([endeavourId, ...siblings.map((s) => s.id)])];
+
   const rows = await db
     .select({ name: companies.name })
     .from(prospects)
     .innerJoin(companies, eq(companies.id, prospects.companyId))
-    .where(eq(prospects.endeavourId, endeavourId))
+    .where(inArray(prospects.endeavourId, ids))
     .orderBy(sql`${prospects.createdAt} desc`)
     .limit(limit);
-  return rows.map((r) => r.name);
+  return [...new Set(rows.map((r) => r.name))];
 }
 
 export interface QualificationUpdate {
