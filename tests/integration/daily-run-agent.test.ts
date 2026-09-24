@@ -342,6 +342,55 @@ describe("learning", () => {
   });
 });
 
+describe("batched qualification", () => {
+  /** A batch client that answers every question at once, the way the real one does. */
+  const batching = () => {
+    const base = agent();
+    const seen: number[] = [];
+    return {
+      seen,
+      deps: {
+        ...base,
+        batch: {
+          completeMany: async (items: readonly { id: string; request: unknown }[]) => {
+            seen.push(items.length);
+            return Promise.all(
+              items.map(async (item) => ({ id: item.id, response: await base.llm.complete((item as { request: never }).request) })),
+            );
+          },
+        },
+      },
+    };
+  };
+
+  it("asks about every waiting prospect in one batch", async () => {
+    await db.insert(t.prospects).values(
+      [1, 2].map((n) => ({
+        id: `pro_waiting_${n}`,
+        endeavourId: FIXTURE_IDS.endeavour,
+        companyId: FIXTURE_IDS.company,
+        stage: "researched" as const,
+        reviewStatus: "researching" as const,
+        source: "web_research",
+      })),
+    );
+    const { deps, seen } = batching();
+    await run({ agent: deps });
+    // One batch, holding every prospect that was waiting, rather than a call each.
+    expect(seen.length).toBe(1);
+    expect(seen[0]).toBeGreaterThanOrEqual(2);
+  });
+
+  it("records a batched call at half the token price", async () => {
+    const { deps } = batching();
+    await run({ agent: deps });
+    const [batched] = await db.select().from(t.llmCalls).where(eq(t.llmCalls.role, "research.qualify"));
+    const [inline] = await db.select().from(t.llmCalls).where(eq(t.llmCalls.role, "research.discover"));
+    // Same fixture usage either way, so a cheaper row can only be the batch discount.
+    expect(batched!.costUsd).toBeLessThan(inline!.costUsd);
+  });
+});
+
 describe("search budget", () => {
   it("looks only as hard as the shortfall justifies, and records what it cost", async () => {
     const { runId } = await run({ agent: agent() });

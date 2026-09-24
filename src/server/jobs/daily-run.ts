@@ -7,7 +7,7 @@
  */
 import { and, eq, gte, inArray, isNull, lt } from "drizzle-orm";
 import { draftOutreach, type ProofItemRef } from "../agent/draft";
-import { qualifyProspect, type EvidenceForQualification } from "../agent/qualify";
+import { qualifyProspect, qualifyProspects, type EvidenceForQualification, type Qualification } from "../agent/qualify";
 import { researchCandidates } from "../agent/research";
 import type { AgentDeps } from "../agent/deps";
 import { createOutreachDraft } from "../commands/outreach";
@@ -252,17 +252,17 @@ export const DAILY_RUN_STEPS: RunStep[] = [
         return;
       }
 
-      let qualified = 0;
+      // One question per prospect, asked together: the same work at half the token price.
+      const asks: { id: string; req: Parameters<typeof qualifyProspect>[1] }[] = [];
       for (const prospect of waiting) {
         const [company] = prospect.companyId ? await ctx.db.select().from(companies).where(eq(companies.id, prospect.companyId)) : [];
         const [person] = prospect.personId ? await ctx.db.select().from(people).where(eq(people.id, prospect.personId)) : [];
         const [segment] = prospect.segmentId ? await ctx.db.select().from(segments).where(eq(segments.id, prospect.segmentId)) : [];
         const claims = await ctx.db.select().from(evidence).where(eq(evidence.entityId, prospect.id));
         const [trigger] = await ctx.db.select().from(triggers).where(eq(triggers.prospectId, prospect.id));
-
-        const result = await qualifyProspect(
-          { ...ctx.agent, runId: ctx.runId },
-          {
+        asks.push({
+          id: prospect.id,
+          req: {
             segment: segment
               ? { name: segment.name, definition: segment.definition, signals: segment.signals, painHypothesis: segment.painHypothesis }
               : { name: "unspecified", definition: "no segment recorded", signals: [], painHypothesis: "unknown" },
@@ -286,10 +286,27 @@ export const DAILY_RUN_STEPS: RunStep[] = [
             ),
             today: localDate(ctx.now),
           },
-        );
+        });
+      }
+
+      let qualified = 0;
+      const scored: { id: string; qualification?: Qualification; error?: string }[] = ctx.agent.batch
+        ? await qualifyProspects({ ...ctx.agent, batch: ctx.agent.batch, runId: ctx.runId }, asks)
+        : await Promise.all(
+            asks.map(async (ask) => ({ id: ask.id, qualification: await qualifyProspect({ ...ctx.agent!, runId: ctx.runId }, ask.req) })),
+          );
+
+      for (const entry of scored) {
+        const prospect = waiting.find((p) => p.id === entry.id)!;
+        if (!entry.qualification) {
+          await ctx.log("warn", `${prospect.id} could not be qualified: ${entry.error ?? "no answer"}`);
+          continue;
+        }
+        const result = entry.qualification;
         await applyQualification(ctx.db, { prospectId: prospect.id, ...result });
         if (result.outcome === "qualified") qualified += 1;
-        await ctx.log("info", `${company?.name ?? prospect.id}: ${result.score}/100 · ${result.outcome}`);
+        const named = asks.find((a) => a.id === entry.id)?.req.prospect.company ?? prospect.id;
+        await ctx.log("info", `${named}: ${result.score}/100 · ${result.outcome}`);
         if (result.droppedCitations > 0) {
           await ctx.log("warn", `${result.droppedCitations} citation(s) pointed at evidence that does not exist and were dropped`);
         }
