@@ -5,7 +5,8 @@
 import { z } from "zod/v4";
 import type { ScoreFactor } from "../db/schema";
 import type { CallRecorder } from "../llm/structured";
-import { runStructured } from "../llm/structured";
+import type { BatchLlmClient } from "../llm/batch";
+import { runStructured, runStructuredMany } from "../llm/structured";
 import type { LlmClient } from "../llm/types";
 import { QUALIFY_PROMPT } from "./research-prompt";
 
@@ -152,6 +153,34 @@ export interface QualifyDeps {
   record: CallRecorder;
   model: string;
   runId?: string | null;
+}
+
+/**
+ * Qualifying a whole day's prospects at once. Same prompt, same schema, same scoring: only
+ * the billing and the waiting differ.
+ */
+export async function qualifyProspects(
+  deps: QualifyDeps & { batch: BatchLlmClient },
+  items: readonly { id: string; req: QualifyRequest }[],
+): Promise<{ id: string; qualification?: Qualification; error?: string }[]> {
+  const byId = new Map(items.map((i) => [i.id, i.req]));
+  const results = await runStructuredMany({
+    llm: deps.llm,
+    batch: deps.batch,
+    record: deps.record,
+    prompt: QUALIFY_PROMPT,
+    schema: qualifyOutputSchema,
+    items: items.map((i) => ({ id: i.id, user: renderQualifyInput(i.req) })),
+    model: deps.model,
+    depth: "light",
+    effort: "medium",
+    runId: deps.runId ?? null,
+  });
+  return results.map((r) =>
+    r.output
+      ? { id: r.id, qualification: scoreQualification(r.output, (byId.get(r.id)?.evidence ?? []).map((e) => e.id)) }
+      : { id: r.id, error: r.error ?? "no answer" },
+  );
 }
 
 export async function qualifyProspect(deps: QualifyDeps, req: QualifyRequest): Promise<Qualification> {
