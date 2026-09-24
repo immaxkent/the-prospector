@@ -6,7 +6,7 @@
  * coverage gap in the brief. Nothing is ever reported as done when it did not run.
  */
 import { and, eq, gte, inArray, isNull, lt } from "drizzle-orm";
-import { draftOutreach, type ProofItemRef } from "../agent/draft";
+import { draftOutreach, draftOutreachMany, type DraftResult, type ProofItemRef } from "../agent/draft";
 import { qualifyProspect, qualifyProspects, type EvidenceForQualification, type Qualification } from "../agent/qualify";
 import { researchCandidates } from "../agent/research";
 import type { AgentDeps } from "../agent/deps";
@@ -482,21 +482,25 @@ export const DAILY_RUN_STEPS: RunStep[] = [
         return;
       }
 
+      // Gather every draft the day needs, then write them together.
+      const named = new Map<string, string>();
+      const requests: { id: string; req: Parameters<typeof draftOutreach>[1] }[] = [];
       let drafted = 0;
       let refused = 0;
+
       for (const prospect of ready) {
         const [company] = prospect.companyId ? await ctx.db.select().from(companies).where(eq(companies.id, prospect.companyId)) : [];
         const [person] = prospect.personId ? await ctx.db.select().from(people).where(eq(people.id, prospect.personId)) : [];
         const [segment] = prospect.segmentId ? await ctx.db.select().from(segments).where(eq(segments.id, prospect.segmentId)) : [];
         const claims = await ctx.db.select().from(evidence).where(eq(evidence.entityId, prospect.id));
+        named.set(prospect.id, company?.name ?? prospect.id);
         if (!person?.email) {
           await ctx.log("warn", `${company?.name ?? prospect.id}: no email address, so no draft was written`);
           continue;
         }
-
-        const result = await draftOutreach(
-          { ...ctx.agent, runId: ctx.runId },
-          {
+        requests.push({
+          id: prospect.id,
+          req: {
             prospect: { company: company?.name ?? "unknown company", person: person.name, role: person.role },
             segment: { name: segment?.name ?? "unspecified", painHypothesis: segment?.painHypothesis ?? "unknown" },
             offering,
@@ -504,11 +508,27 @@ export const DAILY_RUN_STEPS: RunStep[] = [
             evidence: claims.map((c) => ({ id: c.id, claim: c.claim, sourceRef: c.sourceRef })),
             proof,
             senderName: endeavour.name,
-            messageClass: "new_outreach",
+            messageClass: "new_outreach" as const,
             history: [],
             today: localDate(ctx.now),
           },
-        );
+        });
+      }
+
+      const written: { id: string; result?: DraftResult; error?: string }[] = ctx.agent.batch
+        ? await draftOutreachMany({ ...ctx.agent, batch: ctx.agent.batch, runId: ctx.runId }, requests)
+        : await Promise.all(
+            requests.map(async (r) => ({ id: r.id, result: await draftOutreach({ ...ctx.agent!, runId: ctx.runId }, r.req) })),
+          );
+
+      for (const entry of written) {
+        const prospect = ready.find((p) => p.id === entry.id)!;
+        const company = { name: named.get(entry.id) ?? prospect.id };
+        if (!entry.result) {
+          await ctx.log("warn", `${company.name}: no draft was written — ${entry.error ?? "no answer"}`);
+          continue;
+        }
+        const result = entry.result;
 
         if (!result.ok) {
           refused += 1;

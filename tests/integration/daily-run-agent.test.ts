@@ -1,6 +1,7 @@
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
 import { eq } from "drizzle-orm";
 import { FixtureAgentLlm } from "../../src/server/agent/fixture";
+import type { BatchItem } from "../../src/server/llm/batch";
 import { FIXTURE_IDS, seedFixtures } from "../../src/server/db/fixtures";
 import * as t from "../../src/server/db/schema";
 import { runDailyLoop } from "../../src/server/jobs/daily-run";
@@ -352,11 +353,9 @@ describe("batched qualification", () => {
       deps: {
         ...base,
         batch: {
-          completeMany: async (items: readonly { id: string; request: unknown }[]) => {
+          completeMany: async (items: readonly BatchItem[]) => {
             seen.push(items.length);
-            return Promise.all(
-              items.map(async (item) => ({ id: item.id, response: await base.llm.complete((item as { request: never }).request) })),
-            );
+            return Promise.all(items.map(async (item) => ({ id: item.id, response: await base.llm.complete(item.request) })));
           },
         },
       },
@@ -379,6 +378,23 @@ describe("batched qualification", () => {
     // One batch, holding every prospect that was waiting, rather than a call each.
     expect(seen.length).toBe(1);
     expect(seen[0]).toBeGreaterThanOrEqual(2);
+  });
+
+  it("writes the day's drafts in one batch too", async () => {
+    await db
+      .update(t.prospects)
+      .set({ stage: "qualified", reviewStatus: "qualified", scoreReason: "Mainnet in six weeks, no audit" })
+      .where(eq(t.prospects.id, FIXTURE_IDS.prospect));
+    await db.delete(t.messages);
+    await db.delete(t.approvals);
+    const { deps, seen } = batching();
+    await run({ agent: deps });
+    const drafts = await db.select().from(t.messages).where(eq(t.messages.sendState, "pending_approval"));
+    expect(drafts.length).toBeGreaterThanOrEqual(1);
+    // Qualification and drafting each ask once, rather than once per prospect.
+    expect(seen.length).toBeGreaterThanOrEqual(1);
+    const [draftCall] = await db.select().from(t.llmCalls).where(eq(t.llmCalls.role, "outreach.draft"));
+    expect(draftCall).toBeDefined();
   });
 
   it("records a batched call at half the token price", async () => {
