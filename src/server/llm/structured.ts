@@ -5,9 +5,10 @@
 import { createHash } from "node:crypto";
 import { z } from "zod/v4";
 import { newId } from "../ids";
+import { BatchTimeoutError, type BatchLlmClient, type BatchOutcome } from "./batch";
 import { BudgetExceededError } from "./budgeted";
 import { costUsd } from "./pricing";
-import type { Depth, Effort, LlmClient, LlmResponse } from "./types";
+import type { Depth, Effort, LlmClient, LlmRequest, LlmResponse } from "./types";
 
 export interface PromptDefinition {
   /** Stable role name, e.g. "intake.planner". */
@@ -133,4 +134,102 @@ export async function runStructured<S extends z.ZodType>(call: StructuredCall<S>
   }
   await call.record({ ...base, ...spend, status: "ok" });
   return { output: result.data, response };
+}
+
+export interface StructuredBatchItem {
+  /** The caller's key for this question, returned with its answer. */
+  id: string;
+  user: string;
+}
+
+export interface StructuredBatchResult<T> {
+  id: string;
+  output?: T;
+  error?: string;
+}
+
+/**
+ * The same role, asked many questions at once and billed at half the token price.
+ *
+ * Every answer is validated and recorded exactly as a single call would be, so nothing is
+ * trusted because it arrived in a batch. If the batch overruns, the questions are asked
+ * one at a time instead: a dearer run is better than a day that does not finish.
+ */
+export async function runStructuredMany<S extends z.ZodType>(
+  call: Omit<StructuredCall<S>, "user"> & { batch: BatchLlmClient; items: readonly StructuredBatchItem[] },
+): Promise<StructuredBatchResult<z.infer<S>>[]> {
+  if (call.items.length === 0) return [];
+  const jsonSchema = toApiSchema(call.schema);
+
+  const ask = (user: string): LlmRequest => ({
+    model: call.model,
+    system: call.prompt.system,
+    user,
+    jsonSchema,
+    maxTokens: call.maxTokens ?? 16_000,
+    effort: call.effort,
+    webSearch: call.webSearch,
+    depth: call.depth,
+  });
+
+  let outcomes: BatchOutcome[];
+  try {
+    outcomes = await call.batch.completeMany(call.items.map((item) => ({ id: item.id, request: ask(item.user) })));
+  } catch (err) {
+    if (!(err instanceof BatchTimeoutError)) throw err;
+    // The batch is abandoned, not awaited: finishing the day matters more than the discount.
+    console.warn(`${err.message}; falling back to one call at a time`);
+    const results: StructuredBatchResult<z.infer<S>>[] = [];
+    for (const item of call.items) {
+      try {
+        const { output } = await runStructured({ ...call, user: item.user });
+        results.push({ id: item.id, output });
+      } catch (single) {
+        results.push({ id: item.id, error: single instanceof Error ? single.message : String(single) });
+      }
+    }
+    return results;
+  }
+
+  const results: StructuredBatchResult<z.infer<S>>[] = [];
+  for (const outcome of outcomes) {
+    const base = {
+      id: newId("llmCall"),
+      runId: call.runId ?? null,
+      role: call.prompt.role,
+      promptVersion: call.prompt.version,
+      inputHash: hashInput([call.prompt.system, outcome.id, jsonSchema, call.model]),
+    };
+    if (!outcome.response) {
+      await call.record({ ...base, model: call.model, inputTokens: 0, outputTokens: 0, costUsd: 0, status: "error", error: outcome.error ?? "no answer" });
+      results.push({ id: outcome.id, error: outcome.error ?? "no answer" });
+      continue;
+    }
+    const response = outcome.response;
+    const spend = {
+      model: response.model,
+      inputTokens: response.usage.inputTokens + response.usage.cacheCreationInputTokens + response.usage.cacheReadInputTokens,
+      outputTokens: response.usage.outputTokens,
+      // Batches bill tokens at half; the search requests inside them are not discounted.
+      costUsd: costUsd(response.model, response.usage) / 2,
+    };
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(response.text);
+    } catch {
+      await call.record({ ...base, ...spend, status: "invalid_output", error: "the response was not JSON" });
+      results.push({ id: outcome.id, error: "the response was not JSON" });
+      continue;
+    }
+    const checked = call.schema.safeParse(parsed);
+    if (!checked.success) {
+      const issues = z.prettifyError(checked.error);
+      await call.record({ ...base, ...spend, status: "invalid_output", error: issues.slice(0, 2000) });
+      results.push({ id: outcome.id, error: issues });
+      continue;
+    }
+    await call.record({ ...base, ...spend, status: "ok" });
+    results.push({ id: outcome.id, output: checked.data });
+  }
+  return results;
 }
