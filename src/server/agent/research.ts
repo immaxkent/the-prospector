@@ -141,5 +141,7 @@ export async function researchCandidates(deps: ResearchDeps, req: ResearchReques
     searchNotes: output.searchNotes,
     sources: response.sources,
     proposed: output.candidates.length,
+    /** What the searching actually cost, which is rarely the cap it was allowed. */
+    searches: response.usage.webSearchRequests,
   };
 }
