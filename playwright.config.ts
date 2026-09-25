@@ -57,6 +57,8 @@ export default defineConfig({
         INTAKE_PLANNER_FIXTURE: "1",
         // No separate worker process in e2e: the web process drains the queue.
         WORKER_MODE: "inline",
+        // A throwaway key, so the paths that seal a credential are actually exercised.
+        TOKEN_ENCRYPTION_KEY: "ZTJlLW9ubHkta2V5ZTJlLW9ubHkta2V5ZTJlLW9ubHk=",
       },
     },
   ],

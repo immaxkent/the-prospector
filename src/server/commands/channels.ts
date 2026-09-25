@@ -10,7 +10,7 @@ import type { Database } from "../db/client";
 import { notificationChannels } from "../db/schema";
 import { sealJson, unsealJson } from "../crypto/tokens";
 import { channelFromCredentials, fanOut, inAppOnly, type DeliveryChannel, type Fetch } from "../notify/channels";
-import { checkCredentials, describeChannel, PROVIDERS, type Provider } from "../domain/notify-providers";
+import { checkCredentials, describeChannel, PROVIDERS, type Provider } from "@/data/notify-providers";
 import { newId } from "../ids";
 import { invalid, notFound } from "./errors";
 import { recordEvent } from "./events";

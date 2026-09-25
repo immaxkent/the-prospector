@@ -45,7 +45,13 @@ export const runNowFn = createServerFn({ method: "POST" })
         scheduleHour: config.dailyRunHour,
         agent: await createAgentDeps(config, db),
         mail: (await import("../server/commands/send-deps")).createSendDeps(config),
-        notifications: (await import("../server/notify/channels")).channelFor(config),
+        notifications: config.tokenKey
+          ? await (await import("../server/commands/channels")).deliveryChannel(db, {
+              tokenKey: config.tokenKey,
+              appUrl: config.appUrl,
+              fromEnv: (await import("../server/notify/channels")).channelFor(config),
+            })
+          : (await import("../server/notify/channels")).channelFor(config),
       });
     }
     return { queued, endeavours: targets.length, executedInline: config.workerMode === "inline" };
