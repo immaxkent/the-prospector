@@ -39,6 +39,12 @@ export interface PipelineStage {
 }
 
 export interface WorkloadInput {
+  /**
+   * What the objective is counted in. Money for a revenue objective, and plain units for
+   * one counted in partnerships, customers or meetings — where each win is worth exactly
+   * one and there is no price to reason about.
+   */
+  unit?: "money" | "count";
   /** Value still to win, before counting the pipeline. */
   objectiveValue: number;
   wonValue: number;
@@ -135,7 +141,9 @@ export function planWorkload(input: WorkloadInput): Workload {
   if (limitedBy === "capacity") {
     notes.push(`The mailbox can only send ${input.capacityToday} more today, so that is the limit.`);
   }
-  if (input.dealValueSource === "minimum") {
+  if (input.unit === "count") {
+    notes.push(`${Math.ceil(gap)} more to win, and each one counts once: there is no price to forecast from here.`);
+  } else if (input.dealValueSource === "minimum") {
     notes.push(
       "There is no typical deal value set, so the forecast uses the minimum you would accept. That is the pessimistic case: set a typical value to see a realistic one.",
     );

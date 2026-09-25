@@ -140,3 +140,34 @@ describe("what a deal is worth", () => {
     expect(large.wanted).toBeLessThan(small.wanted);
   });
 });
+
+describe("objectives that are not measured in money", () => {
+  /** "Five partnerships by December" — each win counts once, and there is no price. */
+  const partnerships = (over: Partial<WorkloadInput> = {}) =>
+    plan({ unit: "count", objectiveValue: 5, wonValue: 0, dealValue: 1, dailyCeiling: 20, daysRemaining: 60, ...over });
+
+  it("asks for work, rather than deciding it is already finished", () => {
+    const result = partnerships();
+    // The bug this replaces: a non-revenue objective was valued at zero and looked complete.
+    expect(result.limitedBy).not.toBe("objective_met");
+    expect(result.newProspects).toBeGreaterThan(0);
+    expect(result.gap).toBe(5);
+  });
+
+  it("counts each win once instead of pricing it", () => {
+    const result = partnerships({ wonValue: 3 });
+    expect(result.gap).toBe(2);
+    expect(result.notes.join(" ")).toContain("each one counts once");
+    expect(result.notes.join(" ")).not.toContain("pessimistic case");
+  });
+
+  it("is finished when enough have been won", () => {
+    expect(partnerships({ wonValue: 5 }).limitedBy).toBe("objective_met");
+  });
+
+  it("counts live conversations towards the target, as revenue does", () => {
+    const withPipeline = partnerships({ pipeline: [{ count: 10, probability: 0.2 }] });
+    expect(withPipeline.expectedFromPipeline).toBe(2);
+    expect(withPipeline.gap).toBe(3);
+  });
+});
