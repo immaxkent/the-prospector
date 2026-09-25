@@ -21,6 +21,7 @@ import { Route as PipelineRouteImport } from './routes/pipeline'
 import { Route as ProspectsRouteImport } from './routes/prospects'
 import { Route as ResearchRouteImport } from './routes/research'
 import { Route as SettingsRouteImport } from './routes/settings'
+import { Route as WalkthroughsRouteImport } from './routes/walkthroughs'
 import { Route as AuthGoogleRouteImport } from './routes/auth.google'
 import { Route as AuthLogoutRouteImport } from './routes/auth.logout'
 import { Route as AuthTestLoginRouteImport } from './routes/auth.test-login'
@@ -92,6 +93,11 @@ const SettingsRoute = SettingsRouteImport.update({
   path: '/settings',
   getParentRoute: () => rootRouteImport,
 } as any)
+const WalkthroughsRoute = WalkthroughsRouteImport.update({
+  id: '/walkthroughs',
+  path: '/walkthroughs',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AuthGoogleRoute = AuthGoogleRouteImport.update({
   id: '/auth/google',
   path: '/auth/google',
@@ -156,6 +162,7 @@ export interface FileRoutesByFullPath {
   '/prospects': typeof ProspectsRoute
   '/research': typeof ResearchRoute
   '/settings': typeof SettingsRoute
+  '/walkthroughs': typeof WalkthroughsRoute
   '/auth/google': typeof AuthGoogleRouteWithChildren
   '/auth/logout': typeof AuthLogoutRoute
   '/auth/test-login': typeof AuthTestLoginRoute
@@ -179,6 +186,7 @@ export interface FileRoutesByTo {
   '/prospects': typeof ProspectsRoute
   '/research': typeof ResearchRoute
   '/settings': typeof SettingsRoute
+  '/walkthroughs': typeof WalkthroughsRoute
   '/auth/google': typeof AuthGoogleRouteWithChildren
   '/auth/logout': typeof AuthLogoutRoute
   '/auth/test-login': typeof AuthTestLoginRoute
@@ -204,6 +212,7 @@ export interface FileRoutesById {
   '/prospects': typeof ProspectsRoute
   '/research': typeof ResearchRoute
   '/settings': typeof SettingsRoute
+  '/walkthroughs': typeof WalkthroughsRoute
   '/auth/google': typeof AuthGoogleRouteWithChildren
   '/auth/logout': typeof AuthLogoutRoute
   '/auth/test-login': typeof AuthTestLoginRoute
@@ -230,6 +239,7 @@ export interface FileRouteTypes {
     | '/prospects'
     | '/research'
     | '/settings'
+    | '/walkthroughs'
     | '/auth/google'
     | '/auth/logout'
     | '/auth/test-login'
@@ -253,6 +263,7 @@ export interface FileRouteTypes {
     | '/prospects'
     | '/research'
     | '/settings'
+    | '/walkthroughs'
     | '/auth/google'
     | '/auth/logout'
     | '/auth/test-login'
@@ -277,6 +288,7 @@ export interface FileRouteTypes {
     | '/prospects'
     | '/research'
     | '/settings'
+    | '/walkthroughs'
     | '/auth/google'
     | '/auth/logout'
     | '/auth/test-login'
@@ -302,6 +314,7 @@ export interface RootRouteChildren {
   ProspectsRoute: typeof ProspectsRoute
   ResearchRoute: typeof ResearchRoute
   SettingsRoute: typeof SettingsRoute
+  WalkthroughsRoute: typeof WalkthroughsRoute
   AuthGoogleRoute: typeof AuthGoogleRouteWithChildren
   AuthLogoutRoute: typeof AuthLogoutRoute
   AuthTestLoginRoute: typeof AuthTestLoginRoute
@@ -394,6 +407,13 @@ declare module '@tanstack/react-router' {
       path: '/settings'
       fullPath: '/settings'
       preLoaderRoute: typeof SettingsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/walkthroughs': {
+      id: '/walkthroughs'
+      path: '/walkthroughs'
+      fullPath: '/walkthroughs'
+      preLoaderRoute: typeof WalkthroughsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/auth/google': {
@@ -510,6 +530,7 @@ const rootRouteChildren: RootRouteChildren = {
   ProspectsRoute: ProspectsRoute,
   ResearchRoute: ResearchRoute,
   SettingsRoute: SettingsRoute,
+  WalkthroughsRoute: WalkthroughsRoute,
   AuthGoogleRoute: AuthGoogleRouteWithChildren,
   AuthLogoutRoute: AuthLogoutRoute,
   AuthTestLoginRoute: AuthTestLoginRoute,

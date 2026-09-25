@@ -20,6 +20,7 @@ const NAV: { to: string; label: string; key: string; glyph: string }[] = [
   { to: "/intelligence", label: "Intelligence", key: "07", glyph: "✦" },
   { to: "/interfaces", label: "Interfaces", key: "08", glyph: "⌘" },
   { to: "/settings", label: "Settings", key: "09", glyph: "⚙" },
+  { to: "/walkthroughs", label: "Walkthroughs", key: "10", glyph: "☰" },
 ];
 
 export function AppShell({ children }: { children: ReactNode }) {
