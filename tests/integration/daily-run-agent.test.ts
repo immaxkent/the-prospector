@@ -455,6 +455,27 @@ describe("workload", () => {
     expect(await logFor()).toContain("no new prospects are needed today");
   });
 
+  it("works towards a partnerships objective, which has no price at all", async () => {
+    // Five partnerships rather than pounds: pricing does not apply, and must not be needed.
+    const [endeavour] = await db.select().from(t.endeavours).where(eq(t.endeavours.id, FIXTURE_IDS.endeavour));
+    const spec = endeavour!.spec as Record<string, unknown>;
+    await db
+      .update(t.endeavours)
+      .set({
+        spec: {
+          ...spec,
+          objective: { state: "confirmed", value: { metric: "partners", target: 5, unit: "COUNT" } },
+          pricing: { state: "not_applicable", reason: "a partnership is not bought" },
+        } as never,
+      })
+      .where(eq(t.endeavours.id, FIXTURE_IDS.endeavour));
+
+    await run({ agent: agent() });
+    const [runRow] = await db.select().from(t.dailyRuns);
+    expect((runRow!.metrics as Record<string, number>)["targetToday"]).toBeGreaterThan(0);
+    expect(await logText()).toContain("each one counts once");
+  });
+
   it("says so when the objective cannot be reached at these rates", async () => {
     await run({ agent: agent() });
     const [runRow] = await db.select().from(t.dailyRuns);

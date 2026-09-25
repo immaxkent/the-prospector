@@ -699,7 +699,13 @@ async function todaysWorkload(ctx: RunContext): Promise<Workload> {
 
   const opportunityRows = await ctx.db.select().from(opportunities).where(eq(opportunities.endeavourId, ctx.endeavourId));
   const wonDeals = opportunityRows.filter((o) => o.stage === "won");
-  const wonValue = wonDeals.reduce((sum, o) => sum + o.value, 0);
+
+  /**
+   * An objective counted in partnerships or customers is not measured in money: each win is
+   * worth exactly one, and there is no price to forecast from. Only revenue reasons in value.
+   */
+  const counted = objective?.metric !== "revenue";
+  const wonValue = counted ? own.filter((p) => p.stage === "won").length : wonDeals.reduce((sum, o) => sum + o.value, 0);
 
   // Evidence first: what deals actually turned out to be worth beats any estimate of them.
   const deal = wonDeals.length
@@ -731,10 +737,11 @@ async function todaysWorkload(ctx: RunContext): Promise<Workload> {
   const capacityToday = mailbox ? effectiveDailyCap(mailbox.limits, localDate(ctx.now, mailbox.limits.timezone)) : dailyNewTarget;
 
   return planWorkload({
-    objectiveValue: objective?.metric === "revenue" ? objective.target : 0,
+    unit: counted ? "count" : "money",
+    objectiveValue: objective?.target ?? 0,
     wonValue,
-    dealValue: deal.value,
-    dealValueSource: deal.source,
+    dealValue: counted ? 1 : deal.value,
+    ...(counted ? {} : { dealValueSource: deal.source }),
     pipeline: [...byStage.entries()].map(([stage, count]) => ({
       count,
       probability: DEFAULT_STAGE_PROBABILITY[stage as keyof typeof DEFAULT_STAGE_PROBABILITY] ?? 0,
