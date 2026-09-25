@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { FIELD_FORMS, blankItem, coerce, display, withoutEmpties, type Input } from "./spec-forms";
+import { FIELD_FORMS, blankItem, coerce, display, isShown, withoutEmpties, type Input } from "./spec-forms";
 
 describe("every spec field has a form", () => {
   it("covers each field the operator edits", () => {
@@ -69,5 +69,47 @@ describe("blankItem", () => {
   it("makes something the inputs can fill straight away", () => {
     const inputs = (FIELD_FORMS["proof"] as { inputs: Input[] }).inputs;
     expect(blankItem(inputs)).toEqual({ kind: "repo", title: "", url: "", claim: "" });
+  });
+
+  it("never starts a must-be-positive number at zero", () => {
+    // Switching the horizon to ongoing used to hand the server reviewEvery: 0, which it
+    // refused — for a value nobody had chosen.
+    const ongoing = (FIELD_FORMS["horizon"] as { variants: Record<string, { inputs: Input[] }> }).variants["ongoing"]!;
+    expect(blankItem(ongoing.inputs)).toEqual({ period: "week", reviewEvery: 1 });
+
+    const buyer = blankItem((FIELD_FORMS["buyers"] as { inputs: Input[] }).inputs);
+    expect(buyer["priority"]).toBe(1);
+  });
+});
+
+describe("isShown", () => {
+  const inputs = (FIELD_FORMS["objective"] as { inputs: Input[] }).inputs;
+  const currency = inputs.find((i) => i.key === "currency")!;
+  const unit = inputs.find((i) => i.key === "unit")!;
+
+  it("asks for a currency only when the objective is money", () => {
+    expect(isShown(currency, { metric: "revenue" })).toBe(true);
+    expect(isShown(currency, { metric: "partners" })).toBe(false);
+  });
+
+  it("asks what is being counted only when it is not money", () => {
+    expect(isShown(unit, { metric: "partners" })).toBe(true);
+    expect(isShown(unit, { metric: "revenue" })).toBe(false);
+  });
+
+  it("shows an input with no condition", () => {
+    expect(isShown(inputs.find((i) => i.key === "target")!, {})).toBe(true);
+  });
+});
+
+describe("normalise", () => {
+  it("makes a revenue objective's unit follow its currency instead of asking twice", () => {
+    const form = FIELD_FORMS["objective"] as { normalise: (v: Record<string, unknown>) => Record<string, unknown> };
+    expect(form.normalise({ metric: "revenue", currency: "USD", target: 100 })).toMatchObject({ unit: "USD" });
+  });
+
+  it("leaves a counted objective's unit alone, because it means something else", () => {
+    const form = FIELD_FORMS["objective"] as { normalise: (v: Record<string, unknown>) => Record<string, unknown> };
+    expect(form.normalise({ metric: "partners", unit: "partners", target: 5 })).toMatchObject({ unit: "partners" });
   });
 });

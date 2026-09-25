@@ -1,5 +1,5 @@
 import { Button, MachineLabel } from "./primitives";
-import { FIELD_FORMS, blankItem, coerce, display, withoutEmpties, type Input } from "./spec-forms";
+import { FIELD_FORMS, blankItem, coerce, display, isShown, withoutEmpties, type Input } from "./spec-forms";
 
 const inputCls =
   "w-full rounded-[3px] border border-border bg-card px-2 py-1.5 text-[12px] outline-none focus:border-signal";
@@ -82,17 +82,17 @@ export function SpecForm({
 
   if (form.kind === "object") {
     const object = (value ?? {}) as Record<string, unknown>;
+    const update = (key: string, next: unknown) => {
+      const merged = withoutEmpties({ ...object, [key]: next });
+      onChange(form.normalise ? form.normalise(merged) : merged);
+    };
     return (
       <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
-        {form.inputs.map((input) => (
-          <Field
-            key={input.key}
-            input={input}
-            value={object[input.key]}
-            disabled={disabled}
-            onChange={(next) => onChange(withoutEmpties({ ...object, [input.key]: next }))}
-          />
-        ))}
+        {form.inputs
+          .filter((input) => isShown(input, object))
+          .map((input) => (
+            <Field key={input.key} input={input} value={object[input.key]} disabled={disabled} onChange={(next) => update(input.key, next)} />
+          ))}
       </div>
     );
   }
@@ -153,15 +153,17 @@ export function SpecForm({
             </Button>
           </div>
           <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
-            {form.inputs.map((input) => (
-              <Field
-                key={input.key}
-                input={input}
-                value={item[input.key]}
-                disabled={disabled}
-                onChange={(next) => replace(index, withoutEmpties({ ...item, [input.key]: next }))}
-              />
-            ))}
+            {form.inputs
+              .filter((input) => isShown(input, item))
+              .map((input) => (
+                <Field
+                  key={input.key}
+                  input={input}
+                  value={item[input.key]}
+                  disabled={disabled}
+                  onChange={(next) => replace(index, withoutEmpties({ ...item, [input.key]: next }))}
+                />
+              ))}
           </div>
         </div>
       ))}

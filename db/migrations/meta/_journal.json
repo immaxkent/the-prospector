@@ -43,6 +43,13 @@
       "when": 1790107405586,
       "tag": "0005_llm_call_error",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1790345749574,
+      "tag": "0006_notification_channels",
+      "breakpoints": true
     }
   ]
 }
