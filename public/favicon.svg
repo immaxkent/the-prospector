@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+  <!--
+    Crossed shovel and pickaxe. Small heads, long shafts and a wide angle: the heads have to
+    clear each other or the top of the icon turns into one blob, which is what a bigger blade
+    and a narrower cross both did.
+  -->
+  <rect width="32" height="32" rx="7" fill="#14110F"/>
+
+  <g fill="#6FD6CE" stroke="#6FD6CE" stroke-linecap="round" stroke-linejoin="round">
+    <!-- shovel, leaning left -->
+    <g transform="rotate(-36 16 16)">
+      <path d="M16 2.4c2 0 3.2 1.3 3.2 3 0 1.9-1.3 3.4-3.2 4.3-1.9-0.9-3.2-2.4-3.2-4.3 0-1.7 1.2-3 3.2-3Z"/>
+      <path d="M16 9.7V29.8" fill="none" stroke-width="2.4"/>
+    </g>
+
+    <!-- pickaxe, leaning right -->
+    <g transform="rotate(36 16 16)">
+      <path d="M8.8 6.6C11.4 3.6 14 2.9 16 4.6c2-1.7 4.6-1 7.2 2" fill="none" stroke-width="2.8"/>
+      <path d="M16 4.6V29.8" fill="none" stroke-width="2.4"/>
+    </g>
+  </g>
+</svg>

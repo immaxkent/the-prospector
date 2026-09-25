@@ -121,6 +121,8 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
         href: "https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,700&family=JetBrains+Mono:wght@400;500&family=Marcellus&display=swap",
       },
       { rel: "stylesheet", href: appCss },
+      // SVG first for anything modern; the .ico stays as the fallback for older tabs.
+      { rel: "icon", href: "/favicon.svg", type: "image/svg+xml" },
       { rel: "icon", href: "/favicon.ico", type: "image/x-icon" },
     ],
   }),
