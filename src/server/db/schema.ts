@@ -534,6 +534,25 @@ export const appSettings = pgTable("app_settings", {
   ...timestamps,
 });
 
+/**
+ * Where notifications are delivered. Credentials are sealed with the same key as the mailbox
+ * tokens and never leave the server, so connecting a channel is a form rather than an edit to
+ * a file on the box.
+ */
+export const notificationChannels = pgTable("notification_channels", {
+  id: id(),
+  provider: text("provider", { enum: ["slack", "telegram", "ntfy", "webhook"] }).notNull(),
+  /** What to show the operator: a host, or which conversation. Never the credential. */
+  label: text("label").notNull(),
+  /** AES-GCM ciphertext of the provider's fields. Never plaintext. */
+  secretCiphertext: text("secret_ciphertext").notNull(),
+  enabled: boolean("enabled").notNull().default(true),
+  /** When a notification last went out through it, so a silent channel is visible. */
+  lastDeliveredAt: timestamp("last_delivered_at", { withTimezone: true }),
+  lastError: text("last_error"),
+  ...timestamps,
+});
+
 export const events = pgTable(
   "events",
   {

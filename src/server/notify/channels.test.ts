@@ -2,11 +2,16 @@ import { describe, expect, it } from "vitest";
 import type { AppConfig } from "../config";
 import {
   channelFor,
+  channelFromCredentials,
+  escapeMarkdown,
+  fanOut,
   inAppOnly,
   isSlackWebhookUrl,
   ntfyChannel,
   slackChannel,
+  telegramChannel,
   webhookChannel,
+  type DeliveryChannel,
   type Fetch,
   type Notification,
 } from "./channels";
@@ -111,5 +116,60 @@ describe("channelFor", () => {
 
   it("falls back to holding notifications in the app when nothing is configured", () => {
     expect(channelFor(config({}))).toBe(inAppOnly);
+  });
+});
+
+describe("telegramChannel", () => {
+  it("sends the title, the body and a link to the chat", async () => {
+    const { calls, impl } = recorder();
+    await telegramChannel("123:abc", "987", "https://prospector.example", impl).deliver(notification);
+    expect(calls[0]!.url).toBe("https://api.telegram.org/bot123:abc/sendMessage");
+    const posted = bodyOf(calls[0]!.init);
+    expect(posted.chat_id).toBe("987");
+    expect(posted.text).toContain("3 drafts waiting");
+    expect(posted.text).toContain("https://prospector.example/command");
+  });
+
+  it("escapes what MarkdownV2 reserves, which would otherwise fail the whole send", () => {
+    expect(escapeMarkdown("Northbridge (pre-audit) — 40% up!")).toBe(
+      "Northbridge \\(pre\\-audit\\) — 40% up\\!",
+    );
+  });
+
+  it("keeps Telegram's own description when it refuses", async () => {
+    const { impl } = recorder({ ok: false, status: 400, body: JSON.stringify({ description: "chat not found" }) });
+    await expect(telegramChannel("123:abc", "987", "", impl).deliver(notification)).rejects.toThrow(
+      "Telegram returned 400: chat not found",
+    );
+  });
+});
+
+describe("fanOut", () => {
+  const ok = (name: string, log: string[]): DeliveryChannel => ({ name, deliver: async () => { log.push(name); } });
+  const bad = (name: string): DeliveryChannel => ({ name, deliver: async () => { throw new Error("no"); } });
+
+  it("delivers to every channel", async () => {
+    const log: string[] = [];
+    await fanOut([ok("slack", log), ok("telegram", log)]).deliver(notification);
+    expect(log).toEqual(["slack", "telegram"]);
+  });
+
+  it("one failure does not stop the others", async () => {
+    const log: string[] = [];
+    await fanOut([bad("slack"), ok("telegram", log)]).deliver(notification);
+    expect(log).toEqual(["telegram"]);
+  });
+
+  it("raises only when nothing got through at all", async () => {
+    await expect(fanOut([bad("slack"), bad("telegram")]).deliver(notification)).rejects.toThrow("slack: no");
+  });
+});
+
+describe("channelFromCredentials", () => {
+  it("builds the channel the provider names", () => {
+    expect(channelFromCredentials("slack", { webhookUrl: HOOK }, "").name).toBe("slack");
+    expect(channelFromCredentials("telegram", { botToken: "1:a", chatId: "2" }, "").name).toBe("telegram");
+    expect(channelFromCredentials("ntfy", { topicUrl: "https://ntfy.sh/t" }, "").name).toBe("ntfy");
+    expect(channelFromCredentials("webhook", { url: "https://e.example" }, "").name).toBe("webhook");
   });
 });
