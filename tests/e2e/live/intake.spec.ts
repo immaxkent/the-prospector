@@ -42,7 +42,9 @@ test.describe("intake", () => {
     // Pricing: replace the suggestion with a real price.
     const pricing = page.getByTestId("intake-field-pricing");
     await pricing.getByRole("button", { name: "Edit" }).click();
-    await pricing.getByLabel("Value for Pricing").fill('{"model":"package","amount":750,"currency":"GBP"}');
+    await pricing.getByLabel("Model").selectOption("package");
+    await pricing.getByLabel("Fixed price").fill("750");
+    await pricing.getByLabel("Currency").selectOption("GBP");
     await pricing.getByRole("button", { name: "Save value" }).click();
     await expect(pricing).toContainText("CONFIRMED");
     await expect(pricing).toContainText("amount: 750");
@@ -55,8 +57,9 @@ test.describe("intake", () => {
 
     // Exclusions: explicitly none.
     const exclusions = page.getByTestId("intake-field-exclusions");
+    // An empty list is the way to say "no exclusions", and the form starts empty.
     await exclusions.getByRole("button", { name: "Enter value" }).click();
-    await exclusions.getByLabel("Value for Who you will not work with").fill("[]");
+    await expect(exclusions).toContainText("NOTHING HERE YET");
     await exclusions.getByRole("button", { name: "Save value" }).click();
     await expect(exclusions).toContainText("CONFIRMED");
 
@@ -82,7 +85,9 @@ test.describe("intake", () => {
     await expect(cadence).toContainText("STATED");
 
     await cadence.getByRole("button", { name: "Edit" }).click();
-    await cadence.getByLabel("Value for Daily cadence").fill('{"dailyNewTarget":-4,"dailyFollowupTarget":8}');
+    // A form can still offer a value the server refuses, and the refusal must still hold.
+    await cadence.getByLabel("New contacts a day").fill("-4");
+    await cadence.getByLabel("Follow-ups a day").fill("8");
     await cadence.getByRole("button", { name: "Save value" }).click();
 
     // The draft must keep the planner's value: a rejected edit is never stored.
@@ -133,9 +138,51 @@ test("a blocker sends you to the field it is about, and the field shows the shap
   await expect(row).toBeInViewport();
   await expect(row).toHaveClass(/surge/);
 
-  // The editor offers the shape rather than leaving the operator to guess at the JSON.
+  // The horizon is edited as a form, with the shape following the kind chosen.
   await row.getByRole("button", { name: "Edit" }).click();
-  await expect(row.getByText("SHAPE THIS FIELD EXPECTS")).toBeVisible();
-  await row.getByRole("button", { name: "USE THIS SHAPE" }).click();
-  await expect(row.getByLabel(/Value for/)).toHaveValue(/"kind": "ongoing"/);
+  await row.getByLabel("Kind").selectOption("ongoing");
+  await expect(row.getByLabel("Period")).toBeVisible();
+  await row.getByLabel("Period").selectOption("month");
+  await row.getByLabel("Review every").fill("1");
+  await row.getByRole("button", { name: "Save value" }).click();
+  await expect(row).toContainText("month");
+});
+
+test("spec fields are edited with real inputs, not raw JSON", async ({ page }) => {
+  await signIn(page, "/endeavours/new");
+  await page.getByLabel("Brief").fill(BRIEF);
+  await page.getByRole("button", { name: /plan this endeavour/i }).click();
+  await expect(page.getByTestId("activation-blockers")).toBeVisible({ timeout: 30_000 });
+
+  const pricing = page.getByTestId("intake-field-pricing");
+  await pricing.getByRole("button", { name: "Edit" }).click();
+
+  // A fixed set of options is offered, rather than typed into JSON and hoped for.
+  const model = pricing.getByLabel("Model");
+  await expect(model).toBeVisible();
+  await model.selectOption("retainer");
+  await pricing.getByLabel("Minimum you would accept").fill("95");
+  await pricing.getByLabel("Typical deal value").fill("2400");
+  await pricing.getByRole("button", { name: "Save value" }).click();
+
+  await expect(pricing).toContainText("retainer");
+  await expect(pricing).toContainText("2400");
+});
+
+test("a list field can be added to and removed from", async ({ page }) => {
+  await signIn(page, "/endeavours/new");
+  await page.getByLabel("Brief").fill(BRIEF);
+  await page.getByRole("button", { name: /plan this endeavour/i }).click();
+  await expect(page.getByTestId("activation-blockers")).toBeVisible({ timeout: 30_000 });
+
+  const buyers = page.getByTestId("intake-field-buyers");
+  await buyers.getByRole("button", { name: "Edit" }).click();
+  await buyers.getByRole("button", { name: /add buyer/i }).click();
+  await buyers.getByLabel("Name").last().fill("Prop desks");
+  await buyers.getByLabel("Who they are").last().fill("Trading firms running their own contracts");
+  await buyers.getByLabel("Signals they need it now").last().fill("new venue integration");
+  await buyers.getByLabel("Why it hurts").last().fill("No in-house security review");
+  await buyers.getByLabel("Priority").last().fill("2");
+  await buyers.getByRole("button", { name: "Save value" }).click();
+  await expect(buyers).toContainText("Prop desks");
 });

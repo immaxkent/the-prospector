@@ -1,4 +1,6 @@
 import { useState } from "react";
+import { SpecForm } from "./SpecForm";
+import { FIELD_FORMS } from "./spec-forms";
 import { Button, MachineLabel, Tag } from "./primitives";
 
 export type IntakeFieldState =
@@ -76,6 +78,9 @@ export function IntakeFieldRow({
 }) {
   const [panel, setPanel] = useState<"none" | "edit" | "na">("none");
   const [draft, setDraft] = useState("");
+  // The form is the way in; raw JSON stays for anything the form cannot express.
+  const [asJson, setAsJson] = useState(false);
+  const [formValue, setFormValue] = useState<unknown>(null);
   const [reason, setReason] = useState("");
   const [jsonError, setJsonError] = useState<string | null>(null);
   if (!state) return null;
@@ -83,10 +88,17 @@ export function IntakeFieldRow({
   const value = "value" in state ? state.value : undefined;
   const openEditor = () => {
     setDraft(JSON.stringify(value ?? null, null, 2));
+    setFormValue(value ?? (FIELD_FORMS[field]?.kind === "list" ? [] : {}));
     setJsonError(null);
+    setAsJson(!FIELD_FORMS[field]);
     setPanel("edit");
   };
   const save = () => {
+    if (!asJson) {
+      onSet(formValue);
+      setPanel("none");
+      return;
+    }
     try {
       onSet(JSON.parse(withoutComments(draft)));
       setPanel("none");
@@ -131,25 +143,55 @@ export function IntakeFieldRow({
       )}
 
       {panel === "edit" && (
-        <div className="mt-2 space-y-1.5">
-          <MachineLabel>VALUE (JSON)</MachineLabel>
-          <textarea aria-label={`Value for ${label}`} className={`${inputCls} font-mono`} rows={6} value={draft} onChange={(e) => setDraft(e.target.value)} />
-          {example && (
-            <div className="space-y-1">
-              <MachineLabel>SHAPE THIS FIELD EXPECTS</MachineLabel>
-              <pre className="overflow-x-auto rounded-[3px] border border-border bg-card px-2 py-1.5 font-mono text-[11px] text-muted-foreground">
-                {example}
-              </pre>
-              <button
-                type="button"
-                className="machine text-signal hover:underline"
-                onClick={() => { setDraft(example); setJsonError(null); }}
-              >
-                USE THIS SHAPE
-              </button>
-            </div>
+        <div className="mt-2 space-y-2">
+          {asJson ? (
+            <>
+              <MachineLabel>VALUE (JSON)</MachineLabel>
+              <textarea
+                aria-label={`Value for ${label}`}
+                className={`${inputCls} font-mono`}
+                rows={8}
+                value={draft}
+                onChange={(e) => setDraft(e.target.value)}
+              />
+              {example && (
+                <div className="space-y-1">
+                  <MachineLabel>SHAPE THIS FIELD EXPECTS</MachineLabel>
+                  <pre className="overflow-x-auto rounded-[3px] border border-border bg-card px-2 py-1.5 font-mono text-[11px] text-muted-foreground">
+                    {example}
+                  </pre>
+                  <button
+                    type="button"
+                    className="machine text-signal hover:underline"
+                    onClick={() => { setDraft(example); setJsonError(null); }}
+                  >
+                    USE THIS SHAPE
+                  </button>
+                </div>
+              )}
+              {jsonError && <p className="text-[12px] text-warn">{jsonError}</p>}
+            </>
+          ) : (
+            <SpecForm field={field} value={formValue} onChange={setFormValue} disabled={busy} />
           )}
-          {jsonError && <p className="text-[12px] text-warn">{jsonError}</p>}
+
+          {FIELD_FORMS[field] && (
+            <button
+              type="button"
+              className="machine text-muted-foreground hover:text-signal"
+              onClick={() => {
+                // Carry the work across rather than making them start again.
+                if (asJson) {
+                  try { setFormValue(JSON.parse(withoutComments(draft))); setJsonError(null); } catch { /* keep what the form had */ }
+                } else {
+                  setDraft(JSON.stringify(formValue ?? null, null, 2));
+                }
+                setAsJson(!asJson);
+              }}
+            >
+              {asJson ? "USE THE FORM" : "EDIT AS JSON"}
+            </button>
+          )}
         </div>
       )}
       {panel === "na" && (

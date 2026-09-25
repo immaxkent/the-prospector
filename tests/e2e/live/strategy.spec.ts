@@ -17,7 +17,8 @@ test.describe("strategy", () => {
 
     const cadence = editor.getByTestId("intake-field-cadence");
     await cadence.getByRole("button", { name: "Edit" }).click();
-    await cadence.getByLabel("Value for Daily cadence").fill('{"dailyNewTarget":6,"dailyFollowupTarget":4}');
+    await cadence.getByLabel("New contacts a day").fill("6");
+    await cadence.getByLabel("Follow-ups a day").fill("4");
     await cadence.getByRole("button", { name: "Save value" }).click();
 
     await expect(editor).toContainText("1 UNSAVED");
@@ -43,7 +44,8 @@ test.describe("strategy", () => {
     const pricing = editor.getByTestId("intake-field-pricing");
 
     await pricing.getByRole("button", { name: "Edit" }).click();
-    await pricing.getByLabel("Value for Pricing").fill('{"model":"day_rate","amount":900,"currency":"GBP"}');
+    await pricing.getByLabel("Model").selectOption("day_rate");
+    await pricing.getByLabel("Fixed price").fill("900");
     await pricing.getByRole("button", { name: "Save value" }).click();
     await expect(editor).toContainText("1 UNSAVED");
 
