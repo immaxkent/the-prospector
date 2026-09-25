@@ -15,6 +15,17 @@ const TONE = { stated: "signal", confirmed: "signal", suggested: "warn", missing
 const NOT_APPLICABLE_ALLOWED = new Set(["pricing", "proof"]);
 
 /** Readable one-liner for a field value; the JSON editor shows the full shape. */
+/**
+ * The worked examples carry `//` notes explaining each field, and JSON has no comments.
+ * Stripping them means the hint can be edited in place rather than picked apart first.
+ */
+export function withoutComments(text: string) {
+  return text
+    .split("\n")
+    .filter((line) => !/^\s*\/\//.test(line))
+    .join("\n");
+}
+
 export function summarise(value: unknown): string {
   if (value === null || value === undefined) return "";
   if (Array.isArray(value)) return value.map(summarise).join(" · ");
@@ -77,7 +88,7 @@ export function IntakeFieldRow({
   };
   const save = () => {
     try {
-      onSet(JSON.parse(draft));
+      onSet(JSON.parse(withoutComments(draft)));
       setPanel("none");
     } catch {
       setJsonError("That is not valid JSON.");

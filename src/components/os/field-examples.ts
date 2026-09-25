@@ -26,11 +26,17 @@ export const FIELD_EXAMPLES: Record<string, string> = {
 }`,
   pricing: `{
   "model": "package",
-  "amount": 500,
-  "currency": "GBP"
+  "currency": "GBP",
+  "minimumDeal": 95,
+  "expectedDeal": 2400
 }
 
-// model: day_rate | package | retainer | subscription | rev_share | free`,
+// model: day_rate | package | retainer | subscription | rev_share | free
+// minimumDeal  — the least you will accept. A floor, not a forecast.
+// expectedDeal — what a typical engagement is worth. THIS is the number the
+//                daily plan forecasts from, and what it replaces once real
+//                deals are won.
+// amount       — only for work with one fixed price. Leave it out otherwise.`,
   proof: `[
   {
     "kind": "repo",
