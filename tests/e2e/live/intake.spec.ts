@@ -186,3 +186,37 @@ test("a list field can be added to and removed from", async ({ page }) => {
   await buyers.getByRole("button", { name: "Save value" }).click();
   await expect(buyers).toContainText("Prop desks");
 });
+
+test("switching the horizon to ongoing saves without being refused", async ({ page }) => {
+  await signIn(page, "/endeavours/new");
+  await page.getByLabel("Brief").fill(BRIEF);
+  await page.getByRole("button", { name: "Plan this endeavour" }).click();
+  await expect(page.getByTestId("activation-blockers")).toBeVisible({ timeout: 30_000 });
+
+  const horizon = page.getByTestId("intake-field-horizon");
+  await horizon.getByRole("button", { name: "Edit" }).click();
+  await horizon.getByLabel("Kind").selectOption("ongoing");
+  await horizon.getByLabel("Period").selectOption("month");
+  // The review interval starts at one, not zero, so saving straight away is accepted.
+  await horizon.getByRole("button", { name: "Save value" }).click();
+
+  await expect(horizon).toContainText("CONFIRMED");
+  await expect(horizon).toContainText("month");
+});
+
+test("a revenue objective asks for a currency once, not a unit as well", async ({ page }) => {
+  await signIn(page, "/endeavours/new");
+  await page.getByLabel("Brief").fill(BRIEF);
+  await page.getByRole("button", { name: "Plan this endeavour" }).click();
+  await expect(page.getByTestId("activation-blockers")).toBeVisible({ timeout: 30_000 });
+
+  const objective = page.getByTestId("intake-field-objective");
+  await objective.getByRole("button", { name: "Edit" }).click();
+  await expect(objective.getByLabel("Currency")).toBeVisible();
+  await expect(objective.getByLabel("Counted in")).toHaveCount(0);
+
+  // Counting partnerships asks what is being counted, and drops the currency.
+  await objective.getByLabel("Measured in").selectOption("partners");
+  await expect(objective.getByLabel("Currency")).toHaveCount(0);
+  await expect(objective.getByLabel("Counted in")).toBeVisible();
+});
