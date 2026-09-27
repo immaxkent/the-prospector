@@ -38,6 +38,7 @@ export const fixtureStatus: SystemStatus = {
     dailyAllowancePence: 50,
     spentTodayPence: 18,
     spentMonthPence: 412,
+    spentAllTimePence: 1180,
     remainingTodayPence: 32,
     allowed: true,
     reason: "ok",

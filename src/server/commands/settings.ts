@@ -61,9 +61,13 @@ export async function loadSpend(db: Database, now = new Date(), timeZone = OPERA
     .select({ day: sql<string>`(${llmCalls.createdAt} at time zone ${sql.raw(`'${timeZone}'`)})::date::text`, cost: llmCalls.costUsd })
     .from(llmCalls)
     .where(gte(llmCalls.createdAt, sql`${monthStart}::date`));
+  // All-time is a separate sum rather than a wider fetch: it grows without bound, and
+  // nothing needs the rows — only the total.
+  const [total] = await db.select({ sum: sql<number>`coalesce(sum(${llmCalls.costUsd}), 0)` }).from(llmCalls);
   return {
     todayUsd: rows.filter((r) => r.day === today).reduce((sum, r) => sum + r.cost, 0),
     monthUsd: rows.reduce((sum, r) => sum + r.cost, 0),
+    allTimeUsd: Number(total?.sum ?? 0),
   };
 }
 

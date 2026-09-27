@@ -43,6 +43,7 @@ const ctx = (over: Partial<StatContext> = {}): StatContext => ({
     dailyAllowancePence: 50,
     spentTodayPence: 5,
     spentMonthPence: 300,
+    spentAllTimePence: 900,
     remainingTodayPence: 45,
     allowed: true,
     reason: "ok",
@@ -155,6 +156,21 @@ describe("efficiency tiles", () => {
 
   it("rates replies once there is enough to rate", () => {
     expect(run("reply_rate", { threads: many })).toMatchObject({ display: "20%", sub: "2 of 10 sent" });
+  });
+
+  it("leads with today's spend and carries the all-time figure underneath", () => {
+    expect(run("spend")).toMatchObject({ display: "£0.05", sub: "£9.00 all time" });
+  });
+
+  it("warns once today's allowance is gone, not before", () => {
+    expect(run("spend").tone).toBe("plain");
+    const spent = { ...ctx().budget, spentTodayPence: 50 };
+    expect(run("spend", { budget: spent }).tone).toBe("warn");
+  });
+
+  it("does not warn on spend when no allowance is set", () => {
+    const uncapped = { ...ctx().budget, dailyAllowancePence: 0, spentTodayPence: 500 };
+    expect(run("spend", { budget: uncapped }).tone).toBe("plain");
   });
 
   it("shows the month's spend against the cap", () => {

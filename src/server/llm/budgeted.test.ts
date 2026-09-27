@@ -14,7 +14,7 @@ const answer: LlmResponse = {
 const request = { model: "claude-haiku-4-5", system: "s", user: "u", jsonSchema: {}, maxTokens: 100 };
 
 const state = (todayUsd: number, monthUsd = todayUsd) =>
-  budgetState(settings, { todayUsd, monthUsd }, 1.25, AT);
+  budgetState(settings, { todayUsd, monthUsd, allTimeUsd: monthUsd }, 1.25, AT);
 
 describe("budgetedLlm", () => {
   it("calls the model while there is budget left", async () => {

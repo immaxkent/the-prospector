@@ -43,11 +43,14 @@ export interface Spend {
   /** Recorded cost so far today and this calendar month, in US dollars. */
   todayUsd: number;
   monthUsd: number;
+  /** Everything ever spent on this install. Reported, never enforced against. */
+  allTimeUsd: number;
 }
 
 export interface BudgetState {
   spentTodayPence: number;
   spentMonthPence: number;
+  spentAllTimePence: number;
   dailyAllowancePence: number;
   monthlyBudgetPence: number;
   /** What is left today: the smaller of the day's remainder and the month's. Never negative. */
@@ -60,6 +63,7 @@ export interface BudgetState {
 export function budgetState(settings: BudgetSettings, spend: Spend, usdPerGbp: number, at: Date): BudgetState {
   const spentTodayPence = usdToPence(spend.todayUsd, usdPerGbp);
   const spentMonthPence = usdToPence(spend.monthUsd, usdPerGbp);
+  const spentAllTimePence = usdToPence(spend.allTimeUsd, usdPerGbp);
   const daily = dailyAllowancePence(settings.monthlyBudgetPence, at);
   const leftToday = Math.max(0, daily - spentTodayPence);
   const leftThisMonth = Math.max(0, settings.monthlyBudgetPence - spentMonthPence);
@@ -77,6 +81,7 @@ export function budgetState(settings: BudgetSettings, spend: Spend, usdPerGbp: n
   return {
     spentTodayPence,
     spentMonthPence,
+    spentAllTimePence,
     dailyAllowancePence: daily,
     monthlyBudgetPence: settings.monthlyBudgetPence,
     remainingTodayPence,
