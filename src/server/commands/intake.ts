@@ -12,6 +12,7 @@ import {
   ENABLED_AUTONOMY_LEVELS,
   ENDEAVOUR_KINDS,
   FIELD_VALUE_SCHEMAS,
+  alignHorizonToKind,
   evaluateActivation,
   type AutonomyLevel,
   type EndeavourSpec,
@@ -156,6 +157,9 @@ export async function editIntakeField(db: Database, input: { intakeId: string } 
   });
 }
 
+/** The conversion needs a day to count from; the caller's clock is fine for a date. */
+const localToday = (now: Date) => now.toISOString().slice(0, 10);
+
 export async function updateIntakeSettings(
   db: Database,
   input: {
@@ -165,6 +169,7 @@ export async function updateIntakeSettings(
     autonomyLevel?: AutonomyLevel | undefined;
     fromAlias?: string | null | undefined;
   },
+  now = new Date(),
 ): Promise<IntakeView> {
   const parsed = settingsSchema.safeParse(input);
   if (!parsed.success) throw invalid(z.prettifyError(parsed.error));
@@ -177,7 +182,12 @@ export async function updateIntakeSettings(
     // A key the caller left out arrives as undefined, which would otherwise erase the
     // value it was not asking about. Only what was actually sent is applied.
     const given = Object.fromEntries(Object.entries(parsed.data).filter(([, v]) => v !== undefined));
-    const draftSpec = { ...session.draftSpec, ...given } as EndeavourSpec;
+    let draftSpec = { ...session.draftSpec, ...given } as EndeavourSpec;
+    // Changing the kind changes what a horizon has to look like. Leaving the old shape in
+    // place told the operator their horizon was wrong the instant they changed the kind.
+    if (parsed.data.kind && parsed.data.kind !== session.draftSpec.kind) {
+      draftSpec = { ...draftSpec, horizon: alignHorizonToKind(draftSpec.horizon, parsed.data.kind, localToday(now)) };
+    }
     await tx.update(intakeSessions).set({ draftSpec }).where(eq(intakeSessions.id, session.id));
     return view({ ...session, draftSpec }, await connectedMailboxes(tx));
   });

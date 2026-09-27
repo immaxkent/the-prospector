@@ -306,6 +306,50 @@ export function evaluateActivation(spec: EndeavourSpec, ctx: ActivationContext) 
   return { ready: blockers.length === 0, blockers };
 }
 
+/**
+ * Keeps the horizon in the shape its kind requires.
+ *
+ * A sprint ends on a date; an ongoing endeavour is reviewed every so often. Changing the
+ * kind used to leave the horizon in the old shape, so the operator was told their horizon
+ * was wrong immediately after making a change they had every right to make.
+ *
+ * The converted horizon comes back as `suggested`, never `confirmed`: this is the system
+ * proposing a reading of what they meant, which is exactly what confirmation is for. A
+ * horizon that already matches, or that was never set, is returned untouched.
+ */
+export function alignHorizonToKind(
+  horizon: EndeavourSpec["horizon"],
+  kind: EndeavourSpec["kind"],
+  today: string,
+): EndeavourSpec["horizon"] {
+  const value = resolved(horizon) ?? (horizon.state === "suggested" ? horizon.value : undefined);
+  if (!value || value.kind === kind) return horizon;
+
+  if (value.kind === "sprint") {
+    // A deadline says nothing about how often to review, so the cadence is the proposal.
+    return {
+      state: "suggested",
+      value: { kind: "ongoing", period: "month", reviewEvery: 1 },
+      rationale: `this became an ongoing endeavour, so the deadline of ${value.endsOn} was replaced with a monthly review — confirm it or set your own`,
+    };
+  }
+
+  return {
+    state: "suggested",
+    value: { kind: "sprint", endsOn: addPeriods(today, value.period, value.reviewEvery) },
+    rationale: "this became a sprint, so the review period was read as a deadline one review from today — confirm it or set your own",
+  };
+}
+
+/** Date arithmetic in UTC, so a deadline does not move with the operator's clock. */
+function addPeriods(today: string, period: (typeof PERIODS)[number], count: number): string {
+  const d = new Date(`${today}T00:00:00Z`);
+  if (period === "week") d.setUTCDate(d.getUTCDate() + 7 * count);
+  else if (period === "month") d.setUTCMonth(d.getUTCMonth() + count);
+  else d.setUTCMonth(d.getUTCMonth() + 3 * count);
+  return d.toISOString().slice(0, 10);
+}
+
 /** Drafts may only make claims about the sender when proof exists. */
 export function senderClaimsAllowed(spec: EndeavourSpec) {
   const proof = resolved(spec.proof);
