@@ -13,10 +13,10 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as CommandRouteImport } from './routes/command'
 import { Route as EndeavoursRouteImport } from './routes/endeavours'
 import { Route as HealthzRouteImport } from './routes/healthz'
-import { Route as InboxRouteImport } from './routes/inbox'
 import { Route as IntelligenceRouteImport } from './routes/intelligence'
 import { Route as InterfacesRouteImport } from './routes/interfaces'
 import { Route as LoginRouteImport } from './routes/login'
+import { Route as MailboxRouteImport } from './routes/mailbox'
 import { Route as PipelineRouteImport } from './routes/pipeline'
 import { Route as ProspectsRouteImport } from './routes/prospects'
 import { Route as ResearchRouteImport } from './routes/research'
@@ -53,11 +53,6 @@ const HealthzRoute = HealthzRouteImport.update({
   path: '/healthz',
   getParentRoute: () => rootRouteImport,
 } as any)
-const InboxRoute = InboxRouteImport.update({
-  id: '/inbox',
-  path: '/inbox',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const IntelligenceRoute = IntelligenceRouteImport.update({
   id: '/intelligence',
   path: '/intelligence',
@@ -71,6 +66,11 @@ const InterfacesRoute = InterfacesRouteImport.update({
 const LoginRoute = LoginRouteImport.update({
   id: '/login',
   path: '/login',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const MailboxRoute = MailboxRouteImport.update({
+  id: '/mailbox',
+  path: '/mailbox',
   getParentRoute: () => rootRouteImport,
 } as any)
 const PipelineRoute = PipelineRouteImport.update({
@@ -154,10 +154,10 @@ export interface FileRoutesByFullPath {
   '/command': typeof CommandRoute
   '/endeavours': typeof EndeavoursRouteWithChildren
   '/healthz': typeof HealthzRoute
-  '/inbox': typeof InboxRoute
   '/intelligence': typeof IntelligenceRoute
   '/interfaces': typeof InterfacesRoute
   '/login': typeof LoginRoute
+  '/mailbox': typeof MailboxRoute
   '/pipeline': typeof PipelineRoute
   '/prospects': typeof ProspectsRoute
   '/research': typeof ResearchRoute
@@ -178,10 +178,10 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/command': typeof CommandRoute
   '/healthz': typeof HealthzRoute
-  '/inbox': typeof InboxRoute
   '/intelligence': typeof IntelligenceRoute
   '/interfaces': typeof InterfacesRoute
   '/login': typeof LoginRoute
+  '/mailbox': typeof MailboxRoute
   '/pipeline': typeof PipelineRoute
   '/prospects': typeof ProspectsRoute
   '/research': typeof ResearchRoute
@@ -204,10 +204,10 @@ export interface FileRoutesById {
   '/command': typeof CommandRoute
   '/endeavours': typeof EndeavoursRouteWithChildren
   '/healthz': typeof HealthzRoute
-  '/inbox': typeof InboxRoute
   '/intelligence': typeof IntelligenceRoute
   '/interfaces': typeof InterfacesRoute
   '/login': typeof LoginRoute
+  '/mailbox': typeof MailboxRoute
   '/pipeline': typeof PipelineRoute
   '/prospects': typeof ProspectsRoute
   '/research': typeof ResearchRoute
@@ -231,10 +231,10 @@ export interface FileRouteTypes {
     | '/command'
     | '/endeavours'
     | '/healthz'
-    | '/inbox'
     | '/intelligence'
     | '/interfaces'
     | '/login'
+    | '/mailbox'
     | '/pipeline'
     | '/prospects'
     | '/research'
@@ -255,10 +255,10 @@ export interface FileRouteTypes {
     | '/'
     | '/command'
     | '/healthz'
-    | '/inbox'
     | '/intelligence'
     | '/interfaces'
     | '/login'
+    | '/mailbox'
     | '/pipeline'
     | '/prospects'
     | '/research'
@@ -280,10 +280,10 @@ export interface FileRouteTypes {
     | '/command'
     | '/endeavours'
     | '/healthz'
-    | '/inbox'
     | '/intelligence'
     | '/interfaces'
     | '/login'
+    | '/mailbox'
     | '/pipeline'
     | '/prospects'
     | '/research'
@@ -306,10 +306,10 @@ export interface RootRouteChildren {
   CommandRoute: typeof CommandRoute
   EndeavoursRoute: typeof EndeavoursRouteWithChildren
   HealthzRoute: typeof HealthzRoute
-  InboxRoute: typeof InboxRoute
   IntelligenceRoute: typeof IntelligenceRoute
   InterfacesRoute: typeof InterfacesRoute
   LoginRoute: typeof LoginRoute
+  MailboxRoute: typeof MailboxRoute
   PipelineRoute: typeof PipelineRoute
   ProspectsRoute: typeof ProspectsRoute
   ResearchRoute: typeof ResearchRoute
@@ -353,13 +353,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof HealthzRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/inbox': {
-      id: '/inbox'
-      path: '/inbox'
-      fullPath: '/inbox'
-      preLoaderRoute: typeof InboxRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/intelligence': {
       id: '/intelligence'
       path: '/intelligence'
@@ -379,6 +372,13 @@ declare module '@tanstack/react-router' {
       path: '/login'
       fullPath: '/login'
       preLoaderRoute: typeof LoginRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/mailbox': {
+      id: '/mailbox'
+      path: '/mailbox'
+      fullPath: '/mailbox'
+      preLoaderRoute: typeof MailboxRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/pipeline': {
@@ -522,10 +522,10 @@ const rootRouteChildren: RootRouteChildren = {
   CommandRoute: CommandRoute,
   EndeavoursRoute: EndeavoursRouteWithChildren,
   HealthzRoute: HealthzRoute,
-  InboxRoute: InboxRoute,
   IntelligenceRoute: IntelligenceRoute,
   InterfacesRoute: InterfacesRoute,
   LoginRoute: LoginRoute,
+  MailboxRoute: MailboxRoute,
   PipelineRoute: PipelineRoute,
   ProspectsRoute: ProspectsRoute,
   ResearchRoute: ResearchRoute,

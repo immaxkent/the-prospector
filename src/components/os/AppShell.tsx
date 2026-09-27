@@ -13,9 +13,10 @@ import { useSwipeNav } from "@/hooks/use-swipe-nav";
 const NAV: { to: string; label: string; key: string; glyph: string }[] = [
   { to: "/command", label: "Command", key: "01", glyph: "◈" },
   { to: "/endeavours", label: "Endeavours", key: "02", glyph: "◆" },
-  { to: "/prospects", label: "Prospects", key: "03", glyph: "▤" },
-  { to: "/pipeline", label: "Pipeline", key: "04", glyph: "▥" },
-  { to: "/inbox", label: "Inbox", key: "05", glyph: "✉" },
+  // An endeavour's whole output is conversations, so the mailbox sits directly under it.
+  { to: "/mailbox", label: "Mailbox", key: "03", glyph: "✉" },
+  { to: "/prospects", label: "Prospects", key: "04", glyph: "▤" },
+  { to: "/pipeline", label: "Pipeline", key: "05", glyph: "▥" },
   { to: "/research", label: "Research", key: "06", glyph: "◎" },
   { to: "/intelligence", label: "Intelligence", key: "07", glyph: "✦" },
   { to: "/interfaces", label: "Interfaces", key: "08", glyph: "⌘" },

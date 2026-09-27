@@ -19,7 +19,7 @@ test.describe("inbox", () => {
   test.afterAll(() => resetDatabase());
 
   test("approves a follow-up draft in the conversation", async ({ page }) => {
-    await signIn(page, "/inbox");
+    await signIn(page, "/mailbox");
     const draft = page.locator("article").filter({ hasText: "Checking whether Friday still suits." });
     await expect(draft.getByText("AGENT DRAFT")).toBeVisible();
     await draft.getByRole("button", { name: "Approve", exact: true }).click();
@@ -29,7 +29,7 @@ test.describe("inbox", () => {
   });
 
   test("approves the suggested reply from the intelligence rail", async ({ page }) => {
-    await signIn(page, "/inbox");
+    await signIn(page, "/mailbox");
     await page.getByTestId("reply-approval").getByRole("button", { name: "Approve", exact: true }).click();
     await expect(page.getByText("Approved", { exact: true })).toBeVisible();
     await expect(page.getByTestId("reply-approval")).toHaveCount(0);
@@ -37,7 +37,7 @@ test.describe("inbox", () => {
   });
 
   test("opening an unread thread marks it read", async ({ page }) => {
-    await signIn(page, "/inbox");
+    await signIn(page, "/mailbox");
     await page.getByRole("button", { name: /Northbridge Protocol/ }).click();
     await expect.poll(async () => (await query<{ unread: boolean }>("select unread from threads"))[0]?.unread).toBe(false);
   });

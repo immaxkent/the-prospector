@@ -70,6 +70,20 @@ for attempt in 1 2 3 4 5 6; do
   sleep 5
 done
 
+# The web container answering says nothing about the worker beside it, which runs a
+# different command from the same image. A worker that cannot start just restarts forever
+# while the deploy reports success and nothing in the app ever runs.
+if [[ -n "$healthy" ]]; then
+  echo "==> worker"
+  worker_state="$(ssh "$HOST" "cd $REMOTE_DIR && docker compose --env-file .env.production -f docker-compose.prod.yml ps --format '{{.Service}} {{.State}}' | awk '\$1==\"worker\"{print \$2}'")"
+  echo "worker is ${worker_state:-missing}"
+  if [[ "$worker_state" != "running" ]]; then
+    echo "==> the worker is not running, so nothing would be processed" >&2
+    ssh "$HOST" "cd $REMOTE_DIR && docker compose --env-file .env.production -f docker-compose.prod.yml logs --tail=20 worker" >&2 || true
+    healthy=""
+  fi
+fi
+
 if [[ -z "$healthy" ]]; then
   echo "==> unhealthy: rolling back to the previous image" >&2
   ssh "$HOST" "docker image inspect prospector:previous >/dev/null 2>&1 && docker tag prospector:previous $IMAGE && cd $REMOTE_DIR && docker compose --env-file .env.production -f docker-compose.prod.yml up -d"

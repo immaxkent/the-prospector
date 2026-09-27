@@ -21,7 +21,7 @@ export function CommandPalette({ open, onClose }: { open: boolean; onClose: () =
       { label: "New endeavour", hint: "ENDEAVOURS", run: () => navigate({ to: "/endeavours" }) },
       { label: "Run research", hint: "RESEARCH", run: () => navigate({ to: "/research" }) },
       { label: "Open approvals", hint: "COMMAND", run: () => navigate({ to: "/command" }) },
-      { label: "Open inbox", hint: "INBOX", run: () => navigate({ to: "/inbox" }) },
+      { label: "Open mailbox", hint: "MAILBOX", run: () => navigate({ to: "/mailbox" }) },
       { label: "Open pipeline", hint: "PIPELINE", run: () => navigate({ to: "/pipeline" }) },
       { label: "Interfaces status", hint: "INTERFACES", run: () => navigate({ to: "/interfaces" }) },
     ];

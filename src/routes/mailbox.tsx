@@ -1,16 +1,23 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
 import { useAppMode, useDataset } from "@/data/store";
+import {
+  MAILBOX_VIEWS,
+  filterThreads,
+  mailboxCounts,
+  openingFilter,
+  type MailboxFilter,
+} from "@/data/mailbox-filters";
 import { useMarkThreadRead } from "@/data/mutations";
 import { ApprovalActions } from "@/components/os/ApprovalActions";
 import { EmptyState, MachineLabel, PageHeader, Panel, StatusDot, Tag } from "@/components/os/primitives";
 import { gbp, relative, stamp } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
-export const Route = createFileRoute("/inbox")({
+export const Route = createFileRoute("/mailbox")({
   head: () => ({
     meta: [
-      { title: "Inbox — CBO OS" },
+      { title: "Mailbox — CBO OS" },
       {
         name: "description",
         content: "Conversations with detected intent, objections, opportunity value and the agent's suggested response.",
@@ -19,24 +26,60 @@ export const Route = createFileRoute("/inbox")({
       { property: "og:description", content: "Thread list, conversation and an intelligence rail for every reply." },
     ],
   }),
-  component: InboxScreen,
+  component: MailboxScreen,
 });
 
-function InboxScreen() {
-  const { threads, prospects, approvals, isEmpty } = useDataset();
+function MailboxScreen() {
+  const { threads: allThreads, prospects, approvals, isEmpty } = useDataset();
   const appMode = useAppMode();
   const markRead = useMarkThreadRead();
-  const [activeId, setActiveId] = useState<string | null>(threads[0]?.id ?? null);
+  const counts = mailboxCounts(allThreads);
+  // The mailbox opens on whatever is waiting, and stays wherever the operator puts it.
+  const [filter, setFilter] = useState<MailboxFilter | null>(null);
+  const view = filter ?? openingFilter(allThreads);
+  const threads = filterThreads(allThreads, view);
+
+  const [activeId, setActiveId] = useState<string | null>(null);
   const thread = threads.find((t) => t.id === activeId) ?? threads[0];
   const prospect = thread ? prospects.find((p) => p.id === thread.prospectId) : undefined;
+
+  const tabs = (
+    <div className="flex flex-wrap gap-1" data-testid="mailbox-views">
+      {MAILBOX_VIEWS.map((v) => (
+        <button
+          key={v.id}
+          type="button"
+          aria-pressed={v.id === view}
+          onClick={() => {
+            setFilter(v.id);
+            // The thread that was open may not be in the new view; let it fall to the first.
+            setActiveId(null);
+          }}
+          className={cn(
+            "machine rounded-full border px-3 py-1.5 transition-colors",
+            v.id === view
+              ? "border-signal/50 bg-signal/5 text-foreground"
+              : "border-border text-muted-foreground hover:text-foreground",
+          )}
+        >
+          {v.label} <span className="tabular-nums opacity-60">{counts[v.id]}</span>
+        </button>
+      ))}
+    </div>
+  );
 
   if (isEmpty || !thread) {
     return (
       <div className="space-y-5">
-        <PageHeader title="INBOX" />
+        <PageHeader title="MAILBOX" summary="Drafts waiting on you, what has gone out, and what came back." />
+        {!isEmpty && tabs}
         <EmptyState
-          title="NO CONVERSATIONS"
-          body="Threads appear here once outreach has been sent and a prospect replies."
+          title="NOTHING HERE"
+          body={
+            isEmpty
+              ? "Threads appear here once outreach has been sent and a prospect replies."
+              : MAILBOX_VIEWS.find((v) => v.id === view)!.empty
+          }
         />
       </div>
     );
@@ -44,7 +87,11 @@ function InboxScreen() {
 
   return (
     <div className="space-y-5">
-      <PageHeader title="INBOX" summary={`${threads.length} threads · ${threads.filter((t) => t.unread).length} unread`} />
+      <PageHeader
+        title="MAILBOX"
+        summary={`${counts.all} conversations · ${counts.drafts} waiting on you · ${allThreads.filter((t) => t.unread).length} unread`}
+      />
+      {tabs}
 
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-[280px_minmax(0,1fr)_320px]">
         {/* Thread list */}

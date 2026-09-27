@@ -118,7 +118,7 @@ export async function processInbound(db: Database, deps: InboundDeps, input: Inb
         title: `${company?.name ?? "A prospect"} replied: ${classification.intent.replace("_", " ")}`,
         body: classification.summary,
         endeavourId: input.endeavourId,
-        path: "/inbox",
+        path: "/mailbox",
         priority: "high",
       }, input.now);
       if (sent) result.notified += 1;

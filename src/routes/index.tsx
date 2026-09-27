@@ -14,7 +14,7 @@ export const Route = createFileRoute("/")({
       { property: "og:title", content: "Prospector — CBO Operating System" },
       {
         property: "og:description",
-        content: "Enter Command or Inbox from the Prospector operating system.",
+        content: "Enter Command or Mailbox from the Prospector operating system.",
       },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
@@ -55,8 +55,8 @@ function HomeScreen() {
             <span className="home-action-arrow" aria-hidden="true">↗</span>
           </Link>
 
-          <Link to="/inbox" className="home-action group">
-            <span className="display text-[20px] font-semibold">Inbox</span>
+          <Link to="/mailbox" className="home-action group">
+            <span className="display text-[20px] font-semibold">Mailbox</span>
             <span className="machine mt-2 text-ink-foreground/48">
               {num(threads.length)} OPEN {threads.length === 1 ? "THREAD" : "THREADS"}
             </span>
