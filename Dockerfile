@@ -22,5 +22,9 @@ COPY --from=build /app/src ./src
 # The migration command runs scripts/db.ts inside this image.
 COPY --from=build /app/scripts ./scripts
 COPY --from=build /app/package.json ./package.json
+# tsx resolves the @/* alias from tsconfig at run time. Without this file every @/ import
+# in the worker's graph fails at startup — which is exactly how the worker spent its first
+# days in production, crashlooping while the app beside it looked healthy.
+COPY --from=build /app/tsconfig.json ./tsconfig.json
 EXPOSE 3000
 CMD ["node", ".output/server/index.mjs"]
