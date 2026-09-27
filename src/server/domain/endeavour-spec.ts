@@ -114,6 +114,12 @@ export const endeavourSpecSchema = z.object({
   buyers: field(z.array(buyerSegment).min(1)),
   exclusions: field(z.array(exclusionRule)),
   mailboxId: field(nonEmpty),
+  /**
+   * One of the chosen mailbox's aliases to send as, or null for the account's own address.
+   * Picked by the operator like the mailbox, so it is not a gated field: an endeavour that
+   * sends from the account address is complete.
+   */
+  fromAlias: z.string().trim().min(1).nullable().default(null),
   cadence: field(cadenceValue),
   channels: z.array(z.literal("email")).length(1),
   autonomyLevel: z.enum(AUTONOMY_LEVELS),
@@ -218,6 +224,7 @@ export type BlockerCode =
   | "revenue_currency_required"
   | "exclusions_need_explicit_confirmation"
   | "mailbox_not_connected"
+  | "alias_not_on_mailbox"
   | "autonomy_level_disabled";
 
 export interface Blocker {
@@ -228,8 +235,12 @@ export interface Blocker {
 
 export interface ActivationContext {
   brief: string;
-  connectedMailboxIds: readonly string[];
+  /** Every connected mailbox with the addresses it may also send as. */
+  connectedMailboxes: readonly { id: string; aliases: readonly string[] }[];
 }
+
+/** Addresses are case-insensitive, and Google hands them back lowercased. */
+const sameAddress = (a: string, b: string) => a.trim().toLowerCase() === b.trim().toLowerCase();
 
 function resolved<T>(f: FieldState<T>): T | undefined {
   return f.state === "stated" || f.state === "confirmed" ? f.value : undefined;
@@ -282,8 +293,12 @@ export function evaluateActivation(spec: EndeavourSpec, ctx: ActivationContext) 
     block("exclusions", "exclusions_need_explicit_confirmation", 'confirm "no exclusions" explicitly');
 
   const mailboxId = resolved(spec.mailboxId);
-  if (mailboxId && !ctx.connectedMailboxIds.includes(mailboxId))
-    block("mailboxId", "mailbox_not_connected", "the selected mailbox is not connected");
+  const mailbox = ctx.connectedMailboxes.find((m) => m.id === mailboxId);
+  if (mailboxId && !mailbox) block("mailboxId", "mailbox_not_connected", "the selected mailbox is not connected");
+
+  // An alias that has since been removed would otherwise fail at the first send, hours later.
+  if (spec.fromAlias && mailbox && !mailbox.aliases.some((a) => sameAddress(a, spec.fromAlias!)))
+    block("mailboxId", "alias_not_on_mailbox", `${spec.fromAlias} is not an address this mailbox can send as`);
 
   if (!ENABLED_AUTONOMY_LEVELS.includes(spec.autonomyLevel))
     block("autonomyLevel", "autonomy_level_disabled", `${spec.autonomyLevel} is not available in v1`);
