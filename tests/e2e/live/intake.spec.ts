@@ -21,6 +21,10 @@ test.describe("intake", () => {
   });
 
   test("plan, resolve every field, then activate", async ({ page }) => {
+    // The mailbox can also send as this; intake must offer it, not just the account.
+    await query(
+      `update mailboxes set aliases = '[{"address":"hello@consulting.example","displayName":"Max at Consulting","createdAt":"2026-09-18T00:00:00.000Z"}]'::jsonb`,
+    );
     await signIn(page, "/endeavours/new");
     await page.getByLabel("Brief").fill(BRIEF);
     await page.getByRole("button", { name: "Plan this endeavour" }).click();
@@ -37,7 +41,7 @@ test.describe("intake", () => {
     await expect(proof).toContainText("What can outreach point to");
 
     await expect(page.getByRole("button", { name: "Activate endeavour" })).toBeDisabled();
-    await expect(page.getByTestId("activation-blockers")).toContainText("Sending mailbox");
+    await expect(page.getByTestId("activation-blockers")).toContainText("Sending address");
 
     // Pricing: replace the suggestion with a real price.
     const pricing = page.getByTestId("intake-field-pricing");
@@ -63,17 +67,20 @@ test.describe("intake", () => {
     await exclusions.getByRole("button", { name: "Save value" }).click();
     await expect(exclusions).toContainText("CONFIRMED");
 
-    await page.getByLabel("Sending mailbox").selectOption({ label: "max@consulting.example" });
+    // The whole point: an alias is choosable here, not only after the endeavour exists.
+    await page.getByLabel("Sending address").selectOption({
+      label: "hello@consulting.example — via max@consulting.example",
+    });
     await expect(page.getByTestId("activation-blockers")).toHaveCount(0);
 
     await page.getByRole("button", { name: "Activate endeavour" }).click();
     await expect(page.getByText("Endeavour activated")).toBeVisible();
     await expect(page).toHaveURL(/\/endeavours\/end_/);
 
-    const [endeavour] = await query<{ status: string; spec_version: number }>(
-      "select status, spec_version from endeavours where is_fixture = false",
+    const [endeavour] = await query<{ status: string; spec_version: number; from_alias: string | null }>(
+      "select status, spec_version, from_alias from endeavours where is_fixture = false",
     );
-    expect(endeavour).toEqual({ status: "active", spec_version: 1 });
+    expect(endeavour).toEqual({ status: "active", spec_version: 1, from_alias: "hello@consulting.example" });
     expect(await query("select count(*)::int as n from endeavour_spec_versions")).toEqual([{ n: 1 }]);
   });
 

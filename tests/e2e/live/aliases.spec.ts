@@ -27,14 +27,20 @@ test.describe("sending addresses", () => {
     await signIn(page, "/endeavours/end_fixture_solidity");
 
     const control = page.getByTestId("endeavour-mailbox").first();
-    await expect(control).toContainText("AS");
-    await control.getByLabel("Sending address").selectOption("hello@consulting.example");
+    const select = control.getByLabel("Sending address");
+    // One control, listing addresses: the account, then what it may also send as.
+    await expect(select.locator("option")).toHaveText([
+      "max@consulting.example",
+      "hello@consulting.example — via max@consulting.example",
+    ]);
+
+    await select.selectOption({ label: "hello@consulting.example — via max@consulting.example" });
     await expect(page.locator("[data-sonner-toast]")).toContainText("Sending as hello@consulting.example");
 
     const [stored] = await query<{ from_alias: string | null }>("select from_alias from endeavours limit 1");
     expect(stored?.from_alias).toBe("hello@consulting.example");
 
-    await control.getByLabel("Sending address").selectOption("");
+    await select.selectOption({ label: "max@consulting.example" });
     // The newest toast is the front one; the earlier one is still on screen.
     await expect(page.locator("[data-sonner-toast]").first()).toContainText("mailbox's own address");
     expect((await query<{ from_alias: string | null }>("select from_alias from endeavours limit 1"))[0]?.from_alias).toBeNull();

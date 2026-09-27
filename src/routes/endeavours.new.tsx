@@ -14,6 +14,7 @@ import { IntakeFieldRow, type IntakeFieldState } from "@/components/os/IntakeFie
 import { Button, MachineLabel, PageHeader, Panel, Tag } from "@/components/os/primitives";
 import { errorMessage } from "@/data/mutations";
 import { datasetQuery } from "@/data/queries";
+import { parseSendingAddress, sendingAddressKey, sendingAddresses } from "@/data/sending-addresses";
 import { useAppMode, useDataset } from "@/data/store";
 
 export type IntakeView = Awaited<ReturnType<typeof startIntakeFn>>;
@@ -28,7 +29,7 @@ const FIELD_LABELS: Record<string, string> = {
   buyers: "Who buys it",
   exclusions: "Who you will not work with",
   cadence: "Daily cadence",
-  mailboxId: "Sending mailbox",
+  mailboxId: "Sending address",
 };
 
 const inputCls =
@@ -88,6 +89,10 @@ function NewEndeavourScreen() {
 
   const busy = start.isPending || answer.isPending || edit.isPending || settings.isPending || activate.isPending;
   const spec = view?.spec ?? null;
+  const addresses = sendingAddresses(mailboxes);
+  const mailboxField = spec?.mailboxId as IntakeFieldState | undefined;
+  const chosenMailboxId =
+    mailboxField?.state === "confirmed" ? String((mailboxField as { value: string }).value) : null;
   const unanswered = view?.questions.filter((q) => !q.answer.trim()) ?? [];
   const pendingAnswers = Object.entries(answers)
     .filter(([, a]) => a.trim())
@@ -241,20 +246,32 @@ function NewEndeavourScreen() {
             <label className="block space-y-1.5">
               <MachineLabel>SENDS FROM</MachineLabel>
               <select
-                aria-label="Sending mailbox"
+                aria-label="Sending address"
                 className={inputCls}
-                value={(spec?.mailboxId as IntakeFieldState | undefined)?.state === "confirmed" ? String((spec?.mailboxId as { value: string }).value) : ""}
-                onChange={(e) => edit.mutate({ intakeId: view.id, field: "mailboxId", action: "set", value: e.target.value })}
+                value={sendingAddressKey(addresses, chosenMailboxId, spec?.fromAlias ?? null)}
+                onChange={(e) => {
+                  const picked = parseSendingAddress(e.target.value);
+                  if (!picked) return;
+                  // Two writes, because the mailbox is a gated field and the address is not.
+                  // The alias goes second so it is checked against the mailbox just chosen.
+                  edit.mutate(
+                    { intakeId: view.id, field: "mailboxId", action: "set", value: picked.mailboxId },
+                    { onSuccess: () => settings.mutate({ intakeId: view.id, fromAlias: picked.alias }) },
+                  );
+                }}
               >
-                <option value="">Choose a connected mailbox…</option>
-                {mailboxes
-                  .filter((m) => m.status === "connected")
-                  .map((m) => (
-                    <option key={m.id} value={m.id}>
-                      {m.address}
-                    </option>
-                  ))}
+                <option value="">Choose an address to send from…</option>
+                {addresses.map((a) => (
+                  <option key={a.key} value={a.key}>
+                    {a.label}
+                  </option>
+                ))}
               </select>
+              {addresses.length === 0 && (
+                <p className="text-[12px] text-muted-foreground">
+                  No mailbox is connected yet. Connect one in Settings, then come back.
+                </p>
+              )}
             </label>
           </Panel>
 
