@@ -10,9 +10,12 @@ import type { AgentDeps } from "../agent/deps";
 import type { SendDeps } from "../commands/send";
 import { inAppOnly, type DeliveryChannel } from "../notify/channels";
 import { runDailyLoop } from "./daily-run";
-import { claimNext, completeJob, enqueue, failJob, recoverStaleJobs, type JobRow } from "./queue";
+import { claimNext, completeJob, enqueue, failJob, heartbeatJob, recoverStaleJobs, STALE_AFTER_MS, type JobRow } from "./queue";
 
 export const DAILY_RUN_JOB = "endeavour.daily_run";
+
+/** A third of the stale window: one missed beat still leaves two before the job is reclaimed. */
+export const HEARTBEAT_MS = Math.floor(STALE_AFTER_MS / 3);
 /** Releases whatever the pacing schedule says is due now. */
 export const SEND_DUE_JOB = "mailbox.send_due";
 /** Reads replies through the day, so an answer does not wait for tomorrow's run. */
@@ -167,6 +170,15 @@ export async function tick(
   for (let i = 0; i < max; i++) {
     const job = await claimNext(db, opts.workerId, now);
     if (!job) break;
+    // A daily run outlives the stale window on purpose: qualify and draft each wait up to
+    // five minutes on a batch, and the window is ten. Without a heartbeat the queue cannot
+    // tell this from a dead worker, reclaims the job mid-flight, and buys its research
+    // twice. The lock is refreshed well inside the window so one slow beat is not fatal.
+    const beat = setInterval(() => {
+      void heartbeatJob(db, job.id).catch(() => {
+        // A failed beat is not worth killing the work over; the next one will do.
+      });
+    }, HEARTBEAT_MS);
     try {
       await runJob(db, job, now, {
         agent: opts.agent ?? null,
@@ -178,6 +190,8 @@ export async function tick(
     } catch (err) {
       await failJob(db, job, err instanceof Error ? err.message : String(err), now);
       result.failed += 1;
+    } finally {
+      clearInterval(beat);
     }
   }
   return result;
