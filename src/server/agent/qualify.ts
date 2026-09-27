@@ -138,8 +138,16 @@ export function scoreQualification(output: QualifyOutput, evidenceIds: readonly 
   });
 
   const score = Math.round(factors.reduce((sum, f) => sum + f.score * f.weight, 0) * 10);
+  // Two signals: the score computed from the model's own factor ratings, and the
+  // recommendation it gives alongside them. They can disagree, and when they do the answer
+  // is to ask rather than to bin — a prospect the factors rate at 71 is not the same thing
+  // as one rated 23, however the recommendation reads.
+  //
+  // A veto used to be absolute at any score, which made needs_review unreachable for
+  // anything the model rejected. The first real run discarded four prospects that scored at
+  // or above the qualifying bar without the operator ever seeing them.
   const outcome =
-    output.recommendation === "reject" || score < REJECT_THRESHOLD
+    score < REJECT_THRESHOLD || (output.recommendation === "reject" && score < QUALIFY_THRESHOLD)
       ? "rejected"
       : output.recommendation === "qualify" && score >= QUALIFY_THRESHOLD
         ? "qualified"
