@@ -5,7 +5,7 @@
  */
 import { and, eq } from "drizzle-orm";
 import type { Database } from "../db/client";
-import { approvals, mailboxes, messages, people, prospects, threads } from "../db/schema";
+import { approvals, endeavours, mailboxes, messages, people, prospects, threads } from "../db/schema";
 import { assertTransition } from "../domain/pipeline";
 import { sealJson, unsealJson } from "../crypto/tokens";
 import { newId } from "../ids";
@@ -27,7 +27,18 @@ export interface IngestResult {
   stored: number;
   matched: number;
   needsReview: number;
+  /** Needed review but no endeavour existed to attribute it to. Counted, never dropped. */
+  unattributed: number;
   alreadyKnown: number;
+}
+
+/**
+ * Any endeavour that could own an unmatched reply. Active first, because a paused or
+ * archived endeavour is not somewhere to put work that has just arrived.
+ */
+async function anyActiveEndeavour(db: Database): Promise<string | null> {
+  const [row] = await db.select({ id: endeavours.id }).from(endeavours).where(eq(endeavours.status, "active")).limit(1);
+  return row?.id ?? null;
 }
 
 /** "Ilse Vermeer <ilse@x.com>" → ilse@x.com */
@@ -72,7 +83,7 @@ export async function ingestReplies(
     ...(deps.fetchImpl ? { fetchImpl: deps.fetchImpl } : {}),
   });
 
-  const result: IngestResult = { fetched: 0, stored: 0, matched: 0, needsReview: 0, alreadyKnown: 0 };
+  const result: IngestResult = { fetched: 0, stored: 0, matched: 0, needsReview: 0, unattributed: 0, alreadyKnown: 0 };
   const found = await gmail.list(`newer_than:${input.lookbackDays ?? 3}d -from:me -in:chats`, input.max ?? 25);
   result.fetched = found.length;
 
@@ -115,15 +126,27 @@ export async function ingestReplies(
       });
       if (!mapped) {
         result.needsReview += 1;
-        const [anyEndeavour] = await db.select({ id: prospects.endeavourId }).from(prospects).limit(1);
-        await db.insert(approvals).values({
-          id: newId("approval"),
-          endeavourId: endeavourId ?? anyEndeavour?.id ?? "",
-          kind: "thread_mapping",
-          subjectType: "thread",
-          subjectId: threadId,
-          payload: { from: from ?? "unknown sender", subject, preview: body.slice(0, 400) },
-        });
+        // The thread already carries needs_review, so the mail is never lost. The approval
+        // is the ask to attribute it — and it has to belong to an endeavour, which an
+        // unmatched message by definition does not name. Fall back to an active endeavour;
+        // where there is none, leave the thread flagged rather than inventing an owner.
+        //
+        // This looked for one through `prospects`, so an install with no prospect yet found
+        // nothing and wrote "" into a foreign key: every unmatched mail failed the job and
+        // retried forever.
+        const owner = endeavourId ?? (await anyActiveEndeavour(db));
+        if (owner) {
+          await db.insert(approvals).values({
+            id: newId("approval"),
+            endeavourId: owner,
+            kind: "thread_mapping",
+            subjectType: "thread",
+            subjectId: threadId,
+            payload: { from: from ?? "unknown sender", subject, preview: body.slice(0, 400) },
+          });
+        } else {
+          result.unattributed += 1;
+        }
       }
     } else {
       await db.update(threads).set({ unread: true, lastActivityAt: receivedAt(message) }).where(eq(threads.id, threadId));
