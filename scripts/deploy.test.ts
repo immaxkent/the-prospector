@@ -34,6 +34,21 @@ describe("deploy.sh", () => {
     expect(script).toMatch(/for attempt in/);
   });
 
+  it("checks the worker, not only the container that answers HTTP", () => {
+    // The web container reporting healthy says nothing about the worker beside it, and a
+    // worker that cannot start just restarts forever while the deploy claims success.
+    expect(script).toContain("==> worker");
+    expect(script).toMatch(/worker_state/);
+    // A worker that is not running has to fail the deploy, not merely print something.
+    const check = script.slice(script.indexOf("==> worker"));
+    expect(check).toContain('if [[ "$worker_state" != "running" ]]');
+    expect(check.slice(0, check.indexOf("rolling back"))).toContain('healthy=""');
+  });
+
+  it("shows the worker's logs when it is the thing that failed", () => {
+    expect(script).toMatch(/logs --tail=\d+ worker/);
+  });
+
   it("refuses to deploy an uncommitted tree", () => {
     expect(script).toContain("git status --porcelain");
     expect(script).toContain("refusing to deploy with uncommitted changes");
