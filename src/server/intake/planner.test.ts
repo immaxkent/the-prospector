@@ -99,7 +99,7 @@ describe("planIntake on the Solidity fixture", () => {
     const { deps: d } = deps(solidityPlannerPasses());
     const { spec } = await planIntake(d, { brief: BRIEF, answers: [], today: "2026-09-17" });
     const draft = mergeDraft(null, spec);
-    const gate = evaluateActivation(draft, { brief: BRIEF, connectedMailboxIds: [] });
+    const gate = evaluateActivation(draft, { brief: BRIEF, connectedMailboxes: [] });
     expect(gate.ready).toBe(false);
     expect(gate.blockers.map((b) => b.field)).toEqual(expect.arrayContaining(["pricing", "proof", "exclusions", "mailboxId"]));
   });

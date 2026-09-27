@@ -2,72 +2,62 @@ import { toast } from "sonner";
 import type { Endeavour } from "@/data/types";
 import { useAppMode, useDataset } from "@/data/store";
 import { useAssignEndeavourMailbox, useSetEndeavourFromAlias } from "@/data/mutations";
+import { parseSendingAddress, sendingAddressKey, sendingAddresses } from "@/data/sending-addresses";
 import { MachineLabel } from "./primitives";
 
-/** The mailbox this endeavour sends through. Only connected mailboxes can be chosen. */
+/**
+ * The address this endeavour sends from: a connected mailbox, or one of its aliases.
+ *
+ * These were two controls, which read as two decisions when they are one. The mailbox is
+ * still what is assigned underneath — an alias sends through its account and against its
+ * cap — but that is the account's business, not a second question for the operator.
+ */
 export function EndeavourMailboxSelect({ endeavour }: { endeavour: Endeavour }) {
   const mode = useAppMode();
   const { mailboxes } = useDataset();
   const assign = useAssignEndeavourMailbox();
   const setAlias = useSetEndeavourFromAlias();
   const current = mailboxes.find((m) => m.id === endeavour.mailboxId);
-  const connected = mailboxes.filter((m) => m.status === "connected");
+  const addresses = sendingAddresses(mailboxes);
+  const cannotSend = !!current && current.status !== "connected";
+  const busy = assign.isPending || setAlias.isPending || endeavour.status === "archived";
 
   return (
     <label className="flex items-center gap-2" data-testid="endeavour-mailbox">
       <MachineLabel>SENDS FROM</MachineLabel>
       <select
-        aria-label="Sending mailbox"
+        aria-label="Sending address"
         className="rounded-[3px] border border-border bg-card px-2 py-1 text-[12px]"
-        value={endeavour.mailboxId ?? ""}
-        disabled={assign.isPending || endeavour.status === "archived"}
+        value={cannotSend ? `broken:${current.id}` : sendingAddressKey(addresses, endeavour.mailboxId, endeavour.fromAlias)}
+        disabled={busy}
         onChange={(e) => {
+          const picked = parseSendingAddress(e.target.value);
+          if (!picked || picked.mailboxId.startsWith("broken:")) return;
           if (mode === "demo") {
             toast("Demo mode: nothing was saved");
             return;
           }
-          assign.mutate({ endeavourId: endeavour.id, mailboxId: e.target.value });
+          const alias = () => setAlias.mutate({ endeavourId: endeavour.id, alias: picked.alias });
+          // The alias is checked against the endeavour's own mailbox, so it waits for the move.
+          if (picked.mailboxId === endeavour.mailboxId) alias();
+          else assign.mutate({ endeavourId: endeavour.id, mailboxId: picked.mailboxId }, { onSuccess: alias });
         }}
       >
-        {!current && <option value="">No mailbox</option>}
-        {current && current.status !== "connected" && (
-          <option value={current.id}>
+        {!endeavour.mailboxId && <option value="">No mailbox</option>}
+        {cannotSend && (
+          // Kept in the list so a mailbox that needs attention is not quietly replaced by
+          // whichever address happens to sort first.
+          <option value={`broken:${current.id}`}>
             {current.address} ({current.status.replace("_", " ")})
           </option>
         )}
-        {connected.map((m) => (
-          <option key={m.id} value={m.id}>
-            {m.address}
+        {addresses.map((a) => (
+          <option key={a.key} value={a.key}>
+            {a.label}
           </option>
         ))}
       </select>
-      {current && current.status !== "connected" && <MachineLabel className="text-warn">CANNOT SEND</MachineLabel>}
-
-      {current && current.aliases.length > 0 && (
-        <>
-          <MachineLabel>AS</MachineLabel>
-          <select
-            aria-label="Sending address"
-            className="rounded-[3px] border border-border bg-card px-2 py-1 text-[12px]"
-            value={endeavour.fromAlias ?? ""}
-            disabled={setAlias.isPending || endeavour.status === "archived"}
-            onChange={(e) => {
-              if (mode === "demo") {
-                toast("Demo mode: nothing was saved");
-                return;
-              }
-              setAlias.mutate({ endeavourId: endeavour.id, alias: e.target.value || null });
-            }}
-          >
-            <option value="">{current.address}</option>
-            {current.aliases.map((a) => (
-              <option key={a.address} value={a.address}>
-                {a.address}
-              </option>
-            ))}
-          </select>
-        </>
-      )}
+      {cannotSend && <MachineLabel className="text-warn">CANNOT SEND</MachineLabel>}
     </label>
   );
 }

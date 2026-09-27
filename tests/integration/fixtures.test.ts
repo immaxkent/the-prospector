@@ -16,7 +16,7 @@ describe("fixtures", () => {
     const [row] = await handle.db.select().from(t.endeavours).where(eq(t.endeavours.id, FIXTURE_IDS.endeavour));
     expect(row).toBeDefined();
     const spec = endeavourSpecSchema.parse(row!.spec);
-    expect(evaluateActivation(spec, { brief: FIXTURE_BRIEF, connectedMailboxIds: [FIXTURE_IDS.mailbox] })).toEqual({
+    expect(evaluateActivation(spec, { brief: FIXTURE_BRIEF, connectedMailboxes: [{ id: FIXTURE_IDS.mailbox, aliases: [] }] })).toEqual({
       ready: true,
       blockers: [],
     });

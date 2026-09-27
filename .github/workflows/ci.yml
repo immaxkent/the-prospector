@@ -36,3 +36,69 @@ jobs:
       - run: npm run test:integration
       - run: npx playwright install --with-deps chromium
       - run: npm run test:e2e
+
+  # Only merges to main reach the box, and only after every check above has passed.
+  deploy:
+    needs: check
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    runs-on: ubuntu-latest
+    concurrency:
+      # One deploy at a time. Two merges in a minute must not race each other onto the box.
+      group: deploy-production
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # The version number counts commits, so the whole history has to be here.
+          fetch-depth: 0
+
+      - name: Check the deploy secrets are set
+        # Without this the job fails minutes later inside ssh, with an error that says
+        # nothing about which secret is missing.
+        env:
+          KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          HOST: ${{ secrets.DEPLOY_HOST }}
+          DOMAIN: ${{ secrets.APP_DOMAIN }}
+        run: |
+          missing=""
+          [[ -n "$KEY" ]] || missing="$missing DEPLOY_SSH_KEY"
+          [[ -n "$HOST" ]] || missing="$missing DEPLOY_HOST"
+          [[ -n "$DOMAIN" ]] || missing="$missing APP_DOMAIN"
+          if [[ -n "$missing" ]]; then
+            echo "main was not deployed: set these repository secrets:$missing" >&2
+            exit 1
+          fi
+
+      - uses: oven-sh/setup-bun@v2
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: bun install --frozen-lockfile
+
+      - name: Trust the box
+        env:
+          HOST: ${{ secrets.DEPLOY_HOST }}
+        run: |
+          mkdir -p ~/.ssh && chmod 700 ~/.ssh
+          # A silent keyscan would leave ssh to fail on host key verification instead.
+          ssh-keyscan -H "$HOST" > ~/.ssh/known_hosts
+          [[ -s ~/.ssh/known_hosts ]] || { echo "could not read the host key for $HOST" >&2; exit 1; }
+
+      - name: Use the deploy key
+        env:
+          KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+        run: |
+          install -m 600 /dev/null ~/.ssh/id_ed25519
+          printf '%s\n' "$KEY" > ~/.ssh/id_ed25519
+
+      - name: Ship it
+        env:
+          PROSPECTOR_HOST: ${{ secrets.DEPLOY_USER || 'root' }}@${{ secrets.DEPLOY_HOST }}
+        run: ./scripts/deploy.sh
+
+      - name: Say what is running
+        # The box reported itself healthy from the inside; this asks the same question from
+        # the outside, through Caddy, the way a visitor asks it.
+        env:
+          DOMAIN: ${{ secrets.APP_DOMAIN }}
+        run: curl -fsS --max-time 30 "https://$DOMAIN/healthz"

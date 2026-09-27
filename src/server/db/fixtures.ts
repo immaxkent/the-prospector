@@ -51,6 +51,7 @@ export function fixtureSpec(mailboxId: string): EndeavourSpec {
     },
     exclusions: { state: "confirmed", value: [] },
     mailboxId: { state: "confirmed", value: mailboxId },
+    fromAlias: null,
     cadence: { state: "confirmed", value: { dailyNewTarget: 10, dailyFollowupTarget: 8 } },
     channels: ["email"],
     autonomyLevel: "DRAFT",

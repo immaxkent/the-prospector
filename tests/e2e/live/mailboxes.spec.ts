@@ -53,7 +53,7 @@ test.describe("mailboxes", () => {
        select 'mbx_e2e_deca', 'max@decastream.example', 'Decastream', 'google', 'connected', limits from mailboxes limit 1`,
     );
     await signIn(page, "/endeavours/end_fixture_solidity");
-    await page.getByLabel("Sending mailbox").selectOption("mbx_e2e_deca");
+    await page.getByLabel("Sending address").selectOption("mbx_e2e_deca");
     await expect(page.getByText("Sending mailbox changed")).toBeVisible();
     expect(await query("select mailbox_id from endeavours")).toEqual([{ mailbox_id: "mbx_e2e_deca" }]);
   });

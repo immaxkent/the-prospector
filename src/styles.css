@@ -259,6 +259,37 @@
   animation: cbo-rise 0.55s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
+/*
+ * The grid is the backdrop: two hairline rules crossed at a fixed cell, faded out towards
+ * the edges so the frame does not look like graph paper. The mask is what makes it a pool
+ * of light rather than a pattern.
+ */
+.world-grid {
+  --cell: 44px;
+  background-image:
+    linear-gradient(color-mix(in oklch, var(--warn) 12%, transparent) 1px, transparent 1px),
+    linear-gradient(90deg, color-mix(in oklch, var(--warn) 12%, transparent) 1px, transparent 1px);
+  background-size: var(--cell) var(--cell);
+  background-position: calc(50% + var(--station-shift, 0px)) calc(45% + var(--station-shift, 0px));
+  mask-image: radial-gradient(76% 62% at 50% 44%, #000 28%, transparent 80%);
+  -webkit-mask-image: radial-gradient(76% 62% at 50% 44%, #000 28%, transparent 80%);
+  transition: background-position 900ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/* A single warm pool under the wordmark, so the grid has somewhere to come from. */
+.world-grid::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(48% 40% at 50% 40%, color-mix(in oklch, var(--warn) 9%, transparent), transparent 70%);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .world-grid {
+    transition-duration: 1ms;
+  }
+}
+
 .world-vignette {
   background:
     radial-gradient(ellipse at 50% 44%, transparent 0%, oklch(0.1 0.02 235 / 0.18) 58%, oklch(0.08 0.02 235 / 0.68) 100%),
@@ -270,75 +301,89 @@
  * exceptionally slow bronze light-band crossing the letterforms.
  */
 
+/*
+ * PROSPECTOR wordmark.
+ *
+ * At rest it is a hairline outline split into a gold and a cyan copy, a few pixels apart.
+ * On hover the copies converge and fade while the core fills solid and the tracking
+ * tightens: the word resolves from three thin impressions into one.
+ *
+ * The curve is almost flat for most of its length, so the drift reads as slow and the
+ * fold as sudden, rather than as one even slide.
+ */
 .prospector-title {
+  --title-gold: oklch(0.82 0.115 84);
+  --title-cyan: oklch(0.81 0.1 190);
+  --title-fold: cubic-bezier(0.76, 0, 0.9, 0.05);
   position: relative;
-  font-family: "Space Grotesk", "DM Sans", ui-sans-serif, sans-serif;
-  font-weight: 900;
-  letter-spacing: 0;
+  font-family: "Sora", "Space Grotesk", ui-sans-serif, sans-serif;
+  font-weight: 200;
+  letter-spacing: 0.15em;
+  /* Tracking is added after the last letter too, so the word would sit left of centre. */
+  margin-right: -0.15em;
   color: transparent;
-  background-image: linear-gradient(
-    180deg,
-    oklch(0.98 0.008 92) 0%,
-    oklch(0.93 0.016 88) 36%,
-    oklch(0.79 0.03 84) 66%,
-    oklch(0.62 0.045 78) 100%
-  );
-  background-clip: text;
-  -webkit-background-clip: text;
-  filter: drop-shadow(0 3px 1px oklch(0.06 0.02 235 / 0.85))
-    drop-shadow(0 14px 34px oklch(0.04 0.02 235 / 0.7));
+  -webkit-text-stroke: 1px color-mix(in oklch, var(--title-gold) 65%, transparent);
+  cursor: default;
 }
 
-.prospector-title::before {
+.prospector-title::before,
+.prospector-title::after {
   content: attr(data-text);
   position: absolute;
   inset: 0;
   pointer-events: none;
   color: transparent;
-  background-image: linear-gradient(
-    100deg,
-    transparent 40%,
-    oklch(0.93 0.075 82 / 0.95) 50%,
-    transparent 60%
-  );
-  background-size: 260% 100%;
-  background-position: 130% 50%;
-  background-clip: text;
-  -webkit-background-clip: text;
-  animation: prospector-sheen 34s cubic-bezier(0.55, 0.06, 0.35, 0.95) infinite;
+  -webkit-text-stroke: 1px currentColor;
 }
 
-/* fine bronze rule beneath the wordmark */
+/*
+ * The split is in em, not pixels: the wordmark is fluid, and a fixed offset that reads as
+ * a delicate fringe at 70px reads as a muddle of overlapping outlines at 140px.
+ */
+.prospector-title::before {
+  color: color-mix(in oklch, var(--title-gold) 85%, transparent);
+  transform: translateX(0.05em);
+}
+
 .prospector-title::after {
-  content: "";
-  position: absolute;
-  left: 6%;
-  right: 6%;
-  bottom: -0.12em;
-  height: 1px;
-  background: linear-gradient(90deg, transparent, oklch(0.79 0.09 78 / 0.6) 50%, transparent);
+  color: color-mix(in oklch, var(--title-cyan) 45%, transparent);
+  transform: translateX(-0.05em);
 }
 
-@keyframes prospector-sheen {
-  0%, 52% { background-position: 130% 50%; }
-  100% { background-position: -70% 50%; }
-}
-
-/* Hover — the wordmark lifts, warms and the light-band sweeps immediately */
-.prospector-title {
-  cursor: default;
+.prospector-title,
+.prospector-title::before,
+.prospector-title::after {
   transition:
-    transform 700ms cubic-bezier(0.22, 1, 0.36, 1),
-    filter 700ms ease,
-    letter-spacing 700ms cubic-bezier(0.22, 1, 0.36, 1);
+    color 1100ms var(--title-fold),
+    opacity 1100ms var(--title-fold),
+    transform 1100ms var(--title-fold),
+    letter-spacing 1100ms var(--title-fold),
+    margin-right 1100ms var(--title-fold),
+    filter 1100ms var(--title-fold),
+    -webkit-text-stroke-color 1100ms var(--title-fold);
 }
 
 .prospector-title:hover {
-  transform: translateY(-4px) scale(1.012);
-  letter-spacing: 0.012em;
-  filter: drop-shadow(0 3px 1px oklch(0.06 0.02 235 / 0.9))
-    drop-shadow(0 18px 44px oklch(0.04 0.02 235 / 0.75))
-    drop-shadow(0 0 26px oklch(0.79 0.09 78 / 0.32));
+  color: oklch(0.97 0.012 92);
+  -webkit-text-stroke-color: transparent;
+  letter-spacing: 0.05em;
+  margin-right: -0.05em;
+  filter: drop-shadow(0 0 30px color-mix(in oklch, var(--title-gold) 30%, transparent));
+}
+
+.prospector-title:hover::before,
+.prospector-title:hover::after {
+  transform: translateX(0);
+  opacity: 0;
+}
+
+/* The fold is the whole effect, so it still happens — it just stops being a journey. */
+@media (prefers-reduced-motion: reduce) {
+  .prospector-title,
+  .prospector-title::before,
+  .prospector-title::after {
+    transition-duration: 1ms;
+  }
 }
 
 .prospector-title:hover::before {

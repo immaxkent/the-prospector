@@ -113,10 +113,13 @@ export async function reviseEndeavourSpec(db: Database, input: ReviseInput, now 
     if (!endeavour) throw notFound("endeavour");
     if (endeavour.status === "archived") throw conflict("an archived endeavour cannot be revised");
 
-    const connected = await tx.select({ id: mailboxes.id }).from(mailboxes).where(eq(mailboxes.status, "connected"));
+    const connected = await tx
+      .select({ id: mailboxes.id, aliases: mailboxes.aliases })
+      .from(mailboxes)
+      .where(eq(mailboxes.status, "connected"));
     const gate = evaluateActivation(spec, {
       brief: endeavour.brief,
-      connectedMailboxIds: connected.map((m) => m.id),
+      connectedMailboxes: connected.map((m) => ({ id: m.id, aliases: m.aliases.map((a) => a.address) })),
     });
     if (!gate.ready) throw conflict(gate.blockers.map((b) => b.message).join("; "));
 
@@ -133,6 +136,7 @@ export async function reviseEndeavourSpec(db: Database, input: ReviseInput, now 
         kind: spec.kind,
         autonomyLevel: spec.autonomyLevel,
         mailboxId: confirmed(spec.mailboxId) ?? endeavour.mailboxId,
+        fromAlias: spec.fromAlias,
       })
       .where(eq(endeavours.id, endeavour.id));
     await tx.insert(endeavourSpecVersions).values({

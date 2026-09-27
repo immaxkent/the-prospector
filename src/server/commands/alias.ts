@@ -122,7 +122,12 @@ export async function setEndeavourFromAlias(
         throw invalid(`${mailbox.address} cannot send as ${alias}`);
       }
     }
-    await tx.update(endeavours).set({ fromAlias: alias }).where(eq(endeavours.id, endeavour.id));
+    // The spec is what a revision writes back from, so the row alone would be undone by
+    // the next revision. Both are kept in step, the way the mailbox already is.
+    await tx
+      .update(endeavours)
+      .set({ fromAlias: alias, spec: { ...endeavour.spec, fromAlias: alias } })
+      .where(eq(endeavours.id, endeavour.id));
     await recordEvent(tx, {
       eventType: "endeavour.from_alias_set",
       entityType: "endeavour",

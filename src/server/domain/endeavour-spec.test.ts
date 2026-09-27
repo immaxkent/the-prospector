@@ -51,6 +51,7 @@ function readySpec(overrides: Partial<EndeavourSpec> = {}): EndeavourSpec {
     },
     exclusions: { state: "confirmed", value: [] },
     mailboxId: { state: "confirmed", value: "mbx_1" },
+    fromAlias: null,
     cadence: { state: "confirmed", value: { dailyNewTarget: 10, dailyFollowupTarget: 8 } },
     channels: ["email"],
     autonomyLevel: "DRAFT",
@@ -58,7 +59,7 @@ function readySpec(overrides: Partial<EndeavourSpec> = {}): EndeavourSpec {
   };
 }
 
-const ctx = { brief: BRIEF, connectedMailboxIds: ["mbx_1"] };
+const ctx = { brief: BRIEF, connectedMailboxes: [{ id: "mbx_1", aliases: ["Partnerships@ImMaxKent.xyz"] }] };
 const codes = (spec: EndeavourSpec, c = ctx) => evaluateActivation(spec, c).blockers.map((b) => b.code);
 
 describe("schema", () => {
@@ -77,7 +78,7 @@ describe("schema", () => {
   });
 
   it("does not let the planner confirm or mark fields not applicable", () => {
-    const { mailboxId: _m, channels: _c, autonomyLevel: _a, ...planner } = readySpec();
+    const { mailboxId: _m, fromAlias: _f, channels: _c, autonomyLevel: _a, ...planner } = readySpec();
     expect(plannerSpecSchema.safeParse(planner).success).toBe(false); // contains confirmed fields
     const onlyStated = { ...planner, horizon: { state: "missing" }, proof: { state: "missing" }, buyers: { state: "missing" }, exclusions: { state: "missing" }, cadence: { state: "missing" } };
     expect(plannerSpecSchema.safeParse(onlyStated).success).toBe(true);
@@ -150,7 +151,28 @@ describe("activation gate", () => {
   });
 
   it("requires a connected mailbox", () => {
-    expect(codes(readySpec(), { ...ctx, connectedMailboxIds: [] })).toEqual(["mailbox_not_connected"]);
+    expect(codes(readySpec(), { ...ctx, connectedMailboxes: [] })).toEqual(["mailbox_not_connected"]);
+  });
+
+  it("lets the endeavour send as one of the mailbox's aliases", () => {
+    expect(codes(readySpec({ fromAlias: "partnerships@immaxkent.xyz" }))).toEqual([]);
+  });
+
+  it("blocks an alias the mailbox cannot send as", () => {
+    // Removing the alias in Gmail would otherwise only surface at the first send.
+    expect(codes(readySpec({ fromAlias: "someone@elsewhere.com" }))).toEqual(["alias_not_on_mailbox"]);
+  });
+
+  it("does not check the alias when the mailbox itself is gone", () => {
+    // One cause, one blocker: "not connected" already says what to fix.
+    expect(codes(readySpec({ fromAlias: "partnerships@immaxkent.xyz" }), { ...ctx, connectedMailboxes: [] })).toEqual([
+      "mailbox_not_connected",
+    ]);
+  });
+
+  it("sends from the account's own address when no alias is chosen", () => {
+    expect(readySpec().fromAlias).toBeNull();
+    expect(codes(readySpec())).toEqual([]);
   });
 
   it("blocks autonomy levels that are disabled in v1", () => {
