@@ -79,6 +79,8 @@ export const updateIntakeSettingsFn = createServerFn({ method: "POST" })
       name: z.string().max(120).optional(),
       kind: z.enum(["sprint", "ongoing"]).optional(),
       autonomyLevel: z.enum(["OBSERVE", "DRAFT", "GUARDED", "DELEGATED"]).optional(),
+      /** null puts the endeavour back on the mailbox's own address. */
+      fromAlias: z.string().max(320).nullable().optional(),
     }),
   )
   .handler(async ({ data }) => {
