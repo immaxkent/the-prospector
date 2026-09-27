@@ -6,36 +6,55 @@ export interface Section {
   label: string;
 }
 
+/** Where the sticky header ends, and so where "the top of the page" is for a reader. */
+const HEADER = 88;
+
 /**
  * Which section the reader is currently in.
  *
- * The topmost visible section wins rather than the most visible one: while scrolling down
- * through a long section the heading that has just passed the top of the screen is the one
- * the reader is under, and picking by area would flicker between two sections whenever a
- * short one is fully on screen beside a long one.
+ * Whole sections are watched, not their headings: a heading is one line tall, so it
+ * crosses the band and leaves, and an anchor jump skips the headings in between entirely.
+ * A section is always under the reader somewhere, so there is always an answer.
  */
 export function useSectionSpy(ids: readonly string[]) {
   const [active, setActive] = useState(ids[0] ?? "");
 
   useEffect(() => {
-    const seen = new Map<string, boolean>();
-    const observer = new IntersectionObserver(
-      (entries) => {
-        for (const entry of entries) seen.set(entry.target.id, entry.isIntersecting);
-        const first = ids.find((id) => seen.get(id));
-        // Past the last section nothing intersects; the reader is still in the last one.
-        if (first) setActive(first);
-      },
-      // The band starts below the sticky header and ends well above the fold, so a section
-      // becomes current as its heading arrives rather than as its last line leaves.
-      { rootMargin: "-88px 0px -55% 0px", threshold: 0 },
-    );
+    const elements = ids
+      .map((id) => ({ id, el: document.querySelector(`[data-section="${id}"]`) }))
+      .filter((s): s is { id: string; el: Element } => !!s.el);
+    if (elements.length === 0) return;
 
-    for (const id of ids) {
-      const el = document.getElementById(id);
-      if (el) observer.observe(el);
-    }
-    return () => observer.disconnect();
+    // The reader is in the last section that has begun above the header line. Asking the
+    // observer which sections merely intersect is not enough: at a boundary the outgoing
+    // section still overlaps the band by a few pixels and would keep winning.
+    const pick = () => {
+      // The page runs out before a short last section can reach the top, so by this rule
+      // alone it could never become current. At the foot of the page you are in the last
+      // section, whatever its top edge says.
+      if (window.scrollY + window.innerHeight >= document.documentElement.scrollHeight - 2) {
+        setActive(elements[elements.length - 1]!.id);
+        return;
+      }
+      let current = elements[0]!.id;
+      for (const { id, el } of elements) {
+        if (el.getBoundingClientRect().top <= HEADER + 1) current = id;
+      }
+      setActive(current);
+    };
+
+    // The observer is only the trigger — it fires exactly when a section crosses the band,
+    // which is exactly when the answer can change.
+    const observer = new IntersectionObserver(pick, { rootMargin: `-${HEADER}px 0px -60% 0px`, threshold: 0 });
+    for (const { el } of elements) observer.observe(el);
+    // The foot-of-page rule turns on a scroll position no section crossing reports, so the
+    // observer alone would not fire for it.
+    window.addEventListener("scroll", pick, { passive: true });
+    pick();
+    return () => {
+      observer.disconnect();
+      window.removeEventListener("scroll", pick);
+    };
   }, [ids]);
 
   return active;

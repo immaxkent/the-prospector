@@ -376,12 +376,12 @@ function EndeavourDetail() {
  */
 function Section({ id, label, children }: { id: string; label: string; children: ReactNode }) {
   return (
-    <section aria-labelledby={`${id}-heading`} className="space-y-5 pt-6">
-      {/* scroll-mt clears the sticky header, so a jump does not land under it. */}
-      <h2 id={id} className="scroll-mt-24">
-        <span id={`${id}-heading`} className="machine text-foreground/45">
-          {label}
-        </span>
+    // The id is on the section, not the heading: it is both what an anchor jumps to and
+    // what the spy watches, and scroll-mt clears the sticky header so a jump does not land
+    // underneath it.
+    <section id={id} data-section={id} aria-labelledby={`${id}-heading`} className="scroll-mt-24 space-y-5 pt-6">
+      <h2 id={`${id}-heading`} className="machine text-foreground/45">
+        {label}
       </h2>
       {children}
     </section>
