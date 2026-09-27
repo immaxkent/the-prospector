@@ -531,6 +531,11 @@ export const appSettings = pgTable("app_settings", {
   model: text("model").notNull(),
   /** Ceiling for a calendar month of model spend, in pence. */
   monthlyBudgetPence: integer("monthly_budget_pence").notNull(),
+  /**
+   * Which headline numbers the endeavour page leads with, in the order they are shown.
+   * A display preference, so an unknown id here is dropped rather than raised.
+   */
+  statTiles: jsonb("stat_tiles").$type<string[]>().notNull().default([]),
   ...timestamps,
 });
 
