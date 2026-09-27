@@ -43,6 +43,9 @@ export const fixtureStatus: SystemStatus = {
     reason: "ok",
     usdPerGbp: 1.27,
   },
+  // The design fixtures show a deliberately non-default row, so the picker is obviously
+  // doing something when someone opens it.
+  statTiles: ["revenue", "replies", "awaiting", "reply_rate"],
 };
 
 export const fixtureEndeavours: Endeavour[] = [

@@ -34,6 +34,8 @@ export interface DatasetOptions {
   aliasConsent?: (tokenCiphertext: string) => boolean;
   /** Model choice and spend, computed by the settings command so the sums live in one place. */
   budget?: BudgetStatus;
+  /** Headline numbers the operator chose. Empty, or absent, means the defaults. */
+  statTiles?: string[];
 }
 
 const byId = <T extends { id: string }>(rows: readonly T[]) => new Map(rows.map((r) => [r.id, r]));
@@ -113,6 +115,7 @@ export async function loadDataset(db: Database, opts: DatasetOptions): Promise<D
         reason: "no_budget",
         usdPerGbp: 1,
       },
+      statTiles: opts.statTiles ?? [],
     },
     endeavours: endeavours.map((e) =>
       buildEndeavour({

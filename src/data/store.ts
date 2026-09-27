@@ -8,6 +8,7 @@
  */
 import { useSyncExternalStore } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { resolveStatTiles } from "./stat-tiles";
 import { useRouteContext } from "@tanstack/react-router";
 import { datasetQuery } from "./queries";
 import type {
@@ -140,6 +141,11 @@ const LIVE_EMPTY: Dataset = {
   interfaces: [],
   isEmpty: true,
 };
+
+/** The headline numbers the endeavour page leads with, already resolved to real tiles. */
+export function useStatTiles() {
+  return resolveStatTiles(useDataset().status.statTiles);
+}
 
 /** "live" reads the database; "demo" (no DATABASE_URL, e.g. the Lovable preview) shows design fixtures. */
 export function useAppMode(): "live" | "demo" {
