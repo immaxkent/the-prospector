@@ -43,6 +43,43 @@ test("the home screen is the wordmark on a grid, with no 3D scene behind it", as
   expect(errors).toEqual([]);
 });
 
+test("an endeavour leads with the chosen headline numbers", async ({ page }) => {
+  await page.goto("/endeavours/end_solidity");
+  const row = page.getByTestId("stat-tiles");
+  await expect(row).toBeVisible();
+
+  // The fixtures choose a deliberately non-default row, and order is part of the choice.
+  await expect(row.locator("[data-testid^=stat-tile-]")).toHaveCount(4);
+  await expect(row.locator("[data-testid^=stat-tile-] p:first-child")).toHaveText([
+    "REVENUE WON",
+    "REPLIES IN",
+    "AWAITING REVIEW",
+    "REPLY RATE",
+  ]);
+
+  // A number that cannot honestly be computed yet says so instead of showing a zero.
+  await expect(page.getByTestId("stat-tile-reply_rate")).toContainText("too few to rate");
+});
+
+test("the headline numbers can be swapped, and the row refuses a fifth", async ({ page }) => {
+  await page.goto("/settings");
+  const picker = page.getByTestId("stat-tile-picker");
+  await expect(picker).toContainText("4 OF 4 CHOSEN");
+
+  // The row is full, so adding without removing is refused rather than silently
+  // dropping whichever was chosen first.
+  await picker.getByRole("button", { name: /^Objective progress/ }).click();
+  await expect(page.locator("[data-sonner-toast]")).toContainText("Take one off first");
+
+  await picker.getByRole("button", { name: "1 · REVENUE WON ✕" }).click();
+  await expect(picker).toContainText("3 OF 4 CHOSEN");
+  // Removing the first renumbers the rest rather than leaving a gap at 1.
+  await expect(picker.getByRole("button", { name: /^1 · REPLIES IN/ })).toBeVisible();
+
+  await picker.getByRole("button", { name: /^Objective progress/ }).click();
+  await expect(picker.getByRole("button", { name: /^4 · OBJECTIVE PROGRESS/ })).toBeVisible();
+});
+
 test("unknown routes show the 404 surface", async ({ page }) => {
   await page.goto("/does-not-exist");
   await expect(page.getByText("404 / NO ROUTE")).toBeVisible();
