@@ -18,6 +18,21 @@ export interface PromptDefinition {
   system: string;
 }
 
+/**
+ * What the model actually returned, when it returned something unusable.
+ *
+ * "The response was not JSON" says nothing a fix can be built on: prose wrapped round the
+ * object, a refusal, a fenced block and an empty string all read the same. Both ends are
+ * kept, because a truncation shows at the tail and a preamble at the head, and the middle
+ * of four thousand tokens is rarely the part that explains it.
+ */
+export function outputSnippet(text: string, keep = 400): string {
+  const clean = text.trim();
+  if (clean.length === 0) return "(empty response)";
+  if (clean.length <= keep * 2) return clean;
+  return `${clean.slice(0, keep)}\n…[${clean.length - keep * 2} more characters]…\n${clean.slice(-keep)}`;
+}
+
 export interface LlmCallRecord {
   id: string;
   runId: string | null;
@@ -123,12 +138,16 @@ export async function runStructured<S extends z.ZodType>(call: StructuredCall<S>
   try {
     parsed = JSON.parse(response.text);
   } catch {
-    await call.record({ ...base, ...spend, status: "invalid_output", error: "the response was not JSON" });
+    const shown = `the response was not JSON\n${outputSnippet(response.text)}`;
+    console.error(`llm call ${base.role} returned unparseable output:\n${outputSnippet(response.text)}`);
+    await call.record({ ...base, ...spend, status: "invalid_output", error: shown.slice(0, 2000) });
     throw new LlmOutputError(call.prompt.role, "response was not JSON");
   }
   const result = call.schema.safeParse(parsed);
   if (!result.success) {
-    const issues = z.prettifyError(result.error);
+    // The issues say which field; the snippet says what was in it. A schema failure without
+    // the value is a fix built on a guess.
+    const issues = `${z.prettifyError(result.error)}\n${outputSnippet(response.text, 200)}`;
     await call.record({ ...base, ...spend, status: "invalid_output", error: issues.slice(0, 2000) });
     throw new LlmOutputError(call.prompt.role, issues);
   }
