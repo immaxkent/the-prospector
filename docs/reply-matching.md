@@ -12,6 +12,22 @@ Matching today, in `ingestReplies`, is two guesses in order:
 
 Then everything else becomes a `thread_mapping` approval for the operator to sort by hand.
 
+It is worth being clear about what each rung can and cannot tell you, because they are not
+the same question. **Routing** — which endeavour does this belong to — and **attribution** —
+which outreach did this answer — fail independently:
+
+| Rung | Identifies | Cost |
+|---|---|---|
+| `In-Reply-To` / `References` | the exact message | free |
+| Gmail thread id | the thread | free |
+| Sender address | the prospect | free |
+| Mailbox serves one endeavour | the endeavour | free |
+| Read the content | the endeavour, maybe | a model call, fallible |
+
+One inbox per endeavour therefore solves routing completely and attribution not at all —
+which is the right trade, because routing is what was crashing the job and attribution is
+what the header work fixes.
+
 That is thinner than it looks:
 
 - **Gmail's thread id is Gmail's opinion.** It groups by subject and participants, so a
@@ -38,6 +54,7 @@ corrupts the learning loop: it is scoring copy against replies it did not earn.
 
 | # | Task | Deliverable |
 |---|---|---|
+| **T0** | **Attribute by mailbox where it is unambiguous.** When a mailbox serves exactly one active endeavour, anything arriving there belongs to that endeavour. Deterministic, free, no model call — and it is the intended setup, so it catches the whole residue of T1–T3 rather than a slice of it. Does *not* identify which outreach was answered; that is still T1's job. | matcher + unit tests |
 | **T1** | **Read the headers we already send.** Parse `In-Reply-To` and `References` from inbound mail; resolve them against `messages.external_message_id`. This is exact attribution — RFC 5322 identifiers, not a guess — and it names the *message*, not just the prospect. | matcher + unit tests |
 | **T2** | **Rank the strategies, and record which one won.** Ordered: reply-header → Gmail thread id → sender address → nothing. Store the winner and a confidence on the message, so a wrong match is later explainable rather than mysterious. | schema + migration + tests |
 | **T3** | **Attribute to the outreach, not only the prospect.** Set `messages.in_reply_to_message_id` so a reply points at the draft it answers. This is what makes per-message performance honest. | column + wiring + tests |
@@ -54,6 +71,10 @@ corrupts the learning loop: it is scoring copy against replies it did not earn.
   visible under ALL, but it never becomes a decision. Nothing is deleted.
 - **Confidence is recorded, not acted on.** No auto-rejecting low-confidence matches until
   there is enough real traffic to know what the distribution looks like.
+- **The mailbox beats the model.** Reading a message body to infer its endeavour costs a
+  call on every unmatched mail and can be wrong; a mailbox that serves one endeavour simply
+  knows. Content classification stays a last resort for shared mailboxes, and is not built
+  until one exists.
 
 ## Not in here
 
