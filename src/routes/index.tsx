@@ -36,7 +36,7 @@ function HomeScreen() {
             <MachineLabel tone="signal">SYSTEM {status.agent}</MachineLabel>
           </div>
           <h1
-            className="prospector-title display text-[clamp(58px,11vw,156px)] font-black leading-[0.78]"
+            className="prospector-title text-[clamp(46px,8.6vw,118px)] leading-[0.95]"
             data-text="PROSPECTOR"
           >
             PROSPECTOR

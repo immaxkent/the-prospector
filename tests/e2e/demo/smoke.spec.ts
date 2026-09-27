@@ -25,6 +25,24 @@ for (const screen of SCREENS) {
   });
 }
 
+test("the home screen is the wordmark on a grid, with no 3D scene behind it", async ({ page }) => {
+  const errors: string[] = [];
+  page.on("pageerror", (err) => errors.push(err.message));
+
+  await page.goto("/");
+  // The backdrop is CSS, so it is there on the first paint with nothing to mount.
+  await expect(page.locator(".world-grid")).toBeVisible();
+  // reducedMotion is "reduce" for these runs, which is exactly when the old WebGL
+  // backdrop rendered nothing at all — a canvas here would mean it came back.
+  await expect(page.locator("canvas")).toHaveCount(0);
+
+  const title = page.locator(".prospector-title");
+  await expect(title).toHaveText("PROSPECTOR");
+  // The split copies are drawn from the attribute, not from a second element.
+  await expect(title).toHaveAttribute("data-text", "PROSPECTOR");
+  expect(errors).toEqual([]);
+});
+
 test("unknown routes show the 404 surface", async ({ page }) => {
   await page.goto("/does-not-exist");
   await expect(page.getByText("404 / NO ROUTE")).toBeVisible();
