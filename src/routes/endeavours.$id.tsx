@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState } from "react";
-import { useDataset } from "@/data/store";
+import { useDataset, useStatTiles } from "@/data/store";
 import {
   Button,
   EmptyState,
@@ -19,6 +19,7 @@ import {
 import { ApprovalTicket } from "@/components/os/ApprovalTicket";
 import { EndeavourStatusControls } from "@/components/os/EndeavourStatusControls";
 import { EndeavourMailboxSelect } from "@/components/os/EndeavourMailboxSelect";
+import { StatTiles } from "@/components/os/StatTiles";
 import { EndeavourConfig } from "@/components/os/EndeavourConfig";
 import { StrategyEditor } from "@/components/os/StrategyEditor";
 import { gbp, num, pct, shortDate, stamp, daysUntil } from "@/lib/format";
@@ -47,7 +48,8 @@ const STAGES: PipelineStage[] = ["researched", "qualified", "contacted", "replie
 
 function EndeavourDetail() {
   const { id } = Route.useParams();
-  const { endeavours, prospects, opportunities, insights, approvals, runs, threads } = useDataset();
+  const { endeavours, prospects, opportunities, insights, approvals, runs, threads, status } = useDataset();
+  const statTiles = useStatTiles();
   const [tab, setTab] = useState<Tab>("OVERVIEW");
   const e = endeavours.find((x) => x.id === id);
 
@@ -75,6 +77,8 @@ function EndeavourDetail() {
   };
 
   const gap = e.targetValue - e.actualValue;
+  // One clock for the whole row, so two tiles cannot disagree about what day it is.
+  const statContext = { endeavour: e, budget: status.budget, now: new Date(), ...mine };
 
   return (
     <div className="space-y-5">
@@ -90,21 +94,6 @@ function EndeavourDetail() {
           <div className="flex flex-wrap items-center gap-6">
             <EndeavourMailboxSelect endeavour={e} />
             <EndeavourStatusControls endeavour={e} />
-            <MetricCell
-              label="OBJECTIVE"
-              size="lg"
-              value={e.unit === "GBP" ? gbp(e.actualValue) : num(e.actualValue)}
-              sub={`TARGET ${e.unit === "GBP" ? gbp(e.targetValue) : num(e.targetValue)} · GAP ${
-                e.unit === "GBP" ? gbp(gap) : num(gap)
-              }`}
-            />
-            <MetricCell
-              label="HORIZON"
-              size="lg"
-              value={`${daysUntil(e.deadline)}d`}
-              sub={shortDate(e.deadline)}
-              tone={daysUntil(e.deadline) < 15 ? "warn" : "default"}
-            />
           </div>
         </div>
         <nav className="mt-4 flex flex-wrap gap-1">
@@ -122,6 +111,8 @@ function EndeavourDetail() {
           ))}
         </nav>
       </div>
+
+      {tab === "OVERVIEW" && <StatTiles tiles={statTiles} ctx={statContext} />}
 
       {tab === "OVERVIEW" && (
         <div className="grid grid-cols-1 gap-5 xl:grid-cols-[minmax(0,1fr)_380px]">
