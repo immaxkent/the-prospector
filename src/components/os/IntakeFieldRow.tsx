@@ -138,7 +138,10 @@ export function IntakeFieldRow({
             // actually accepts are the operator's to pick, not to guess at. Choosing one
             // writes it into the answer, which they can then add to.
             <select
-              aria-label={`${choices[0]!.label} for ${label}`}
+              // Not "Model for Pricing": the edit form below has its own Model select, and
+              // two controls with the same name in one field is ambiguous to anything
+              // reading by label — a screen reader as much as a test.
+              aria-label={`Values ${label} accepts`}
               className={inputCls}
               value=""
               disabled={busy}
