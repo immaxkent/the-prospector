@@ -215,6 +215,16 @@ export const updateSettingsFn = createServerFn({ method: "POST" })
     return updateSettings(await live(), data);
   });
 
+export const updateStatTilesFn = createServerFn({ method: "POST" })
+  .middleware([requireSession])
+  // The ids themselves are checked by the command, which is the one place that knows
+  // what numbers exist.
+  .validator(z.object({ tiles: z.array(z.string().trim().min(1).max(40)).max(8) }))
+  .handler(async ({ data }) => {
+    const { updateStatTiles } = await import("../server/commands/settings");
+    return updateStatTiles(await live(), data.tiles);
+  });
+
 export const updateEndeavourSettingsFn = createServerFn({ method: "POST" })
   .middleware([requireSession])
   .validator(
