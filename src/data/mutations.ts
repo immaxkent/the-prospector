@@ -65,7 +65,9 @@ export const useCreateMailboxAlias = () =>
   useAction(createMailboxAliasFn, (_i, out) =>
     out.sendAsReady
       ? `${out.alias.address} is ready to send from`
-      : `${out.alias.address} was created, but Gmail has not accepted it yet`,
+      : // Gmail refuses to register a send-as from an ordinary token, so this is a step the
+        // operator has to take themselves. Saying where beats saying it did not work.
+        `${out.alias.address} exists — Gmail needs you to add it as a send-as. See Walkthroughs.`,
   );
 export const useUpdateEndeavourSettings = () => useAction(updateEndeavourSettingsFn, "Configuration saved");
 export const useUpdateSettings = () =>

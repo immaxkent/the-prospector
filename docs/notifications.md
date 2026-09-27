@@ -16,6 +16,23 @@ does not arrive must never stop the daily run.
 A rejection, an unsubscribe or an out-of-office does not notify. It goes in the daily brief.
 The same kind and title within six hours counts as a repeat and is not sent twice.
 
+## Connecting a channel
+
+Open **Settings → Notifications** and press **Connect Slack** (or Telegram, ntfy, or your own
+webhook). Each one lists the steps to follow first, links to the full walkthrough, and takes
+the credential in a form.
+
+Nothing is stored until a test notification has actually arrived. A credential that has never
+delivered is worse than none, because the screen says connected and the notifications go
+nowhere.
+
+Credentials are sealed with `TOKEN_ENCRYPTION_KEY`, the same key as the mailbox tokens, and
+are never shown again. Connect as many as you like: a notification goes to all of them, and
+one channel failing does not cost the others their message.
+
+The `NOTIFY_*` environment variables below still work and are used when nothing is connected,
+so a box set up the old way keeps running.
+
 ## Slack (free)
 
 Slack's incoming webhooks are free on Slack's own free plan, and need no OAuth app review.

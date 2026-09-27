@@ -7,6 +7,7 @@ import { closeDb, getDb } from "./server/db/client";
 import { getConfig } from "./server/config";
 import { createAgentDeps } from "./server/agent/deps";
 import { createSendDeps } from "./server/commands/send-deps";
+import { deliveryChannel } from "./server/commands/channels";
 import { channelFor } from "./server/notify/channels";
 import { startWorker } from "./server/jobs/worker";
 
@@ -23,7 +24,11 @@ async function main() {
   }
   const agent = await createAgentDeps(config, getDb());
   const mail = createSendDeps(config);
-  const notifications = channelFor(config);
+  // Connected channels first; the environment variables remain a fallback for a box set up
+  // before any of this existed.
+  const notifications = config.tokenKey
+    ? await deliveryChannel(getDb(), { tokenKey: config.tokenKey, appUrl: config.appUrl, fromEnv: channelFor(config) })
+    : channelFor(config);
   console.log(
     `worker ${workerId} started · daily runs queue after ${config.dailyRunHour}:00 · ${agent ? `model ${config.model}` : "no Claude configured: research and qualification will be skipped"} · notifications via ${notifications.name}`,
   );

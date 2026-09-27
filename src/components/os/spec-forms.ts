@@ -7,15 +7,32 @@
  * once here means every screen that edits a spec gets the same inputs.
  */
 
+/** Shown only when another key of the same object holds one of these values. */
+export interface ShowWhen {
+  key: string;
+  oneOf?: readonly string[];
+  noneOf?: readonly string[];
+}
+
+interface Common {
+  key: string;
+  label: string;
+  optional?: boolean;
+  help?: string;
+  showWhen?: ShowWhen;
+  /** What a new item starts at. Zero is a poor default for anything that must be positive. */
+  default?: unknown;
+}
+
 export type Input =
-  | { key: string; label: string; type: "text" | "textarea" | "number" | "date"; optional?: boolean; help?: string; placeholder?: string }
-  | { key: string; label: string; type: "select"; options: readonly string[]; optional?: boolean; help?: string }
+  | (Common & { type: "text" | "textarea" | "number" | "date"; placeholder?: string })
+  | (Common & { type: "select"; options: readonly string[] })
   /** A list of plain strings, one per line. */
-  | { key: string; label: string; type: "strings"; help?: string; placeholder?: string };
+  | (Common & { type: "strings"; placeholder?: string });
 
 export type FieldForm =
-  /** One object with a fixed set of inputs. */
-  | { kind: "object"; inputs: Input[] }
+  /** One object with a fixed set of inputs, and an optional tidy-up after every change. */
+  | { kind: "object"; inputs: Input[]; normalise?: (value: Record<string, unknown>) => Record<string, unknown> }
   /** One object whose shape depends on a chooser, such as a sprint against an ongoing horizon. */
   | { kind: "variant"; on: string; label: string; variants: Record<string, { label: string; inputs: Input[] }> }
   /** A list of objects, each with the same inputs. */
@@ -27,11 +44,22 @@ export const FIELD_FORMS: Record<string, FieldForm> = {
   objective: {
     kind: "object",
     inputs: [
-      { key: "metric", label: "Measured in", type: "select", options: ["revenue", "customers", "users", "partners", "meetings", "custom"] },
-      { key: "target", label: "Target", type: "number", help: "The number that means done." },
-      { key: "unit", label: "Unit", type: "text", placeholder: "£ or COUNT" },
-      { key: "currency", label: "Currency", type: "select", options: CURRENCIES, optional: true, help: "Revenue objectives only." },
+      { key: "metric", label: "Measured in", type: "select", options: ["revenue", "customers", "users", "partners", "meetings", "custom"], default: "revenue" },
+      { key: "target", label: "Target", type: "number", help: "The number that means done.", default: 1 },
+      // Money is counted in a currency; everything else is counted in whatever it is. Asking
+      // for both at once produced two boxes that both said GBP, which explains nothing.
+      { key: "currency", label: "Currency", type: "select", options: CURRENCIES, showWhen: { key: "metric", oneOf: ["revenue"] }, default: "GBP" },
+      {
+        key: "unit",
+        label: "Counted in",
+        type: "text",
+        placeholder: "partners, meetings, sign-ups",
+        showWhen: { key: "metric", noneOf: ["revenue"] },
+        help: "What one counts as.",
+      },
     ],
+    // A revenue objective is counted in its currency, so the unit follows rather than being asked for.
+    normalise: (value) => (value["metric"] === "revenue" ? { ...value, unit: String(value["currency"] ?? "GBP") } : value),
   },
 
   horizon: {
@@ -44,7 +72,7 @@ export const FIELD_FORMS: Record<string, FieldForm> = {
         label: "Ongoing — reviewed each period",
         inputs: [
           { key: "period", label: "Period", type: "select", options: ["week", "month", "quarter"] },
-          { key: "reviewEvery", label: "Review every", type: "number", help: "How many periods between reviews." },
+          { key: "reviewEvery", label: "Review every", type: "number", help: "How many periods between reviews.", default: 1 },
         ],
       },
     },
@@ -88,7 +116,7 @@ export const FIELD_FORMS: Record<string, FieldForm> = {
       { key: "definition", label: "Who they are", type: "textarea" },
       { key: "signals", label: "Signals they need it now", type: "strings", help: "One per line." },
       { key: "painHypothesis", label: "Why it hurts", type: "textarea" },
-      { key: "priority", label: "Priority", type: "number", help: "1 is chased first." },
+      { key: "priority", label: "Priority", type: "number", help: "1 is chased first.", default: 1 },
     ],
   },
 
@@ -104,8 +132,8 @@ export const FIELD_FORMS: Record<string, FieldForm> = {
   cadence: {
     kind: "object",
     inputs: [
-      { key: "dailyNewTarget", label: "New contacts a day", type: "number", help: "A ceiling: the loop asks for less when the pipeline is full." },
-      { key: "dailyFollowupTarget", label: "Follow-ups a day", type: "number" },
+      { key: "dailyNewTarget", label: "New contacts a day", type: "number", help: "A ceiling: the loop asks for less when the pipeline is full.", default: 10 },
+      { key: "dailyFollowupTarget", label: "Follow-ups a day", type: "number", default: 5 },
     ],
   },
 };
@@ -114,12 +142,25 @@ export const FIELD_FORMS: Record<string, FieldForm> = {
 export function blankItem(inputs: readonly Input[]): Record<string, unknown> {
   const item: Record<string, unknown> = {};
   for (const input of inputs) {
-    if (input.type === "strings") item[input.key] = [];
+    if (input.default !== undefined) item[input.key] = input.default;
+    else if (input.type === "strings") item[input.key] = [];
     else if (input.type === "select") item[input.key] = input.options[0];
-    else if (input.type === "number") item[input.key] = 0;
+    // Zero is not a safe default: several of these fields must be positive, and starting
+    // them at zero means the first save is refused for something nobody chose.
+    else if (input.type === "number") item[input.key] = 1;
     else item[input.key] = "";
   }
   return item;
+}
+
+/** Whether an input applies, given the rest of the object it belongs to. */
+export function isShown(input: Input, value: Record<string, unknown>): boolean {
+  const when = input.showWhen;
+  if (!when) return true;
+  const other = String(value[when.key] ?? "");
+  if (when.oneOf && !when.oneOf.includes(other)) return false;
+  if (when.noneOf && when.noneOf.includes(other)) return false;
+  return true;
 }
 
 /**

@@ -1,3 +1,4 @@
+import { Link } from "@tanstack/react-router";
 import { useState } from "react";
 import { toast } from "sonner";
 import type { Mailbox } from "@/data/types";
@@ -90,6 +91,11 @@ export function MailboxRow({ mailbox: m }: { mailbox: Mailbox }) {
         </span>
         {m.aliases.length > 0 && (
           <span data-testid="mailbox-aliases">ALSO SENDS AS {m.aliases.map((a) => a.address).join(", ")}</span>
+        )}
+        {m.aliases.length > 0 && (
+          <Link to="/walkthroughs" search={{ open: "gmail-send-as" }} className="text-signal hover:underline">
+            NOT SENDING YET? →
+          </Link>
         )}
       </div>
 

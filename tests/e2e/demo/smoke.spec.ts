@@ -10,6 +10,7 @@ const SCREENS = [
   { path: "/intelligence", heading: /intelligence/i },
   { path: "/interfaces", heading: /interfaces/i },
   { path: "/settings", heading: /settings/i },
+  { path: "/walkthroughs", heading: /walkthroughs/i },
 ];
 
 for (const screen of SCREENS) {
@@ -75,4 +76,17 @@ test("the app announces which deploy it is in the console", async ({ page }) => 
   // Version and commit are always present; a build time only on a release build.
   const line = logs.find((l) => l.includes("THE PROSPECTOR"))!;
   expect(line).toMatch(/^THE PROSPECTOR \S+ · \S+/);
+});
+
+test("a walkthrough can be linked to directly and read on its own", async ({ page }) => {
+  await page.goto("/walkthroughs?open=gmail-send-as");
+  const steps = page.getByTestId("walkthrough-gmail-send-as");
+  await expect(steps).toBeVisible();
+  await expect(steps).toContainText("Send mail as");
+  // Only the one asked for, so arriving from a failure lands on the answer.
+  await expect(page.getByTestId("walkthrough-connect-slack")).toHaveCount(0);
+  await expect(page.getByText("YOU ARE DONE WHEN").first()).toBeVisible();
+
+  await page.getByRole("button", { name: /all walkthroughs/i }).click();
+  await expect(page.getByTestId("walkthrough-connect-slack")).toBeVisible();
 });

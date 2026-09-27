@@ -39,13 +39,15 @@ test.describe("settings: mailboxes", () => {
     await expect(row.getByRole("button", { name: "Add an address" })).toHaveCount(0);
   });
 
-  test("says where notifications go, and does not offer to send one in demo mode", async ({ page }) => {
+  test("names the channels it can send through, and does not offer to connect one in demo mode", async ({ page }) => {
     await page.goto("/settings");
     const panel = page.getByTestId("notification-channel");
-    await expect(panel).toContainText("SLACK");
-    await expect(panel).toContainText("hooks.slack.com");
-    await expect(panel.getByRole("button", { name: /test notification/i })).toBeDisabled();
-    await expect(panel).toContainText("DEMO MODE: NOTHING IS ACTUALLY SENT");
+    await expect(panel).toContainText("Demo mode has no database");
+    for (const name of ["Slack", "Telegram", "ntfy", "Webhook"]) {
+      await expect(panel).toContainText(name);
+    }
+    // Connecting needs somewhere to keep the credential, so it is not offered here.
+    await expect(panel.getByRole("button", { name: /connect/i })).toHaveCount(0);
   });
 
   test("clean install shows the connect prompt", async ({ page }) => {
