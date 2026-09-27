@@ -5,7 +5,7 @@ const SCREENS = [
   { path: "/endeavours", heading: /endeavours/i },
   { path: "/prospects", heading: /prospects/i },
   { path: "/pipeline", heading: /pipeline/i },
-  { path: "/inbox", heading: /inbox/i },
+  { path: "/mailbox", heading: /mailbox/i },
   { path: "/research", heading: /research/i },
   { path: "/intelligence", heading: /intelligence/i },
   { path: "/interfaces", heading: /interfaces/i },
@@ -116,6 +116,19 @@ test("the overview charts say what happened, and what is left of it", async ({ p
   // Two series, both named — identity never rests on colour alone.
   await expect(activity).toContainText("SENT");
   await expect(activity).toContainText("REPLIES");
+});
+
+test("the mailbox separates what is waiting, what went out and what came back", async ({ page }) => {
+  await page.goto("/mailbox");
+  const views = page.getByTestId("mailbox-views");
+  await expect(views).toBeVisible();
+  await expect(views.getByRole("button")).toHaveText([/^ALL/, /^DRAFTS/, /^SENT/, /^REPLIES/]);
+
+  // It opens on whatever is waiting on the operator rather than on everything.
+  await expect(views.locator("[aria-pressed=true]")).toHaveText(/^DRAFTS|^REPLIES/);
+
+  await views.getByRole("button", { name: /^SENT/ }).click();
+  await expect(views.locator("[aria-pressed=true]")).toHaveText(/^SENT/);
 });
 
 test("unknown routes show the 404 surface", async ({ page }) => {
