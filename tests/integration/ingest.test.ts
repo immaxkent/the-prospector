@@ -102,6 +102,38 @@ describe("ingestReplies", () => {
     expect(approval!.payload).toMatchObject({ from: "who@elsewhere.example" });
   });
 
+  it("attributes an unmatched reply to an active endeavour, not to whatever a prospect names", async () => {
+    // The fallback used to be read through `prospects`, so an install with no prospect yet
+    // found nothing and wrote "" into a foreign key.
+    await db.delete(t.prospects);
+    const result = await ingest(
+      fakeGmail([gmailMessage({ id: "gm_noprospects", threadId: "gthread_noprospects", from: "bot@notifications.example" })]),
+    );
+    expect(result).toMatchObject({ stored: 1, needsReview: 1, unattributed: 0 });
+
+    const [approval] = await db.select().from(t.approvals).where(eq(t.approvals.kind, "thread_mapping"));
+    expect(approval!.endeavourId).toBe(FIXTURE_IDS.endeavour);
+  });
+
+  it("keeps the mail and counts it when there is no endeavour to attribute it to", async () => {
+    // Nothing to own the ask, so no approval is written — but the thread still carries
+    // needs_review, so the message is never lost and the count says what happened.
+    await db.delete(t.approvals);
+    await db.delete(t.messages);
+    await db.delete(t.threads);
+    await db.delete(t.prospects);
+    await db.delete(t.endeavours);
+
+    const result = await ingest(
+      fakeGmail([gmailMessage({ id: "gm_orphan", threadId: "gthread_orphan", from: "bot@notifications.example" })]),
+    );
+    expect(result).toMatchObject({ stored: 1, needsReview: 1, unattributed: 1 });
+
+    const [thread] = await db.select().from(t.threads).where(eq(t.threads.externalThreadId, "gthread_orphan"));
+    expect(thread).toMatchObject({ mappingState: "needs_review" });
+    expect(await db.select().from(t.approvals)).toHaveLength(0);
+  });
+
   it("never stores the same Gmail message twice", async () => {
     const deps = fakeGmail([gmailMessage()]);
     await ingest(deps);
