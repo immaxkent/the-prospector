@@ -41,17 +41,20 @@ async function load(tx: Executor, id: string) {
   return row;
 }
 
-async function connectedMailboxIds(tx: Executor) {
-  const rows = await tx.select({ id: mailboxes.id }).from(mailboxes).where(eq(mailboxes.status, "connected"));
-  return rows.map((r) => r.id);
+async function connectedMailboxes(tx: Executor) {
+  const rows = await tx
+    .select({ id: mailboxes.id, aliases: mailboxes.aliases })
+    .from(mailboxes)
+    .where(eq(mailboxes.status, "connected"));
+  return rows.map((r) => ({ id: r.id, aliases: r.aliases.map((a) => a.address) }));
 }
 
 function view(
   row: { id: string; brief: string; status: IntakeView["status"]; draftSpec: EndeavourSpec | null; questions: IntakeAnswer[] },
-  connected: readonly string[],
+  connected: Awaited<ReturnType<typeof connectedMailboxes>>,
 ): IntakeView {
   const gate = row.draftSpec
-    ? evaluateActivation(row.draftSpec, { brief: operatorText(row.brief, row.questions), connectedMailboxIds: connected })
+    ? evaluateActivation(row.draftSpec, { brief: operatorText(row.brief, row.questions), connectedMailboxes: connected })
     : { ready: false, blockers: [] };
   return {
     id: row.id,
@@ -86,7 +89,7 @@ export async function startIntake(db: Database, deps: PlanDeps, input: { brief: 
   return db.transaction(async (tx) => {
     await tx.update(intakeSessions).set({ draftSpec, questions }).where(eq(intakeSessions.id, id));
     await recordEvent(tx, { eventType: "intake.started", entityType: "intake", entityId: id, subject: draftSpec.name });
-    return view({ id, brief, status: "interviewing", draftSpec, questions }, await connectedMailboxIds(tx));
+    return view({ id, brief, status: "interviewing", draftSpec, questions }, await connectedMailboxes(tx));
   });
 }
 
@@ -108,7 +111,7 @@ export async function answerIntake(
 
   return db.transaction(async (tx) => {
     await tx.update(intakeSessions).set({ draftSpec, questions }).where(eq(intakeSessions.id, input.intakeId));
-    return view({ ...session, draftSpec, questions }, await connectedMailboxIds(tx));
+    return view({ ...session, draftSpec, questions }, await connectedMailboxes(tx));
   });
 }
 
@@ -121,6 +124,8 @@ const settingsSchema = z.object({
   name: z.string().trim().min(1).max(120).optional(),
   kind: z.enum(ENDEAVOUR_KINDS).optional(),
   autonomyLevel: z.enum(AUTONOMY_LEVELS).optional(),
+  /** null puts the endeavour back on the account's own address. */
+  fromAlias: z.string().trim().min(1).nullable().optional(),
 });
 
 /** The operator confirms a proposal, replaces a value, or marks a field not applicable. */
@@ -147,13 +152,19 @@ export async function editIntakeField(db: Database, input: { intakeId: string } 
 
     const draftSpec = { ...session.draftSpec, [input.field]: next } as EndeavourSpec;
     await tx.update(intakeSessions).set({ draftSpec }).where(eq(intakeSessions.id, session.id));
-    return view({ ...session, draftSpec }, await connectedMailboxIds(tx));
+    return view({ ...session, draftSpec }, await connectedMailboxes(tx));
   });
 }
 
 export async function updateIntakeSettings(
   db: Database,
-  input: { intakeId: string; name?: string | undefined; kind?: "sprint" | "ongoing" | undefined; autonomyLevel?: AutonomyLevel | undefined },
+  input: {
+    intakeId: string;
+    name?: string | undefined;
+    kind?: "sprint" | "ongoing" | undefined;
+    autonomyLevel?: AutonomyLevel | undefined;
+    fromAlias?: string | null | undefined;
+  },
 ): Promise<IntakeView> {
   const parsed = settingsSchema.safeParse(input);
   if (!parsed.success) throw invalid(z.prettifyError(parsed.error));
@@ -163,9 +174,12 @@ export async function updateIntakeSettings(
   return db.transaction(async (tx) => {
     const session = await load(tx, input.intakeId);
     if (!session.draftSpec) throw conflict("this intake has no draft yet");
-    const draftSpec = { ...session.draftSpec, ...parsed.data } as EndeavourSpec;
+    // A key the caller left out arrives as undefined, which would otherwise erase the
+    // value it was not asking about. Only what was actually sent is applied.
+    const given = Object.fromEntries(Object.entries(parsed.data).filter(([, v]) => v !== undefined));
+    const draftSpec = { ...session.draftSpec, ...given } as EndeavourSpec;
     await tx.update(intakeSessions).set({ draftSpec }).where(eq(intakeSessions.id, session.id));
-    return view({ ...session, draftSpec }, await connectedMailboxIds(tx));
+    return view({ ...session, draftSpec }, await connectedMailboxes(tx));
   });
 }
 
@@ -186,7 +200,7 @@ export async function activateIntake(db: Database, input: { intakeId: string }, 
     const spec = session.draftSpec;
     const gate = evaluateActivation(spec, {
       brief: operatorText(session.brief, session.questions),
-      connectedMailboxIds: await connectedMailboxIds(tx),
+      connectedMailboxes: await connectedMailboxes(tx),
     });
     if (!gate.ready) throw conflict(gate.blockers.map((b) => b.message).join("; "));
 
@@ -199,6 +213,7 @@ export async function activateIntake(db: Database, input: { intakeId: string }, 
       status: "active",
       autonomyLevel: spec.autonomyLevel,
       mailboxId,
+      fromAlias: spec.fromAlias,
       spec,
       specVersion: 1,
       brief: session.brief,

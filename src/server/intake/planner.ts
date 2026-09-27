@@ -144,6 +144,8 @@ export function mergeDraft(previous: EndeavourSpec | null, plan: PlannerSpec): E
     exclusions: keep("exclusions") as EndeavourSpec["exclusions"],
     cadence: keep("cadence") as EndeavourSpec["cadence"],
     mailboxId: previous?.mailboxId ?? { state: "missing" },
+    // Re-planning must not undo the address the operator picked; the planner never sets it.
+    fromAlias: previous?.fromAlias ?? null,
     channels: ["email"],
     autonomyLevel: previous?.autonomyLevel ?? "DRAFT",
   };
