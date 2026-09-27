@@ -40,10 +40,20 @@ describe("daily run with an agent", () => {
     const text = await logText();
     expect(text).toContain("1 proposed");
     expect(text).toContain("needs_review");
+    // It says why it stopped rather than silently calling the target met.
+    expect(text).toContain("found nobody new");
 
     const calls = await db.select().from(t.llmCalls);
     // The fixture thread also carries a reply, so the run classifies it in the same pass.
-    expect(calls.map((c) => c.role).sort()).toEqual(["conversation.classify", "research.discover", "research.qualify"]);
+    // Research runs twice: the day's target counts qualified prospects, and the fixture's
+    // one candidate comes back needs_review, so the run looks again — then stops, because
+    // the second look returned nobody new.
+    expect(calls.map((c) => c.role).sort()).toEqual([
+      "conversation.classify",
+      "research.discover",
+      "research.discover",
+      "research.qualify",
+    ]);
     expect(calls.every((c) => c.status === "ok" && c.costUsd > 0)).toBe(true);
   });
 

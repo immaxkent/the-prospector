@@ -38,6 +38,7 @@ import {
   runLog,
   segments,
   triggers,
+  llmCalls,
 } from "../db/schema";
 import { PROGRESSION } from "../domain/pipeline";
 import { decideFollowUp, sequenceFinished } from "../domain/followup";
@@ -96,6 +97,42 @@ function budgetBrief(ctx: RunContext, step: string, why: string) {
 
 /** Intents that should reach you the day they arrive, rather than waiting for the brief. */
 const WORTH_TELLING_YOU = new Set(["interested", "referral", "question"]);
+
+/** Further passes at the day's target after the first. Bounded: a bad segment must not bill. */
+export const TOP_UP_ROUNDS = 2;
+
+/**
+ * What one run may spend before it stops looking, whatever it has found.
+ *
+ * Roughly a day's allowance at a £15 month. The monthly budget gate already refuses calls
+ * once the day is spent; this stops a single run walking up to that line and leaving
+ * nothing for replies, follow-ups or drafting.
+ */
+export const TOP_UP_SPEND_CEILING_USD = 0.6;
+
+/** Everything researched today, whatever became of it. Used to tell a dry round from a harsh one. */
+async function researchedToday(ctx: RunContext) {
+  const rows = await ctx.db
+    .select({ id: prospects.id })
+    .from(prospects)
+    .where(and(eq(prospects.endeavourId, ctx.endeavourId), gte(prospects.createdAt, startOfLocalDay(ctx.now))));
+  return rows.length;
+}
+
+/** Prospects that have actually passed qualification today — the thing the target counts. */
+async function qualifiedToday(ctx: RunContext) {
+  const rows = await ctx.db
+    .select({ id: prospects.id })
+    .from(prospects)
+    .where(
+      and(
+        eq(prospects.endeavourId, ctx.endeavourId),
+        eq(prospects.reviewStatus, "qualified"),
+        gte(prospects.createdAt, startOfLocalDay(ctx.now)),
+      ),
+    );
+  return rows.length;
+}
 
 export const DAILY_RUN_STEPS: RunStep[] = [
   {
@@ -312,6 +349,70 @@ export const DAILY_RUN_STEPS: RunStep[] = [
         }
       }
       ctx.metrics["qualified"] = qualified;
+    },
+  },
+  {
+    /**
+     * The day's target is a number of *qualified* prospects, not a number looked at.
+     *
+     * Research and qualify run once each, so a day whose candidates were all rejected used
+     * to end with nothing and call the target met — which is what the first real run did,
+     * rejecting ten out of ten and stopping.
+     *
+     * Topping up is bounded on purpose. Against a segment definition that matches nothing
+     * usable, "keep going until there are ten" would research and reject all night and eat
+     * a month of budget in one run. Two extra rounds, then it stops and says what it found
+     * so the definition can be fixed rather than paid for repeatedly.
+     */
+    name: "top_up",
+    run: async (ctx) => {
+      if (!ctx.agent) return;
+      const { dailyNewTarget: target } = await endeavourBrief(ctx);
+      if (target <= 0) return;
+
+      const research = DAILY_RUN_STEPS.find((s) => s.name === "research")!;
+      const qualify = DAILY_RUN_STEPS.find((s) => s.name === "qualify")!;
+
+      for (let round = 1; round <= TOP_UP_ROUNDS; round++) {
+        const have = await qualifiedToday(ctx);
+        if (have >= target) return;
+
+        const spent = await ctx.db
+          .select({ cost: llmCalls.costUsd })
+          .from(llmCalls)
+          .where(eq(llmCalls.runId, ctx.runId ?? ""));
+        const total = spent.reduce((sum, r) => sum + r.cost, 0);
+        if (total >= TOP_UP_SPEND_CEILING_USD) {
+          await ctx.log(
+            "warn",
+            `stopping at ${have} of ${target} qualified: this run has spent $${total.toFixed(2)}, which is as far as one day goes`,
+          );
+          ctx.gaps.push(`Only ${have} of ${target} prospects qualified before the day's research ceiling was reached`);
+          return;
+        }
+
+        await ctx.log("info", `${have} of ${target} qualified · looking again (round ${round} of ${TOP_UP_ROUNDS})`);
+        const before = await researchedToday(ctx);
+        await research.run(ctx);
+        const added = (await researchedToday(ctx)) - before;
+        if (added === 0) {
+          // The same segments returned the same companies, all of them already known.
+          // Another identical round would buy the same searches again.
+          await ctx.log("warn", `round ${round} found nobody new: there is nothing further to look at under these segments`);
+          ctx.gaps.push(`Only ${have} of ${target} prospects qualified; research is no longer finding anyone new`);
+          return;
+        }
+        await qualify.run(ctx);
+      }
+
+      const final = await qualifiedToday(ctx);
+      if (final < target) {
+        await ctx.log(
+          "warn",
+          `${final} of ${target} qualified after ${TOP_UP_ROUNDS} further round(s): the segment definition may be matching the wrong companies`,
+        );
+        ctx.gaps.push(`Only ${final} of ${target} prospects qualified; the segment definition may be too broad`);
+      }
     },
   },
   {
