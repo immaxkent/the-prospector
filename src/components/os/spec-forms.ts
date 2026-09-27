@@ -187,3 +187,33 @@ export function display(input: Input, value: unknown): string {
   if (input.type === "strings") return Array.isArray(value) ? value.join("\n") : "";
   return value === undefined || value === null ? "" : String(value);
 }
+
+export interface FieldChoice {
+  /** The word the schema expects, e.g. "package". */
+  value: string;
+  /** What that word is called in the form, e.g. "Model". */
+  label: string;
+}
+
+/**
+ * The fixed vocabularies a field accepts, flattened for the intake question.
+ *
+ * The planner asks things like "what is your pricing model?" in prose, and prose invites a
+ * prose answer — but the schema only accepts six words, and nothing on screen said which
+ * six. Offering them is not a shortcut around the question; it is telling the operator what
+ * the answers are allowed to be.
+ */
+export function fieldChoices(field: string): FieldChoice[] {
+  const form = FIELD_FORMS[field];
+  if (!form) return [];
+  if (form.kind === "variant") {
+    return Object.entries(form.variants).map(([value]) => ({ value, label: form.label }));
+  }
+  const inputs = form.kind === "object" ? form.inputs : form.inputs;
+  return inputs
+    .filter((input): input is Extract<Input, { type: "select" }> => input.type === "select")
+    // A currency is not what the question is asking about, and offering it alongside the
+    // pricing model would only be one more thing to read past.
+    .filter((input) => input.key !== "currency")
+    .flatMap((input) => input.options.map((value) => ({ value, label: input.label })));
+}
