@@ -275,37 +275,51 @@ function NewEndeavourScreen() {
             </label>
           </Panel>
 
-          <Panel
-            title="ACTIVATION"
-            meta={<Tag tone={view.ready ? "signal" : "warn"}>{view.ready ? "READY" : `${view.blockers.length} BLOCKING`}</Tag>}
-            bodyClassName="space-y-3 px-4 py-4"
-          >
-            {view.blockers.length > 0 && (
-              <ul className="space-y-1" data-testid="activation-blockers">
-                {view.blockers.map((b) => (
-                  <li key={`${b.field}-${b.code}`}>
-                    <button
-                      type="button"
-                      className="text-left text-[13px] text-warn underline decoration-dotted underline-offset-2 hover:decoration-solid"
-                      onClick={() => revealField(b.field)}
-                    >
-                      {FIELD_LABELS[b.field] ?? b.field}: {b.message}
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            )}
-            <Button
-              variant="primary"
-              disabled={busy || !view.ready}
-              onClick={() => activate.mutate({ intakeId: view.id })}
-            >
-              {activate.isPending ? "Activating…" : "Activate endeavour"}
-            </Button>
-            <MachineLabel>ACTIVATION CREATES THE ENDEAVOUR AND ITS FIRST SPEC VERSION</MachineLabel>
-          </Panel>
         </div>
       </div>
+
+      {/*
+        The way on sits at the end of the form, where someone who has just finished filling
+        it in is already looking. In the sidebar it read as one more panel among four, and
+        had to be hunted for.
+      */}
+      <Panel
+        title="ACTIVATION"
+        meta={<Tag tone={view.ready ? "signal" : "warn"}>{view.ready ? "READY" : `${view.blockers.length} BLOCKING`}</Tag>}
+        bodyClassName="px-4 py-6"
+      >
+        {view.blockers.length > 0 && (
+          <ul className="mx-auto mb-5 max-w-[560px] space-y-1 text-center" data-testid="activation-blockers">
+            {view.blockers.map((b) => (
+              <li key={`${b.field}-${b.code}`}>
+                <button
+                  type="button"
+                  className="text-[13px] text-warn underline decoration-dotted underline-offset-2 hover:decoration-solid"
+                  onClick={() => revealField(b.field)}
+                >
+                  {FIELD_LABELS[b.field] ?? b.field}: {b.message}
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+
+        <div className="flex flex-col items-center gap-3 text-center">
+          <Button
+            variant="primary"
+            size="lg"
+            disabled={busy || !view.ready}
+            onClick={() => activate.mutate({ intakeId: view.id })}
+          >
+            {activate.isPending ? "Activating…" : "Activate endeavour"}
+          </Button>
+          <p className="max-w-[520px] text-[13px] text-muted-foreground">
+            Activating creates the endeavour and its first spec version, then opens it. From
+            there the daily run researches prospects and drafts outreach against this spec —
+            and at DRAFT autonomy nothing is sent until you approve it.
+          </p>
+        </div>
+      </Panel>
     </div>
   );
 }
