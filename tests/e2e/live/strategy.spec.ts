@@ -11,7 +11,6 @@ test.describe("strategy", () => {
 
   test("edits the strategy and saves it as a new version with a reason", async ({ page }) => {
     await signIn(page, "/endeavours/end_fixture_solidity");
-    await page.getByRole("button", { name: "STRATEGY" }).click();
     const editor = page.getByTestId("strategy-editor");
     await expect(editor).toContainText("VERSION 1");
 
@@ -39,7 +38,6 @@ test.describe("strategy", () => {
 
   test("changes can be discarded without saving", async ({ page }) => {
     await signIn(page, "/endeavours/end_fixture_solidity");
-    await page.getByRole("button", { name: "STRATEGY" }).click();
     const editor = page.getByTestId("strategy-editor");
     const pricing = editor.getByTestId("intake-field-pricing");
 

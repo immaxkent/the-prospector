@@ -301,6 +301,8 @@ export interface SystemStatus {
   researchSources: string[];
   notifications: NotifyChannelStatus;
   budget: BudgetStatus;
+  /** Ids of the headline numbers the endeavour page leads with. Empty means the defaults. */
+  statTiles: string[];
 }
 
 export interface Mailbox {

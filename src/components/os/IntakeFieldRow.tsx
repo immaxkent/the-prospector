@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { SpecForm } from "./SpecForm";
-import { FIELD_FORMS } from "./spec-forms";
+import { FIELD_FORMS, fieldChoices } from "./spec-forms";
 import { Button, MachineLabel, Tag } from "./primitives";
 
 export type IntakeFieldState =
@@ -86,6 +86,7 @@ export function IntakeFieldRow({
   if (!state) return null;
 
   const value = "value" in state ? state.value : undefined;
+  const choices = fieldChoices(field);
   const openEditor = () => {
     setDraft(JSON.stringify(value ?? null, null, 2));
     setFormValue(value ?? (FIELD_FORMS[field]?.kind === "list" ? [] : {}));
@@ -132,10 +133,35 @@ export function IntakeFieldRow({
       {question && state.state !== "confirmed" && state.state !== "not_applicable" && (
         <div className="mt-2 space-y-1.5">
           <MachineLabel>{question.question}</MachineLabel>
+          {choices.length > 0 && (
+            // The question is prose, so the answer stays prose — but the words this field
+            // actually accepts are the operator's to pick, not to guess at. Choosing one
+            // writes it into the answer, which they can then add to.
+            <select
+              // Not "Model for Pricing": the edit form below has its own Model select, and
+              // two controls with the same name in one field is ambiguous to anything
+              // reading by label — a screen reader as much as a test.
+              aria-label={`Values ${label} accepts`}
+              className={inputCls}
+              value=""
+              disabled={busy}
+              onChange={(e) => {
+                if (!e.target.value) return;
+                onAnswerChange(answer.trim() ? `${answer.trim()} ${e.target.value}` : e.target.value);
+              }}
+            >
+              <option value="">{`Choose ${choices[0]!.label.toLowerCase()}…`}</option>
+              {choices.map((choice) => (
+                <option key={choice.value} value={choice.value}>
+                  {choice.value.replace(/_/g, " ")}
+                </option>
+              ))}
+            </select>
+          )}
           <input
             aria-label={`Answer for ${label}`}
             className={inputCls}
-            placeholder="Your answer"
+            placeholder={choices.length > 0 ? "Your answer — add the numbers here" : "Your answer"}
             value={answer}
             onChange={(e) => onAnswerChange(e.target.value)}
           />

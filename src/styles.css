@@ -260,6 +260,65 @@
 }
 
 /*
+ * A headline number: a dark glass tile with a warm rule along its top edge and a pool of
+ * light behind the figure. The number itself carries the gradient, so the tile reads as
+ * lit from within rather than as a coloured box with text on it.
+ */
+.stat-tile {
+  --tile-accent: var(--warn);
+  border-color: color-mix(in oklch, var(--tile-accent) 22%, transparent);
+  background:
+    radial-gradient(120% 80% at 50% 0%, color-mix(in oklch, var(--tile-accent) 8%, transparent), transparent 70%),
+    var(--card);
+  transition: border-color 260ms ease, transform 260ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.stat-tile::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, color-mix(in oklch, var(--tile-accent) 70%, transparent), transparent);
+}
+
+.stat-tile:hover {
+  border-color: color-mix(in oklch, var(--tile-accent) 42%, transparent);
+  transform: translateY(-2px);
+}
+
+.stat-tile-value {
+  font-family: "Sora", "Space Grotesk", ui-sans-serif, sans-serif;
+  font-weight: 300;
+  letter-spacing: -0.02em;
+  color: transparent;
+  background-image: linear-gradient(
+    170deg,
+    oklch(0.97 0.012 92) 0%,
+    color-mix(in oklch, var(--tile-accent) 72%, oklch(0.97 0.012 92)) 100%
+  );
+  background-clip: text;
+  -webkit-background-clip: text;
+}
+
+/* Good and bad are the exception, not the palette: most numbers are neither. */
+.stat-tile-good {
+  --tile-accent: var(--signal);
+}
+
+.stat-tile-warn {
+  --tile-accent: var(--danger);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .stat-tile {
+    transition-duration: 1ms;
+  }
+  .stat-tile:hover {
+    transform: none;
+  }
+}
+
+/*
  * The grid is the backdrop: two hairline rules crossed at a fixed cell, faded out towards
  * the edges so the frame does not look like graph paper. The mask is what makes it a pool
  * of light rather than a pattern.
@@ -323,6 +382,7 @@
   margin-right: -0.15em;
   color: transparent;
   -webkit-text-stroke: 1px color-mix(in oklch, var(--title-gold) 65%, transparent);
+  filter: none;
   cursor: default;
 }
 
@@ -350,17 +410,19 @@
   transform: translateX(-0.05em);
 }
 
+/*
+ * One ordered list of properties, reused by the hover rule below. The order matters: the
+ * per-property delays and durations there line up with it, and `filter` is deliberately
+ * last so the glow can be given a different timing from the fold without repeating the
+ * other six.
+ */
 .prospector-title,
 .prospector-title::before,
 .prospector-title::after {
-  transition:
-    color 1100ms var(--title-fold),
-    opacity 1100ms var(--title-fold),
-    transform 1100ms var(--title-fold),
-    letter-spacing 1100ms var(--title-fold),
-    margin-right 1100ms var(--title-fold),
-    filter 1100ms var(--title-fold),
-    -webkit-text-stroke-color 1100ms var(--title-fold);
+  transition-property: color, opacity, transform, letter-spacing, margin-right, -webkit-text-stroke-color, filter;
+  transition-duration: 1100ms;
+  transition-timing-function: var(--title-fold);
+  transition-delay: 0s;
 }
 
 .prospector-title:hover {
@@ -368,7 +430,20 @@
   -webkit-text-stroke-color: transparent;
   letter-spacing: 0.05em;
   margin-right: -0.05em;
-  filter: drop-shadow(0 0 30px color-mix(in oklch, var(--title-gold) 30%, transparent));
+  /*
+   * Dust rather than neon: two wide, weak warm shadows, no tight one. It is meant to be
+   * noticed only once the word has already landed, so it waits out the fold and then
+   * settles in over a slow ease — the glow is the word coming to rest, not part of the
+   * movement.
+   */
+  filter:
+    drop-shadow(0 0 18px color-mix(in oklch, var(--title-gold) 14%, transparent))
+    drop-shadow(0 0 54px color-mix(in oklch, var(--title-gold) 9%, transparent));
+  transition-delay: 0s, 0s, 0s, 0s, 0s, 0s, 950ms;
+  transition-duration: 1100ms, 1100ms, 1100ms, 1100ms, 1100ms, 1100ms, 1400ms;
+  transition-timing-function:
+    var(--title-fold), var(--title-fold), var(--title-fold), var(--title-fold), var(--title-fold),
+    var(--title-fold), ease-out;
 }
 
 .prospector-title:hover::before,

@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  alignHorizonToKind,
   downgradeUnverifiedQuotes,
   endeavourSpecSchema,
   evaluateActivation,
@@ -178,6 +179,62 @@ describe("activation gate", () => {
   it("blocks autonomy levels that are disabled in v1", () => {
     expect(codes(readySpec({ autonomyLevel: "GUARDED" }))).toEqual(["autonomy_level_disabled"]);
     expect(codes(readySpec({ autonomyLevel: "OBSERVE" }))).toEqual([]);
+  });
+});
+
+describe("alignHorizonToKind", () => {
+  const sprint = { state: "confirmed", value: { kind: "sprint", endsOn: "2026-11-16" } } as const;
+  const ongoing = { state: "confirmed", value: { kind: "ongoing", period: "month", reviewEvery: 2 } } as const;
+
+  it("leaves a horizon that already matches alone", () => {
+    expect(alignHorizonToKind(sprint, "sprint", "2026-09-27")).toBe(sprint);
+    expect(alignHorizonToKind(ongoing, "ongoing", "2026-09-27")).toBe(ongoing);
+  });
+
+  it("leaves a horizon nobody has set alone", () => {
+    const missing = { state: "missing" } as const;
+    expect(alignHorizonToKind(missing, "ongoing", "2026-09-27")).toBe(missing);
+  });
+
+  it("turns a deadline into a review period when the endeavour becomes ongoing", () => {
+    const next = alignHorizonToKind(sprint, "ongoing", "2026-09-27");
+    expect(next).toMatchObject({ state: "suggested", value: { kind: "ongoing", period: "month", reviewEvery: 1 } });
+  });
+
+  it("says what it did and what the old value was", () => {
+    const next = alignHorizonToKind(sprint, "ongoing", "2026-09-27");
+    expect(next.state === "suggested" && next.rationale).toContain("2026-11-16");
+  });
+
+  it("reads a review period as a deadline one review out when it becomes a sprint", () => {
+    // Two months from 27 September is 27 November.
+    expect(alignHorizonToKind(ongoing, "sprint", "2026-09-27")).toMatchObject({
+      state: "suggested",
+      value: { kind: "sprint", endsOn: "2026-11-27" },
+    });
+  });
+
+  it("counts weeks and quarters too", () => {
+    const weekly = { state: "confirmed", value: { kind: "ongoing", period: "week", reviewEvery: 3 } } as const;
+    expect(alignHorizonToKind(weekly, "sprint", "2026-09-27")).toMatchObject({ value: { endsOn: "2026-10-18" } });
+    const quarterly = { state: "confirmed", value: { kind: "ongoing", period: "quarter", reviewEvery: 1 } } as const;
+    expect(alignHorizonToKind(quarterly, "sprint", "2026-09-27")).toMatchObject({ value: { endsOn: "2026-12-27" } });
+  });
+
+  it("converts a suggestion as readily as a confirmed value", () => {
+    const suggested = { state: "suggested", value: { kind: "sprint", endsOn: "2026-11-16" }, rationale: "read from the brief" } as const;
+    expect(alignHorizonToKind(suggested, "ongoing", "2026-09-27")).toMatchObject({ value: { kind: "ongoing" } });
+  });
+
+  it("never returns a confirmed value: the operator confirms, not the conversion", () => {
+    expect(alignHorizonToKind(sprint, "ongoing", "2026-09-27").state).toBe("suggested");
+    expect(alignHorizonToKind(ongoing, "sprint", "2026-09-27").state).toBe("suggested");
+  });
+
+  it("produces a horizon the gate accepts once confirmed", () => {
+    const next = alignHorizonToKind(sprint, "ongoing", "2026-09-27");
+    if (next.state !== "suggested") throw new Error("expected a suggestion");
+    expect(codes(readySpec({ kind: "ongoing", horizon: { state: "confirmed", value: next.value } }))).toEqual([]);
   });
 });
 

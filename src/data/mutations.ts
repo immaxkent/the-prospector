@@ -19,6 +19,7 @@ import {
   updateEndeavourSettingsFn,
   updateMailboxLimitsFn,
   updateSettingsFn,
+  updateStatTilesFn,
   updateOpportunityFn,
 } from "@/api/mutations";
 import { datasetQuery } from "./queries";
@@ -72,6 +73,7 @@ export const useCreateMailboxAlias = () =>
 export const useUpdateEndeavourSettings = () => useAction(updateEndeavourSettingsFn, "Configuration saved");
 export const useUpdateSettings = () =>
   useAction(updateSettingsFn, (input) => `Model ${input.model} · £${(input.monthlyBudgetPence / 100).toFixed(2)} a month`);
+export const useUpdateStatTiles = () => useAction(updateStatTilesFn, "Headline numbers updated");
 export const useSetEndeavourFromAlias = () =>
   useAction(setEndeavourFromAliasFn, (input) =>
     input.alias ? `Sending as ${input.alias}` : "Sending as the mailbox's own address",

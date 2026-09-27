@@ -12,6 +12,7 @@ import {
   type BudgetSettings,
   type BudgetState,
 } from "../domain/budget";
+import { STAT_TILE_COUNT, STAT_TILE_IDS } from "@/data/stat-tiles";
 import { localDate, OPERATOR_TIMEZONE } from "../read/rows";
 import { invalid } from "./errors";
 import { recordEvent } from "./events";
@@ -23,6 +24,33 @@ export async function loadSettings(db: Database): Promise<BudgetSettings> {
   const [row] = await db.select().from(appSettings).where(eq(appSettings.id, SINGLETON));
   if (!row) return DEFAULT_BUDGET;
   return { model: row.model, monthlyBudgetPence: row.monthlyBudgetPence };
+}
+
+/** Which headline numbers the endeavour page leads with. Empty means the defaults. */
+export async function loadStatTiles(db: Database): Promise<string[]> {
+  const [row] = await db.select({ statTiles: appSettings.statTiles }).from(appSettings).where(eq(appSettings.id, SINGLETON));
+  return row?.statTiles ?? [];
+}
+
+/**
+ * Sets the headline numbers.
+ *
+ * Unlike the budget, this is only a display preference — but it is still checked, because
+ * an id that does not exist would silently become one of the defaults and the operator
+ * would be told their choice was saved when a different one was shown.
+ */
+export async function updateStatTiles(db: Database, tiles: readonly string[]) {
+  if (tiles.length > STAT_TILE_COUNT) throw invalid(`the row shows ${STAT_TILE_COUNT} numbers, not ${tiles.length}`);
+  const unknown = tiles.filter((id) => !STAT_TILE_IDS.includes(id));
+  if (unknown.length > 0) throw invalid(`there is no such number: ${unknown.join(", ")}`);
+  if (new Set(tiles).size !== tiles.length) throw invalid("the same number cannot fill two places in the row");
+
+  const values = { statTiles: [...tiles] };
+  await db
+    .insert(appSettings)
+    .values({ id: SINGLETON, ...DEFAULT_BUDGET, ...values })
+    .onConflictDoUpdate({ target: appSettings.id, set: { ...values, updatedAt: new Date() } });
+  return values.statTiles;
 }
 
 /** A month of spend costs one round trip: the model is the same for all of it. */

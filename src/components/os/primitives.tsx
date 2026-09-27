@@ -126,14 +126,17 @@ export function Button({
   ...props
 }: React.ButtonHTMLAttributes<HTMLButtonElement> & {
   variant?: "primary" | "secondary" | "ghost" | "destructive" | undefined;
-  size?: "sm" | "md" | undefined;
+  /** "lg" is for the one action a screen exists to get you to, not for emphasis. */
+  size?: "sm" | "md" | "lg" | undefined;
 }) {
   return (
     <button
       {...props}
       className={cn(
         "inline-flex items-center justify-center gap-2 rounded-full font-mono text-[10px] uppercase tracking-[0.14em] transition-all duration-200 active:scale-[0.97] disabled:opacity-40",
-        size === "sm" ? "h-7 px-3" : "h-8 px-4",
+        size === "sm" && "h-7 px-3",
+        size === "md" && "h-8 px-4",
+        size === "lg" && "h-11 px-8 text-[12px] tracking-[0.18em]",
         variant === "primary" &&
           "bg-ink text-ink-foreground shadow-[0_10px_24px_-14px_var(--ink)] hover:bg-primary",
         variant === "secondary" && "border border-border bg-card text-foreground backdrop-blur hover:bg-accent",
@@ -313,27 +316,6 @@ export function EmptyState({
         <p className="display max-w-xl text-[19px] leading-relaxed text-foreground/80">{body}</p>
         {action}
       </div>
-    </div>
-  );
-}
-
-/* ---------- FunnelStrip ---------- */
-export function FunnelStrip({ stages }: { stages: { label: string; value: number }[] }) {
-  const max = Math.max(...stages.map((s) => s.value), 1);
-  return (
-    <div className="flex items-end gap-px">
-      {stages.map((s) => (
-        <div key={s.label} className="flex flex-1 flex-col gap-1.5">
-          <div className="numeral text-[13px]">{s.value}</div>
-          <div className="h-12 w-full bg-muted">
-            <div
-              className="w-full bg-signal/70"
-              style={{ height: `${(s.value / max) * 100}%`, marginTop: `${100 - (s.value / max) * 100}%` }}
-            />
-          </div>
-          <MachineLabel className="truncate">{s.label}</MachineLabel>
-        </div>
-      ))}
     </div>
   );
 }

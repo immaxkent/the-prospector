@@ -133,15 +133,19 @@ test("a blocker sends you to the field it is about, and the field shows the shap
   await page.getByRole("button", { name: /plan this endeavour/i }).click();
   await expect(page.getByTestId("activation-blockers")).toBeVisible({ timeout: 30_000 });
 
-  // Switching to an ongoing endeavour leaves the sprint horizon behind, which blocks activation.
+  // Switching to ongoing reshapes the horizon into a review period rather than leaving a
+  // sprint deadline behind — but as a suggestion, so it still wants confirming.
   await page.getByLabel("Endeavour kind").selectOption("ongoing");
+  const row = page.getByTestId("intake-field-horizon");
+  await expect(row).toContainText("SUGGESTED");
+  await expect(row).toContainText("month");
+
   const blocker = page.getByTestId("activation-blockers").getByRole("button", { name: /Horizon/ });
   await expect(blocker).toBeVisible();
   // The message says what to do, not merely that something is wrong.
-  await expect(blocker).toContainText("period");
+  await expect(blocker).toContainText("confirmation");
 
   await blocker.click();
-  const row = page.getByTestId("intake-field-horizon");
   await expect(row).toBeInViewport();
   await expect(row).toHaveClass(/surge/);
 
@@ -149,10 +153,11 @@ test("a blocker sends you to the field it is about, and the field shows the shap
   await row.getByRole("button", { name: "Edit" }).click();
   await row.getByLabel("Kind").selectOption("ongoing");
   await expect(row.getByLabel("Period")).toBeVisible();
-  await row.getByLabel("Period").selectOption("month");
+  await row.getByLabel("Period").selectOption("quarter");
   await row.getByLabel("Review every").fill("1");
   await row.getByRole("button", { name: "Save value" }).click();
-  await expect(row).toContainText("month");
+  await expect(row).toContainText("quarter");
+  await expect(row).toContainText("CONFIRMED");
 });
 
 test("spec fields are edited with real inputs, not raw JSON", async ({ page }) => {

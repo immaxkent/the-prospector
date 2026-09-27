@@ -1,10 +1,9 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useState } from "react";
-import { useDataset } from "@/data/store";
+import type { ReactNode } from "react";
+import { useDataset, useStatTiles } from "@/data/store";
 import {
   Button,
   EmptyState,
-  FunnelStrip,
   LedgerTable,
   MachineLabel,
   MetricCell,
@@ -19,6 +18,10 @@ import {
 import { ApprovalTicket } from "@/components/os/ApprovalTicket";
 import { EndeavourStatusControls } from "@/components/os/EndeavourStatusControls";
 import { EndeavourMailboxSelect } from "@/components/os/EndeavourMailboxSelect";
+import { StatTiles } from "@/components/os/StatTiles";
+import { SectionRail, useSectionSpy } from "@/components/os/SectionRail";
+import { ActivityChart, FunnelChart } from "@/components/os/charts";
+import { dailyActivity, isQuiet } from "@/data/chart-series";
 import { EndeavourConfig } from "@/components/os/EndeavourConfig";
 import { StrategyEditor } from "@/components/os/StrategyEditor";
 import { gbp, num, pct, shortDate, stamp, daysUntil } from "@/lib/format";
@@ -40,15 +43,32 @@ export const Route = createFileRoute("/endeavours/$id")({
   component: EndeavourDetail,
 });
 
-const TABS = ["OVERVIEW", "PROSPECTS", "PIPELINE", "OUTREACH", "STRATEGY", "CONFIGURATION", "INTELLIGENCE", "RUNS"] as const;
-type Tab = (typeof TABS)[number];
+/**
+ * The endeavour reads top to bottom, in the order the work happens: what the numbers say,
+ * who was found, what was sent, what it is all for. Tabs hid seven of these eight behind a
+ * click, which is why approvals and runs were hard to find — you had to already know they
+ * were there to go looking.
+ */
+const SECTIONS = [
+  { id: "overview", label: "OVERVIEW" },
+  { id: "prospects", label: "PROSPECTS" },
+  { id: "pipeline", label: "PIPELINE" },
+  { id: "outreach", label: "OUTREACH" },
+  { id: "strategy", label: "STRATEGY" },
+  { id: "configuration", label: "CONFIGURATION" },
+  { id: "intelligence", label: "INTELLIGENCE" },
+  { id: "runs", label: "RUNS" },
+] as const;
+
+const SECTION_IDS = SECTIONS.map((s) => s.id);
 
 const STAGES: PipelineStage[] = ["researched", "qualified", "contacted", "replied", "meeting", "proposal", "won"];
 
 function EndeavourDetail() {
   const { id } = Route.useParams();
-  const { endeavours, prospects, opportunities, insights, approvals, runs, threads } = useDataset();
-  const [tab, setTab] = useState<Tab>("OVERVIEW");
+  const { endeavours, prospects, opportunities, insights, approvals, runs, threads, status } = useDataset();
+  const statTiles = useStatTiles();
+  const active = useSectionSpy(SECTION_IDS);
   const e = endeavours.find((x) => x.id === id);
 
   if (!e) {
@@ -75,6 +95,9 @@ function EndeavourDetail() {
   };
 
   const gap = e.targetValue - e.actualValue;
+  // One clock for the whole row, so two tiles cannot disagree about what day it is.
+  const statContext = { endeavour: e, budget: status.budget, now: new Date(), ...mine };
+  const activity = dailyActivity(mine.threads, statContext.now);
 
   return (
     <div className="space-y-5">
@@ -90,40 +113,12 @@ function EndeavourDetail() {
           <div className="flex flex-wrap items-center gap-6">
             <EndeavourMailboxSelect endeavour={e} />
             <EndeavourStatusControls endeavour={e} />
-            <MetricCell
-              label="OBJECTIVE"
-              size="lg"
-              value={e.unit === "GBP" ? gbp(e.actualValue) : num(e.actualValue)}
-              sub={`TARGET ${e.unit === "GBP" ? gbp(e.targetValue) : num(e.targetValue)} · GAP ${
-                e.unit === "GBP" ? gbp(gap) : num(gap)
-              }`}
-            />
-            <MetricCell
-              label="HORIZON"
-              size="lg"
-              value={`${daysUntil(e.deadline)}d`}
-              sub={shortDate(e.deadline)}
-              tone={daysUntil(e.deadline) < 15 ? "warn" : "default"}
-            />
           </div>
         </div>
-        <nav className="mt-4 flex flex-wrap gap-1">
-          {TABS.map((t) => (
-            <button
-              key={t}
-              onClick={() => setTab(t)}
-              className={cn(
-                "machine border-b-2 px-3 py-2",
-                tab === t ? "border-signal text-foreground" : "border-transparent hover:text-foreground",
-              )}
-            >
-              {t}
-            </button>
-          ))}
-        </nav>
       </div>
 
-      {tab === "OVERVIEW" && (
+      <Section id="overview" label="OVERVIEW">
+        <StatTiles tiles={statTiles} ctx={statContext} />
         <div className="grid grid-cols-1 gap-5 xl:grid-cols-[minmax(0,1fr)_380px]">
           <div className="space-y-5">
             <Panel title="OBJECTIVE PROGRESS" bodyClassName="px-4 py-4">
@@ -143,8 +138,22 @@ function EndeavourDetail() {
               </div>
             </Panel>
 
-            <Panel title="FUNNEL" bodyClassName="px-4 py-4">
-              <FunnelStrip stages={STAGES.map((s) => ({ label: s, value: e.funnel[s] }))} />
+            <Panel title="FUNNEL" meta={<MachineLabel>WHERE IT LEAKS</MachineLabel>} bodyClassName="px-4 py-4">
+              <FunnelChart stages={STAGES.map((s) => ({ label: s, value: e.funnel[s] }))} />
+            </Panel>
+
+            <Panel
+              title="ACTIVITY"
+              meta={<MachineLabel>LAST 14 DAYS</MachineLabel>}
+              bodyClassName="px-4 py-4"
+            >
+              {isQuiet(activity) ? (
+                <p className="py-6 text-center text-[13px] text-muted-foreground">
+                  Nothing has gone out in the last fortnight.
+                </p>
+              ) : (
+                <ActivityChart days={activity} />
+              )}
             </Panel>
 
             <Panel title="CURRENT STRATEGY" bodyClassName="divide-y divide-border">
@@ -192,9 +201,9 @@ function EndeavourDetail() {
             </Panel>
           </div>
         </div>
-      )}
+      </Section>
 
-      {tab === "PROSPECTS" && (
+      <Section id="prospects" label="PROSPECTS">
         <Panel title={`PROSPECTS · ${mine.prospects.length}`}>
           <LedgerTable>
             <thead>
@@ -223,9 +232,9 @@ function EndeavourDetail() {
             </tbody>
           </LedgerTable>
         </Panel>
-      )}
+      </Section>
 
-      {tab === "PIPELINE" && (
+      <Section id="pipeline" label="PIPELINE">
         <Panel title="OPPORTUNITY LEDGER">
           <LedgerTable>
             <thead>
@@ -259,9 +268,9 @@ function EndeavourDetail() {
             </tbody>
           </LedgerTable>
         </Panel>
-      )}
+      </Section>
 
-      {tab === "OUTREACH" && (
+      <Section id="outreach" label="OUTREACH">
         <Panel title="THREADS" bodyClassName="divide-y divide-border">
           {mine.threads.length === 0 ? (
             <div className="px-4 py-8 text-center">
@@ -281,15 +290,15 @@ function EndeavourDetail() {
             ))
           )}
         </Panel>
-      )}
+      </Section>
 
-      {tab === "STRATEGY" && (
+      <Section id="strategy" label="STRATEGY">
         <Panel title="STRATEGY" meta={<MachineLabel>EVERY CHANGE IS A NEW VERSION WITH A REASON</MachineLabel>} bodyClassName="p-0">
           <StrategyEditor endeavourId={e.id} />
         </Panel>
-      )}
+      </Section>
 
-      {tab === "CONFIGURATION" && (
+      <Section id="configuration" label="CONFIGURATION">
         <Panel
           title="CONFIGURATION"
           meta={<MachineLabel>PACING, NOT STRATEGY: THESE CHANGES ARE NOT VERSIONED</MachineLabel>}
@@ -297,9 +306,9 @@ function EndeavourDetail() {
         >
           <EndeavourConfig endeavour={e} />
         </Panel>
-      )}
+      </Section>
 
-      {tab === "INTELLIGENCE" && (
+      <Section id="intelligence" label="INTELLIGENCE">
         <Panel bodyClassName="divide-y divide-border">
           {mine.insights.map((i) => (
             <div key={i.id} className="px-4 py-3">
@@ -311,9 +320,9 @@ function EndeavourDetail() {
             </div>
           ))}
         </Panel>
-      )}
+      </Section>
 
-      {tab === "RUNS" && (
+      <Section id="runs" label="RUNS">
         <Panel title="AGENT RUNS">
           <LedgerTable>
             <thead>
@@ -355,8 +364,27 @@ function EndeavourDetail() {
             </tbody>
           </LedgerTable>
         </Panel>
-      )}
+      </Section>
+      <SectionRail sections={SECTIONS} active={active} />
     </div>
+  );
+}
+
+/**
+ * One band of the page. The heading is the anchor the rail scrolls to and the thing the
+ * observer watches, so it carries the id rather than a wrapper around it.
+ */
+function Section({ id, label, children }: { id: string; label: string; children: ReactNode }) {
+  return (
+    // The id is on the section, not the heading: it is both what an anchor jumps to and
+    // what the spy watches, and scroll-mt clears the sticky header so a jump does not land
+    // underneath it.
+    <section id={id} data-section={id} aria-labelledby={`${id}-heading`} className="scroll-mt-24 space-y-5 pt-6">
+      <h2 id={`${id}-heading`} className="machine text-foreground/45">
+        {label}
+      </h2>
+      {children}
+    </section>
   );
 }
 

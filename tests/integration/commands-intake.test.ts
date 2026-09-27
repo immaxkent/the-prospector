@@ -125,6 +125,34 @@ describe("editIntakeField", () => {
     const view = await updateIntakeSettings(db, { intakeId: started.id, name: "Solidity sprint", autonomyLevel: "OBSERVE" });
     expect(view.spec).toMatchObject({ name: "Solidity sprint", autonomyLevel: "OBSERVE" });
   });
+
+  it("reshapes the horizon when the kind changes, rather than blocking on the old shape", async () => {
+    const started = await startIntake(db, planner(), { brief: BRIEF, today: TODAY });
+    await editIntakeField(db, {
+      intakeId: started.id,
+      field: "horizon",
+      action: "set",
+      value: { kind: "sprint", endsOn: "2026-11-16" },
+    });
+
+    const view = await updateIntakeSettings(db, { intakeId: started.id, kind: "ongoing" }, new Date(`${TODAY}T12:00:00Z`));
+    expect(view.spec?.horizon).toMatchObject({ state: "suggested", value: { kind: "ongoing", period: "month", reviewEvery: 1 } });
+    // Suggested, not confirmed — the operator still says yes, and the gate still says so.
+    expect(view.blockers.map((b) => b.code)).toContain("field_suggested");
+    expect(view.blockers.map((b) => b.code)).not.toContain("horizon_kind_mismatch");
+  });
+
+  it("leaves a horizon alone when the kind does not actually change", async () => {
+    const started = await startIntake(db, planner(), { brief: BRIEF, today: TODAY });
+    const set = await editIntakeField(db, {
+      intakeId: started.id,
+      field: "horizon",
+      action: "set",
+      value: { kind: "sprint", endsOn: "2026-11-16" },
+    });
+    const view = await updateIntakeSettings(db, { intakeId: started.id, kind: "sprint", name: "Same kind" });
+    expect(view.spec?.horizon).toEqual(set.spec?.horizon);
+  });
 });
 
 describe("activateIntake", () => {
