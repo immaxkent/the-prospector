@@ -33,7 +33,7 @@ test.describe("live data", () => {
     await page.goto("/prospects");
     await expect(page.getByText("Northbridge Protocol").first()).toBeVisible();
 
-    await page.goto("/inbox");
+    await page.goto("/mailbox");
     await expect(page.getByText("Bridge contract review before mainnet").first()).toBeVisible();
 
     await page.goto("/settings");
