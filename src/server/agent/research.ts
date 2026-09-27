@@ -32,10 +32,26 @@ export const candidateSchema = z.object({
   evidence: z.array(evidenceClaimSchema).min(1),
 });
 
+/** What the model is allowed to write. Generous, because exceeding it costs the whole call. */
+export const SEARCH_NOTES_LIMIT = 8000;
+/** What is kept. Notes are for understanding a thin run, not for reading at length. */
+export const SEARCH_NOTES_MAX = 1000;
+
 export const researchOutputSchema = z.object({
   candidates: z.array(candidateSchema),
-  /** What the model searched for, so a thin run can be understood. */
-  searchNotes: z.string().max(1000),
+  /**
+   * What the model searched for, so a thin run can be understood.
+   *
+   * The cap here is what the model is told, and it is deliberately loose: it may not be a
+   * transform, because this schema is sent to the API as JSON Schema and a transform
+   * cannot be expressed in one. What is stored is truncated instead, at the use site.
+   *
+   * A whole research call — its web searches, its candidates, and about six pence — was
+   * thrown away in production because the commentary ran past a thousand characters.
+   * Notes are the least valuable field in this object; refusing the candidates over their
+   * length is the wrong way round.
+   */
+  searchNotes: z.string().max(SEARCH_NOTES_LIMIT),
 });
 
 export type Candidate = z.infer<typeof candidateSchema>;
@@ -138,7 +154,7 @@ export async function researchCandidates(deps: ResearchDeps, req: ResearchReques
   const verified = verifyAgainstSources(output.candidates, response.sources);
   return {
     ...verified,
-    searchNotes: output.searchNotes,
+    searchNotes: output.searchNotes.slice(0, SEARCH_NOTES_MAX),
     sources: response.sources,
     proposed: output.candidates.length,
     /** What the searching actually cost, which is rarely the cap it was allowed. */

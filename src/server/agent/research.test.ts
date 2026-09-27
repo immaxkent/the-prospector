@@ -2,7 +2,15 @@ import { describe, expect, it } from "vitest";
 import { FakeLlm } from "../llm/fake";
 import type { LlmCallRecord } from "../llm/structured";
 import { RESEARCH_PROMPT } from "./research-prompt";
-import { renderResearchInput, researchCandidates, verifyAgainstSources, type Candidate } from "./research";
+import {
+  SEARCH_NOTES_LIMIT,
+  SEARCH_NOTES_MAX,
+  renderResearchInput,
+  researchCandidates,
+  researchOutputSchema,
+  verifyAgainstSources,
+  type Candidate,
+} from "./research";
 
 const candidate = (over: Partial<Candidate> = {}): Candidate => ({
   company: { name: "Northbridge Protocol", domain: "northbridge.example" },
@@ -24,6 +32,22 @@ const request = {
   wanted: 5,
   today: "2026-09-17",
 };
+
+describe("the research output schema", () => {
+  it("keeps the candidates when the notes run long, rather than throwing the call away", () => {
+    // A whole research call — searches, candidates and about six pence — was rejected in
+    // production because searchNotes ran past its cap.
+    // The schema accepts far more than is kept, because exceeding it costs the whole call.
+    expect(() => researchOutputSchema.parse({ candidates: [], searchNotes: "x".repeat(5000) })).not.toThrow();
+    expect(SEARCH_NOTES_LIMIT).toBeGreaterThan(SEARCH_NOTES_MAX);
+  });
+
+  it("leaves notes that already fit alone", () => {
+    expect(researchOutputSchema.parse({ candidates: [], searchNotes: "searched mainnet announcements" })).toMatchObject({
+      searchNotes: "searched mainnet announcements",
+    });
+  });
+});
 
 describe("verifyAgainstSources", () => {
   it("keeps evidence from pages search returned, ignoring www and paths", () => {
