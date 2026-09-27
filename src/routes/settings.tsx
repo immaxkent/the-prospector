@@ -4,6 +4,7 @@ import { useAppMode, useDataset, setDataMode, useDataMode } from "@/data/store";
 import { MailboxRow } from "@/components/os/MailboxRow";
 import { ImportPanel } from "@/components/os/ImportPanel";
 import { BudgetPanel } from "@/components/os/BudgetPanel";
+import { StatTilePicker } from "@/components/os/StatTilePicker";
 import { NotificationChannel } from "@/components/os/NotificationChannel";
 import {
   Button,
@@ -114,6 +115,10 @@ function SettingsScreen() {
       <div className="grid grid-cols-1 gap-5 xl:grid-cols-2">
         <Panel title="MODEL / BUDGET" bodyClassName="p-0">
           <BudgetPanel />
+        </Panel>
+
+        <Panel title="HEADLINE NUMBERS" bodyClassName="p-0">
+          <StatTilePicker />
         </Panel>
 
         <Panel title="AUTONOMY" bodyClassName="space-y-3 px-4 py-4">
