@@ -320,27 +320,6 @@ export function EmptyState({
   );
 }
 
-/* ---------- FunnelStrip ---------- */
-export function FunnelStrip({ stages }: { stages: { label: string; value: number }[] }) {
-  const max = Math.max(...stages.map((s) => s.value), 1);
-  return (
-    <div className="flex items-end gap-px">
-      {stages.map((s) => (
-        <div key={s.label} className="flex flex-1 flex-col gap-1.5">
-          <div className="numeral text-[13px]">{s.value}</div>
-          <div className="h-12 w-full bg-muted">
-            <div
-              className="w-full bg-signal/70"
-              style={{ height: `${(s.value / max) * 100}%`, marginTop: `${100 - (s.value / max) * 100}%` }}
-            />
-          </div>
-          <MachineLabel className="truncate">{s.label}</MachineLabel>
-        </div>
-      ))}
-    </div>
-  );
-}
-
 /* ---------- RunIndicator ---------- */
 export function RunIndicator({ running }: { running: boolean }) {
   if (!running) return <div className="h-[2px] w-full bg-border" />;

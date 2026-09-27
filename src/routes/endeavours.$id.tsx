@@ -4,7 +4,6 @@ import { useDataset, useStatTiles } from "@/data/store";
 import {
   Button,
   EmptyState,
-  FunnelStrip,
   LedgerTable,
   MachineLabel,
   MetricCell,
@@ -21,6 +20,8 @@ import { EndeavourStatusControls } from "@/components/os/EndeavourStatusControls
 import { EndeavourMailboxSelect } from "@/components/os/EndeavourMailboxSelect";
 import { StatTiles } from "@/components/os/StatTiles";
 import { SectionRail, useSectionSpy } from "@/components/os/SectionRail";
+import { ActivityChart, FunnelChart } from "@/components/os/charts";
+import { dailyActivity, isQuiet } from "@/data/chart-series";
 import { EndeavourConfig } from "@/components/os/EndeavourConfig";
 import { StrategyEditor } from "@/components/os/StrategyEditor";
 import { gbp, num, pct, shortDate, stamp, daysUntil } from "@/lib/format";
@@ -96,6 +97,7 @@ function EndeavourDetail() {
   const gap = e.targetValue - e.actualValue;
   // One clock for the whole row, so two tiles cannot disagree about what day it is.
   const statContext = { endeavour: e, budget: status.budget, now: new Date(), ...mine };
+  const activity = dailyActivity(mine.threads, statContext.now);
 
   return (
     <div className="space-y-5">
@@ -136,8 +138,22 @@ function EndeavourDetail() {
               </div>
             </Panel>
 
-            <Panel title="FUNNEL" bodyClassName="px-4 py-4">
-              <FunnelStrip stages={STAGES.map((s) => ({ label: s, value: e.funnel[s] }))} />
+            <Panel title="FUNNEL" meta={<MachineLabel>WHERE IT LEAKS</MachineLabel>} bodyClassName="px-4 py-4">
+              <FunnelChart stages={STAGES.map((s) => ({ label: s, value: e.funnel[s] }))} />
+            </Panel>
+
+            <Panel
+              title="ACTIVITY"
+              meta={<MachineLabel>LAST 14 DAYS</MachineLabel>}
+              bodyClassName="px-4 py-4"
+            >
+              {isQuiet(activity) ? (
+                <p className="py-6 text-center text-[13px] text-muted-foreground">
+                  Nothing has gone out in the last fortnight.
+                </p>
+              ) : (
+                <ActivityChart days={activity} />
+              )}
             </Panel>
 
             <Panel title="CURRENT STRATEGY" bodyClassName="divide-y divide-border">
