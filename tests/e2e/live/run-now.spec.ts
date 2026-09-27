@@ -36,7 +36,6 @@ test.describe("run now", () => {
 
     await page.goto("/endeavours/end_fixture_solidity");
     await page.waitForLoadState("networkidle");
-    await page.getByRole("button", { name: "RUNS" }).click();
     const row = page.getByRole("row").filter({ hasText: "run_" });
     await expect(row).toContainText("OK");
   });

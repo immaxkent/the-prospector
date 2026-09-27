@@ -80,6 +80,44 @@ test("the headline numbers can be swapped, and the row refuses a fifth", async (
   await expect(picker.getByRole("button", { name: /^4 · OBJECTIVE PROGRESS/ })).toBeVisible();
 });
 
+test("the endeavour is one page, with a rail saying where in it you are", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto("/endeavours/end_solidity");
+
+  // Every section is on the page at once — nothing is a click away behind a tab.
+  for (const id of ["overview", "prospects", "pipeline", "outreach", "strategy", "runs"]) {
+    await expect(page.locator(`#${id}`)).toBeAttached();
+  }
+
+  const rail = page.getByTestId("section-rail");
+  await expect(rail).toBeVisible();
+  await expect(rail.locator("[aria-current=true]")).toHaveText("OVERVIEW");
+
+  // The rail navigates as well as reports: following it puts the section under the header,
+  // which is also what makes it the current one.
+  await rail.getByRole("link", { name: "RUNS" }).click();
+  await expect(rail.locator("[aria-current=true]")).toHaveText("RUNS");
+  await expect(page.locator("#runs")).toBeInViewport();
+});
+
+test("the overview charts say what happened, and what is left of it", async ({ page }) => {
+  await page.goto("/endeavours/end_solidity");
+
+  // The funnel reports each stage's count and what share of the previous one survived,
+  // rather than leaving the reader to divide two bars by eye.
+  const funnel = page.getByTestId("funnel-chart");
+  await expect(funnel).toBeVisible();
+  await expect(funnel).toContainText("% KEPT");
+  // The first stage has nothing before it, so it has no conversion to report.
+  await expect(funnel.locator("div.group").first()).toContainText("—");
+
+  const activity = page.getByTestId("activity-chart");
+  await expect(activity).toBeVisible();
+  // Two series, both named — identity never rests on colour alone.
+  await expect(activity).toContainText("SENT");
+  await expect(activity).toContainText("REPLIES");
+});
+
 test("unknown routes show the 404 surface", async ({ page }) => {
   await page.goto("/does-not-exist");
   await expect(page.getByText("404 / NO ROUTE")).toBeVisible();
