@@ -2,7 +2,14 @@ import { afterAll, beforeEach, describe, expect, it } from "vitest";
 import { eq } from "drizzle-orm";
 import { FixtureAgentLlm } from "../../src/server/agent/fixture";
 import { CommandError } from "../../src/server/commands/errors";
-import { loadBudgetState, loadSettings, loadSpend, updateSettings } from "../../src/server/commands/settings";
+import {
+  loadBudgetState,
+  loadSettings,
+  loadSpend,
+  loadStatTiles,
+  updateSettings,
+  updateStatTiles,
+} from "../../src/server/commands/settings";
 import { FIXTURE_IDS, seedFixtures } from "../../src/server/db/fixtures";
 import * as t from "../../src/server/db/schema";
 import { DEFAULT_BUDGET } from "../../src/server/domain/budget";
@@ -64,6 +71,49 @@ describe("settings", () => {
     ]) {
       await expect(updateSettings(db, input)).rejects.toBeInstanceOf(CommandError);
     }
+  });
+});
+
+describe("the headline numbers", () => {
+  it("starts empty, which means the defaults", async () => {
+    expect(await loadStatTiles(db)).toEqual([]);
+  });
+
+  it("stores the choice in the order it was made", async () => {
+    await updateStatTiles(db, ["runway", "revenue", "days_left", "reply_rate"]);
+    expect(await loadStatTiles(db)).toEqual(["runway", "revenue", "days_left", "reply_rate"]);
+  });
+
+  it("keeps the budget when only the numbers change, and the other way round", async () => {
+    await updateSettings(db, { model: "claude-sonnet-5", monthlyBudgetPence: 4000 });
+    await updateStatTiles(db, ["revenue"]);
+    expect(await loadSettings(db)).toEqual({ model: "claude-sonnet-5", monthlyBudgetPence: 4000 });
+
+    await updateSettings(db, { model: "claude-haiku-4-5", monthlyBudgetPence: 1500 });
+    expect(await loadStatTiles(db)).toEqual(["revenue"]);
+  });
+
+  it("writes the defaults alongside when it is the first thing ever saved", async () => {
+    await updateStatTiles(db, ["revenue"]);
+    expect(await loadSettings(db)).toEqual(DEFAULT_BUDGET);
+  });
+
+  it("refuses a number that does not exist, a duplicate, and more than the row holds", async () => {
+    for (const tiles of [
+      ["revenue", "a_tile_we_removed"],
+      ["revenue", "revenue"],
+      ["revenue", "runway", "sent", "replies", "leads"],
+    ]) {
+      await expect(updateStatTiles(db, tiles)).rejects.toBeInstanceOf(CommandError);
+    }
+    // None of the refusals left anything behind.
+    expect(await loadStatTiles(db)).toEqual([]);
+  });
+
+  it("accepts an empty choice, which puts the defaults back", async () => {
+    await updateStatTiles(db, ["revenue"]);
+    await updateStatTiles(db, []);
+    expect(await loadStatTiles(db)).toEqual([]);
   });
 });
 
