@@ -284,6 +284,8 @@ export interface BudgetStatus {
   dailyAllowancePence: number;
   spentTodayPence: number;
   spentMonthPence: number;
+  /** Everything ever spent. Reported on the endeavour, never enforced against. */
+  spentAllTimePence: number;
   remainingTodayPence: number;
   allowed: boolean;
   reason: "ok" | "daily_budget_spent" | "monthly_budget_spent" | "no_budget";

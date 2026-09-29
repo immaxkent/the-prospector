@@ -37,11 +37,11 @@ describe("converting dollars to pence", () => {
 });
 
 describe("budgetState", () => {
-  const state = (spend: { todayUsd: number; monthUsd: number }, over: Partial<BudgetSettings> = {}) =>
+  const state = (spend: { todayUsd: number; monthUsd: number; allTimeUsd: number }, over: Partial<BudgetSettings> = {}) =>
     budgetState({ ...settings, ...over }, spend, RATE, SEPT);
 
   it("allows a call while the day's share is unspent", () => {
-    expect(state({ todayUsd: 0.25, monthUsd: 2.5 })).toMatchObject({
+    expect(state({ todayUsd: 0.25, monthUsd: 2.5 , allTimeUsd: 2.5  })).toMatchObject({
       spentTodayPence: 20,
       spentMonthPence: 200,
       dailyAllowancePence: 50,
@@ -52,22 +52,22 @@ describe("budgetState", () => {
   });
 
   it("stops for the day once the day's share is spent, without touching the rest of the month", () => {
-    const result = state({ todayUsd: 0.63, monthUsd: 2 });
+    const result = state({ todayUsd: 0.63, monthUsd: 2 , allTimeUsd: 2  });
     expect(result).toMatchObject({ allowed: false, reason: "daily_budget_spent", remainingTodayPence: 0 });
     expect(BUDGET_MESSAGES[result.reason as "daily_budget_spent"]).toContain("tomorrow");
   });
 
   it("stops for the month when the whole budget is gone, even on a fresh day", () => {
-    const result = state({ todayUsd: 0, monthUsd: 20 });
+    const result = state({ todayUsd: 0, monthUsd: 20 , allTimeUsd: 20  });
     expect(result).toMatchObject({ allowed: false, reason: "monthly_budget_spent", remainingTodayPence: 0 });
   });
 
   it("never reports a negative remainder after an overrun", () => {
-    expect(state({ todayUsd: 5, monthUsd: 40 }).remainingTodayPence).toBe(0);
+    expect(state({ todayUsd: 5, monthUsd: 40 , allTimeUsd: 40  }).remainingTodayPence).toBe(0);
   });
 
   it("says plainly when no budget is set at all", () => {
-    expect(state({ todayUsd: 0, monthUsd: 0 }, { monthlyBudgetPence: 0 })).toMatchObject({
+    expect(state({ todayUsd: 0, monthUsd: 0 , allTimeUsd: 0  }, { monthlyBudgetPence: 0 })).toMatchObject({
       allowed: false,
       reason: "no_budget",
     });
@@ -76,7 +76,7 @@ describe("budgetState", () => {
   it("caps the day by whatever is left of the month near the end of it", () => {
     // £14.60 of the £15 spent leaves 40p for the month, but the day's share is 50p:
     // the day may only use the 40p that is actually left.
-    expect(state({ todayUsd: 0, monthUsd: 18.25 }).remainingTodayPence).toBe(40);
+    expect(state({ todayUsd: 0, monthUsd: 18.25 , allTimeUsd: 18.25  }).remainingTodayPence).toBe(40);
   });
 });
 

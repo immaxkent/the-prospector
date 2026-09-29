@@ -110,6 +110,7 @@ export async function loadDataset(db: Database, opts: DatasetOptions): Promise<D
         dailyAllowancePence: 0,
         spentTodayPence: 0,
         spentMonthPence: 0,
+        spentAllTimePence: 0,
         remainingTodayPence: 0,
         allowed: false,
         reason: "no_budget",

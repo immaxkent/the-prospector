@@ -7,6 +7,7 @@ import {
   completeJob,
   enqueue,
   failJob,
+  heartbeatJob,
   recoverStaleJobs,
 } from "../../src/server/jobs/queue";
 import * as t from "../../src/server/db/schema";
@@ -79,6 +80,53 @@ describe("completing and failing", () => {
     const done = await failJob(db, second!, "still failing");
     expect(done.retrying).toBe(false);
     expect(await row(queued.id)).toMatchObject({ status: "failed", attempts: 2 });
+  });
+});
+
+describe("heartbeatJob", () => {
+  it("keeps a long job from being recovered while it is still working", async () => {
+    const start = new Date("2026-09-28T09:00:00Z");
+    await enqueue(db, { type: "slow.job", payload: {}, idempotencyKey: "slow:1", runAt: start });
+    const job = await claimNext(db, "worker-a", start);
+
+    // Halfway through the window the worker says it is still alive.
+    const midway = new Date(start.getTime() + STALE_AFTER_MS / 2);
+    expect(await heartbeatJob(db, job!.id, midway)).toBe(true);
+
+    // What would have been past the cutoff is now inside it, measured from the beat.
+    const later = new Date(start.getTime() + STALE_AFTER_MS + 1000);
+    expect(await recoverStaleJobs(db, later)).toBe(0);
+    const [row] = await db.select().from(t.jobs).where(eq(t.jobs.id, job!.id));
+    expect(row!.status).toBe("running");
+  });
+
+  it("still lets a job be recovered once the beats stop", async () => {
+    const start = new Date("2026-09-28T09:00:00Z");
+    await enqueue(db, { type: "dead.job", payload: {}, idempotencyKey: "dead:1", runAt: start });
+    const job = await claimNext(db, "worker-a", start);
+    await heartbeatJob(db, job!.id, new Date(start.getTime() + 1000));
+
+    const later = new Date(start.getTime() + STALE_AFTER_MS + 2000);
+    expect(await recoverStaleJobs(db, later)).toBe(1);
+  });
+
+  it("refuses to revive a job that is no longer running", async () => {
+    // A beat from a worker whose job was already recovered would take a lock it lost.
+    const start = new Date("2026-09-28T09:00:00Z");
+    await enqueue(db, { type: "done.job", payload: {}, idempotencyKey: "done:1", runAt: start });
+    const job = await claimNext(db, "worker-a", start);
+    await completeJob(db, job!.id);
+    expect(await heartbeatJob(db, job!.id)).toBe(false);
+  });
+
+  it("changes nothing but the lock", async () => {
+    const start = new Date("2026-09-28T09:00:00Z");
+    await enqueue(db, { type: "slow.job", payload: { keep: "me" }, idempotencyKey: "slow:2", runAt: start });
+    const job = await claimNext(db, "worker-a", start);
+    await heartbeatJob(db, job!.id, new Date(start.getTime() + 1000));
+
+    const [row] = await db.select().from(t.jobs).where(eq(t.jobs.id, job!.id));
+    expect(row).toMatchObject({ status: "running", attempts: job!.attempts, payload: { keep: "me" }, lockedBy: "worker-a" });
   });
 });
 

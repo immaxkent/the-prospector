@@ -224,6 +224,22 @@ export const STAT_TILES: StatTile[] = [
     },
   },
   {
+    id: "spend",
+    label: "Spend",
+    hint: "What the agent has cost today, with everything it has ever cost underneath.",
+    group: "efficiency",
+    compute: (ctx) => {
+      const { spentTodayPence, spentAllTimePence, dailyAllowancePence } = ctx.budget;
+      return {
+        // Today is the figure; all-time is the context for it. One reads at a glance, the
+        // other is there when you ask "and how much has this cost me altogether".
+        display: pence(spentTodayPence),
+        sub: `${pence(spentAllTimePence)} all time`,
+        tone: dailyAllowancePence > 0 && spentTodayPence >= dailyAllowancePence ? "warn" : "plain",
+      };
+    },
+  },
+  {
     id: "cost_per_reply",
     label: "Cost per reply",
     hint: "Credit burned this month divided by replies. What a conversation actually costs.",

@@ -67,6 +67,28 @@ export async function claimNext(db: Database, workerId: string, now = new Date()
   return row ?? null;
 }
 
+/**
+ * Says the worker is still alive and still on this job.
+ *
+ * Recovery cannot tell a dead worker from a slow one — both leave a job sitting in
+ * `running` with an old lock. A daily run legitimately outlives the stale window: qualify
+ * and draft each wait up to five minutes on a batch, and the window is ten. Without this,
+ * the queue reclaims a job that is still working and pays for its research a second time.
+ *
+ * Only the lock moves. Nothing else about the job is touched, so a heartbeat can never
+ * change the outcome of the work it is reporting on.
+ */
+export async function heartbeatJob(db: Database, jobId: string, now = new Date()) {
+  const rows = await db
+    .update(jobs)
+    .set({ lockedAt: now })
+    .where(and(eq(jobs.id, jobId), eq(jobs.status, "running")))
+    .returning({ id: jobs.id });
+  // A job that is no longer running has already been recovered or finished; saying it is
+  // alive would take a lock the worker no longer holds.
+  return rows.length > 0;
+}
+
 export async function completeJob(db: Database, jobId: string) {
   await db.update(jobs).set({ status: "succeeded", lockedAt: null, lockedBy: null, lastError: null }).where(eq(jobs.id, jobId));
 }

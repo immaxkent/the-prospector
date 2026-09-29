@@ -64,8 +64,30 @@ describe("scoreQualification", () => {
     expect(result.factors[0]!.evidenceIds).toEqual(["ev_1"]);
   });
 
-  it("respects a reject recommendation however high the score", () => {
-    expect(scoreQualification(output({ recommendation: "reject" }), evidenceIds)).toMatchObject({ score: 80, outcome: "rejected" });
+  it("asks rather than bins when a reject recommendation contradicts a passing score", () => {
+    // The score is computed from the model's own factor ratings. When those say 80 and its
+    // recommendation says no, the two disagree, and the operator decides. Production binned
+    // four prospects at or above the bar without anyone seeing them.
+    expect(scoreQualification(output({ recommendation: "reject" }), evidenceIds)).toMatchObject({
+      score: 80,
+      outcome: "needs_review",
+    });
+  });
+
+  it("still rejects outright when the recommendation and the score agree", () => {
+    const weak = output({
+      recommendation: "reject",
+      factors: QUALIFICATION_FACTORS.map((factor) => ({ factor, score: 5, note: "Thin", evidenceIds: [] })),
+    });
+    expect(scoreQualification(weak, evidenceIds)).toMatchObject({ score: 50, outcome: "rejected" });
+  });
+
+  it("rejects anything below the floor whatever the recommendation says", () => {
+    const awful = output({
+      recommendation: "qualify",
+      factors: QUALIFICATION_FACTORS.map((factor) => ({ factor, score: 2, note: "No", evidenceIds: [] })),
+    });
+    expect(scoreQualification(awful, evidenceIds)).toMatchObject({ score: 20, outcome: "rejected" });
   });
 
   it("sends an uncertain or middling prospect to review", () => {
