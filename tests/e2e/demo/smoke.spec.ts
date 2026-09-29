@@ -167,6 +167,21 @@ test("a prospect with no contact offers somewhere to put one", async ({ page }) 
   await expect(row.getByRole("button", { name: "Add" })).toBeVisible();
 });
 
+test("deleting an endeavour asks for its name, not just a second click", async ({ page }) => {
+  await page.goto("/endeavours/end_solidity");
+  await page.getByRole("button", { name: "Delete this endeavour" }).click();
+
+  const panel = page.getByTestId("delete-endeavour");
+  await expect(panel).toContainText("There is no backup");
+
+  // The fixture endeavour is active, so it says to pause first rather than offering the box.
+  await expect(panel).toContainText("Pause or archive it first");
+  await expect(panel.getByRole("button", { name: "Delete for good" })).toHaveCount(0);
+
+  await panel.getByRole("button", { name: "CANCEL" }).click();
+  await expect(page.getByRole("button", { name: "Delete this endeavour" })).toBeVisible();
+});
+
 test("unknown routes show the 404 surface", async ({ page }) => {
   await page.goto("/does-not-exist");
   await expect(page.getByText("404 / NO ROUTE")).toBeVisible();
