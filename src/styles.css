@@ -360,6 +360,37 @@
  * exceptionally slow bronze light-band crossing the letterforms.
  */
 
+/* A bar that travels rather than fills: there is no percentage to report. */
+.planning-bar {
+  animation: planning-sweep 1.4s cubic-bezier(0.65, 0, 0.35, 1) infinite;
+}
+
+.planning-pulse {
+  animation: planning-blink 1.4s ease-in-out infinite;
+}
+
+@keyframes planning-sweep {
+  0% { transform: translateX(-110%); }
+  100% { transform: translateX(310%); }
+}
+
+@keyframes planning-blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.25; }
+}
+
+/* Still working, still says so — without anything moving. */
+@media (prefers-reduced-motion: reduce) {
+  .planning-bar {
+    animation: none;
+    width: 100%;
+    opacity: 0.4;
+  }
+  .planning-pulse {
+    animation: none;
+  }
+}
+
 /*
  * The cross-fade a navigation happens behind.
  *
