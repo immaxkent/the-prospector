@@ -2,21 +2,26 @@ import { describe, expect, it } from "vitest";
 import { describeProviderError, diagnoseProviderError } from "./provider-errors";
 
 describe("diagnoseProviderError", () => {
-  it("separates a key that is refused from one that is unknown", () => {
-    // The distinction that cost an afternoon: 401 means unknown, 503 with this text means
-    // recognised and refused, and only the second points at the workspace.
-    const refused = diagnoseProviderError("503 credential validation failed");
-    expect(refused.hint).toContain("workspace");
-    expect(refused.hint).toContain("separate from the account's credit balance");
+  it("reads a failed validation as unavailable, not as a bad key", () => {
+    // Misread once, live: 503 is service-unavailable, and the advice that followed sent the
+    // operator through their billing settings while Anthropic quietly recovered.
+    const unavailable = diagnoseProviderError("503 credential validation failed");
+    expect(unavailable.hint).toContain("not the same as rejecting it");
+    expect(unavailable.hint).toContain("retry before changing anything");
 
     const unknown = diagnoseProviderError("401 invalid x-api-key");
     expect(unknown.hint).toContain("does not recognise");
-    expect(unknown.hint).not.toContain("workspace");
+  });
+
+  it("does not send the reader to their billing settings first", () => {
+    // A hint that leads with the account is the mistake this exists to stop repeating.
+    const hint = diagnoseProviderError("503 credential validation failed").hint;
+    expect(hint.indexOf("retry")).toBeLessThan(hint.indexOf("spend limit"));
   });
 
   it("names running out of credit only when that is what was said", () => {
     expect(diagnoseProviderError("400 Your credit balance is too low").hint).toContain("out of credit");
-    // An org with credit left still gets the refused-key answer, not this one.
+    // A validation outage is not a credit problem and must not be described as one.
     expect(diagnoseProviderError("503 credential validation failed").hint).not.toContain("out of credit");
   });
 

@@ -19,11 +19,15 @@ export interface ProviderDiagnosis {
 }
 
 /**
- * A key the provider does not recognise answers 401. A key it recognises and refuses
- * answers 503 with this text — which is a different thing, and the difference is the
- * whole diagnosis.
+ * `503 credential validation failed` means the check could not be carried out, not that
+ * the credential is bad — 503 is service-unavailable, and a bad key gets 401.
+ *
+ * This was misread once, live, and the misreading sent the operator through their billing
+ * settings for half an hour while Anthropic quietly recovered. A junk key still answers
+ * 401 during such an outage because it is rejected on shape before validation is reached,
+ * which makes the two look like a judgement about the particular key. They are not.
  */
-const REFUSED_BUT_KNOWN = /credential validation failed/i;
+const VALIDATION_UNAVAILABLE = /credential validation failed/i;
 const NOT_RECOGNISED = /\b401\b|invalid x-api-key|authentication_error/i;
 const OUT_OF_CREDIT = /credit balance is too low|insufficient.*credit|billing/i;
 const RATE_LIMITED = /\b429\b|rate.?limit/i;
@@ -43,14 +47,14 @@ export function diagnoseProviderError(message: string): ProviderDiagnosis {
   if (OVERLOADED.test(raw)) {
     return { raw, hint: "Anthropic is overloaded. Nothing is wrong here; try again shortly." };
   }
-  if (REFUSED_BUT_KNOWN.test(raw)) {
+  if (VALIDATION_UNAVAILABLE.test(raw)) {
     return {
       raw,
       hint:
-        "Anthropic recognises this key and is refusing it — an unknown key answers 401 instead. " +
-        "That points at the workspace rather than the key: check the workspace's own spend limit " +
-        "and that it is not archived. A workspace limit is separate from the account's credit balance, " +
-        "so there can be credit left and still no access.",
+        "Anthropic could not check the key, which is not the same as rejecting it: 503 is " +
+        "service-unavailable and a bad key answers 401. Almost always passing — retry before " +
+        "changing anything. If it persists for more than an hour, then check the key and the " +
+        "workspace's own spend limit, which is separate from the account's credit balance.",
     };
   }
   if (NOT_RECOGNISED.test(raw)) {
