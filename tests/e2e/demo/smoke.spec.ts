@@ -8,7 +8,6 @@ const SCREENS = [
   { path: "/mailbox", heading: /mailbox/i },
   { path: "/research", heading: /research/i },
   { path: "/intelligence", heading: /intelligence/i },
-  { path: "/interfaces", heading: /interfaces/i },
   { path: "/settings", heading: /settings/i },
   { path: "/walkthroughs", heading: /walkthroughs/i },
 ];
@@ -180,6 +179,17 @@ test("deleting an endeavour asks for its name, not just a second click", async (
 
   await panel.getByRole("button", { name: "CANCEL" }).click();
   await expect(page.getByRole("button", { name: "Delete this endeavour" })).toBeVisible();
+});
+
+test("the rail does not carry a screen that is all zeroes", async ({ page }) => {
+  await page.goto("/command");
+  const rail = page.getByRole("navigation").first();
+  await expect(rail.getByRole("link", { name: "Interfaces" })).toHaveCount(0);
+
+  // The route still answers — it is unlisted, not removed, and the palette still finds it.
+  const response = await page.goto("/interfaces");
+  expect(response?.status()).toBe(200);
+  await expect(page.getByRole("heading", { level: 1, name: /interfaces/i })).toBeVisible();
 });
 
 test("unknown routes show the 404 surface", async ({ page }) => {

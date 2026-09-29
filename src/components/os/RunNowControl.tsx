@@ -22,15 +22,21 @@ const PHASE_LABELS: Record<string, string> = {
   done: "RUN COMPLETE",
 };
 
-/** RUN NOW plus the live state of the most recent run. */
-export function RunNowControl() {
+/**
+ * RUN NOW plus the live state of the most recent run.
+ *
+ * Scoped to one endeavour where the caller names one. Unscoped it runs every active
+ * endeavour, which is right on a screen that is about all of them and wrong on a page that
+ * is about one.
+ */
+export function RunNowControl({ endeavourId }: { endeavourId?: string } = {}) {
   const mode = useAppMode();
   const client = useQueryClient();
   const { runs } = useDataset();
   const demoRun = useRunState();
 
   const runNow = useMutation({
-    mutationFn: () => runNowFn({ data: {} }),
+    mutationFn: () => runNowFn({ data: endeavourId ? { endeavourId } : {} }),
     onSuccess: async (result) => {
       await client.invalidateQueries({ queryKey: datasetQuery.queryKey });
       const plural = result.queued === 1 ? "" : "s";

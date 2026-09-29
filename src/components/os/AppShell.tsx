@@ -2,7 +2,6 @@ import { Link, useRouterState } from "@tanstack/react-router";
 import { useEffect, useState, type ReactNode } from "react";
 import { cn } from "@/lib/utils";
 import { StatusDot } from "./primitives";
-import { RunNowControl } from "./RunNowControl";
 import { CommandPalette } from "./CommandPalette";
 import { WorldCanvas } from "@/components/world/WorldCanvas";
 import { useDataset, initDataMode } from "@/data/store";
@@ -10,6 +9,12 @@ import { clockTime } from "@/lib/format";
 import { useSwipeNav } from "@/hooks/use-swipe-nav";
 
 /** Nav order doubles as the station order in the 3D world. */
+/*
+ * Interfaces is not listed. It describes an event seam nothing consumes yet: this app's own
+ * API, and two external systems named in the original handoff that have never sent or
+ * received anything. A permanent nav entry for a screen that is all zeroes teaches the
+ * reader to skip a row, and the route still answers for anyone who wants it.
+ */
 const NAV: { to: string; label: string; key: string; glyph: string }[] = [
   { to: "/command", label: "Command", key: "01", glyph: "◈" },
   { to: "/endeavours", label: "Endeavours", key: "02", glyph: "◆" },
@@ -19,15 +24,13 @@ const NAV: { to: string; label: string; key: string; glyph: string }[] = [
   { to: "/pipeline", label: "Pipeline", key: "05", glyph: "▥" },
   { to: "/research", label: "Research", key: "06", glyph: "◎" },
   { to: "/intelligence", label: "Intelligence", key: "07", glyph: "✦" },
-  { to: "/interfaces", label: "Interfaces", key: "08", glyph: "⌘" },
-  { to: "/settings", label: "Settings", key: "09", glyph: "⚙" },
-  { to: "/walkthroughs", label: "Walkthroughs", key: "10", glyph: "☰" },
+  { to: "/settings", label: "Settings", key: "08", glyph: "⚙" },
+  { to: "/walkthroughs", label: "Walkthroughs", key: "09", glyph: "☰" },
 ];
 
 export function AppShell({ children }: { children: ReactNode }) {
   const [paletteOpen, setPaletteOpen] = useState(false);
-  const [contextOpen, setContextOpen] = useState(false);
-  const { status, endeavours, approvals } = useDataset();
+  const { status } = useDataset();
   const pathname = useRouterState({ select: (s) => s.location.pathname });
 
   // Source: route hierarchy. Gestures move up inside a section, never across the navbar.
@@ -49,18 +52,10 @@ export function AppShell({ children }: { children: ReactNode }) {
     return () => window.removeEventListener("keydown", onKey);
   }, []);
 
-  // Close the context dropdown on navigation and on Escape.
-  useEffect(() => setContextOpen(false), [pathname]);
-  useEffect(() => {
-    const onEsc = (e: KeyboardEvent) => e.key === "Escape" && setContextOpen(false);
-    window.addEventListener("keydown", onEsc);
-    return () => window.removeEventListener("keydown", onEsc);
-  }, []);
 
   const activeIndex = pathname === "/" ? 0 : Math.max(1, NAV.findIndex((n) => pathname.startsWith(n.to)) + 1);
 
   // Source: Endeavour state (first active endeavour is the working context)
-  const context = endeavours[0]?.name ?? "No active endeavour";
   const agentTone = status.agent === "ERROR" ? "error" : status.agent === "WAITING" ? "idle" : "ok";
 
   return (
@@ -128,86 +123,13 @@ export function AppShell({ children }: { children: ReactNode }) {
         </div>
       </nav>
 
-      {/* TOP — context island + action island */}
-      <header className="fixed inset-x-3 top-3 z-40 flex items-center justify-between gap-3 md:left-[92px] md:right-5 md:top-4">
-        <div className="relative min-w-0">
-          <button
-            type="button"
-            onClick={() => setContextOpen((v) => !v)}
-            aria-expanded={contextOpen}
-            aria-haspopup="menu"
-            className="island-ink flex min-w-0 items-center gap-3 rounded-full py-2 pl-3 pr-4 transition-colors hover:bg-sidebar-accent"
-          >
-            <StatusDot tone={agentTone} live={status.agent === "ONLINE" || status.agent === "RUNNING"} />
-            <span className="machine hidden text-ink-foreground/45 sm:inline">CONTEXT</span>
-            <span className="display truncate text-[13px] text-ink-foreground">{context}</span>
-            {approvals.length > 0 && (
-              <span className="machine hidden items-center gap-1.5 rounded-full bg-warn-soft px-2 py-1 text-warn md:inline-flex">
-                {approvals.length} AWAITING
-              </span>
-            )}
-            <span
-              className={cn(
-                "text-[10px] text-ink-foreground/50 transition-transform duration-300",
-                contextOpen && "rotate-180",
-              )}
-              aria-hidden="true"
-            >
-              ▾
-            </span>
-          </button>
-
-          {contextOpen && (
-            <div
-              role="menu"
-              className="island-ink rise absolute left-0 top-[calc(100%+8px)] z-50 w-[320px] overflow-hidden rounded-2xl p-1.5"
-            >
-              <div className="machine px-3 py-2 text-ink-foreground/45">
-                {endeavours.length} ACTIVE {endeavours.length === 1 ? "ENDEAVOUR" : "ENDEAVOURS"}
-              </div>
-              {endeavours.length === 0 && (
-                <Link
-                  to="/endeavours"
-                  onClick={() => setContextOpen(false)}
-                  className="machine block rounded-xl px-3 py-3 text-ink-foreground/60 hover:bg-sidebar-accent"
-                >
-                  NO ACTIVE ENDEAVOURS — DEFINE ONE
-                </Link>
-              )}
-              {/* Source: Endeavour state */}
-              {endeavours.map((e) => (
-                <Link
-                  key={e.id}
-                  to="/endeavours/$id"
-                  params={{ id: e.id }}
-                  onClick={() => setContextOpen(false)}
-                  className="flex items-start justify-between gap-3 rounded-xl px-3 py-2.5 transition-colors hover:bg-sidebar-accent"
-                >
-                  <span className="min-w-0">
-                    <span className="display block truncate text-[13px] text-ink-foreground">{e.name}</span>
-                    <span className="machine mt-1 block truncate text-ink-foreground/45">{e.nextCriticalAction}</span>
-                  </span>
-                  <span
-                    className={cn(
-                      "machine shrink-0 pt-0.5",
-                      e.health === "ON_TRACK" ? "text-cyan" : e.health === "PAUSED" ? "text-ink-foreground/40" : "text-warn",
-                    )}
-                  >
-                    {e.health.replace("_", " ")}
-                  </span>
-                </Link>
-              ))}
-              <Link
-                to="/endeavours"
-                onClick={() => setContextOpen(false)}
-                className="machine mt-1 block border-t border-sidebar-border px-3 py-2.5 text-ink-foreground/55 hover:text-ink-foreground"
-              >
-                VIEW ALL ENDEAVOURS ↗
-              </Link>
-            </div>
-          )}
-        </div>
-
+      {/*
+        The endeavour picker used to live here. It named the endeavour you were on while the
+        page already said so, and offered a jump the left rail already offers — a permanent
+        fixture earning its space once, on the screens where you were not already looking at
+        an endeavour.
+      */}
+      <header className="fixed inset-x-3 top-3 z-40 flex items-center justify-end gap-3 md:left-[92px] md:right-5 md:top-4">
         <div className="flex shrink-0 items-center gap-2">
           <button
             onClick={() => setPaletteOpen(true)}
@@ -215,7 +137,6 @@ export function AppShell({ children }: { children: ReactNode }) {
           >
             SEARCH / COMMAND <span className="text-foreground/30">⌘K</span>
           </button>
-          <RunNowControl />
         </div>
       </header>
 

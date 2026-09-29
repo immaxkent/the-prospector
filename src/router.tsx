@@ -11,17 +11,29 @@ export const getRouter = () => {
   const router = createRouter({
     routeTree,
     context: { queryClient },
+    /*
+     * On. Back and forward return you to where you were on the page you are going back to,
+     * and forward navigation starts at the top.
+     *
+     * It also puts the browser's own restoration into manual mode, which matters: with
+     * this off, the browser and the router both tried to place the page.
+     *
+     * The router does this on its onRendered hook, which is the frame the new route
+     * appears in. Doing it from an effect instead — on a location change, before the route
+     * has rendered — was measured to be three frames *earlier*, on the page you are
+     * leaving, which is the thing that looked wrong in the first place.
+     */
     scrollRestoration: true,
     defaultPreloadStaleTime: 0,
     /*
-     * Without this, a navigation reads as a flash on the page you are leaving: scroll
-     * snaps to the top of the *old* content, and only then does the new route render.
-     * Measured on the endeavour page — 362px down an 819px list, click, scroll to 0, then
-     * the document grows to 5,812px. Two visible steps for one navigation.
+     * The swap itself, softened. A route change replaces most of the screen at once, and
+     * a view transition lets the browser hold a snapshot across it so that lands as a
+     * cross-fade rather than a cut.
      *
-     * A view transition lets the browser hold a snapshot across the swap, so the reflow
-     * happens behind a cross-fade instead of in front of one. Browsers without it ignore
-     * the flag and behave exactly as before.
+     * It also covers the last frame or two of the swap, where the new route is placed at
+     * the top before it is painted. Browsers without view transitions — Firefox — still
+     * see that; measured at two to three frames once the session stopped being fetched on
+     * every click, against seven before it.
      */
     defaultViewTransition: true,
   });
