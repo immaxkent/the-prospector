@@ -36,12 +36,25 @@ test("moving between screens does not go back to the server to ask who you are",
 test("going back returns you to where you were, and forward starts at the top", async ({ page }) => {
   await page.goto("/endeavours/end_solidity");
   await expect(page.getByTestId("stat-tiles")).toBeVisible();
-  await page.evaluate(() => window.scrollTo(0, 400));
-  await expect.poll(() => page.evaluate(() => Math.round(window.scrollY))).toBe(400);
+
+  // Scrolled inside the poll, not once before it. A fresh document gets a scroll reset of
+  // its own when the route first renders, and on a slower machine that lands after a
+  // single scrollTo and puts the page back at the top — which is what failed in CI, on
+  // this line, before back was even involved. Re-asking each time settles it.
+  await expect
+    .poll(() =>
+      page.evaluate(() => {
+        window.scrollTo(0, 400);
+        return Math.round(window.scrollY);
+      }),
+    )
+    .toBe(400);
 
   await page.locator('a[href="/prospects"]').first().click();
   await expect(page.getByRole("heading", { level: 1, name: /prospects/i })).toBeVisible();
-  expect(await page.evaluate(() => Math.round(window.scrollY))).toBe(0);
+  // Polled for the same reason: the heading can be on screen a frame before the scroll
+  // the router does for it.
+  await expect.poll(() => page.evaluate(() => Math.round(window.scrollY))).toBe(0);
 
   await page.goBack();
   await expect(page.getByTestId("stat-tiles")).toBeVisible();
