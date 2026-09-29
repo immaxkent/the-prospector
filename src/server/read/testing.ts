@@ -86,6 +86,7 @@ export function companyRow(o: Partial<CompanyRow> = {}): CompanyRow {
     domain: "northbridge.example",
     description: null,
     timezone: null,
+    contacts: [],
     metadata: {},
     isFixture: false,
     createdAt: T0,

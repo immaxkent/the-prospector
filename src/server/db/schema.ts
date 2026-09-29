@@ -18,6 +18,7 @@ import {
   uniqueIndex,
 } from "drizzle-orm/pg-core";
 import type { EndeavourSpec } from "../domain/endeavour-spec";
+import type { CompanyContact } from "../domain/contacts";
 import type { MailboxAlias, MailboxLimits } from "../domain/mailbox";
 import type { EndeavourSettings } from "../domain/endeavour-settings";
 import { PIPELINE_STAGES } from "../domain/pipeline";
@@ -206,6 +207,12 @@ export const companies = pgTable(
     description: text("description"),
     /** IANA timezone of where the company works, when research established it. Aims a send at their morning. */
     timezone: text("timezone"),
+    /**
+     * Every route to the company research found, or the operator supplied: generic inboxes,
+     * a contact form, Discord, Telegram. Only email can be sent to today; the rest are for
+     * the operator to open by hand.
+     */
+    contacts: jsonb("contacts").$type<CompanyContact[]>().notNull().default([]),
     metadata: jsonb("metadata").$type<Record<string, unknown>>().notNull().default({}),
     isFixture: fixture(),
     ...timestamps,

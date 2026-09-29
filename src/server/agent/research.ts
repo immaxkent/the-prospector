@@ -3,6 +3,7 @@
  * Claims whose source was never opened are dropped here, before anything is stored.
  */
 import { z } from "zod/v4";
+import { CONTACT_CHANNELS } from "../domain/contacts";
 import type { CallRecorder } from "../llm/structured";
 import { runStructured } from "../llm/structured";
 import type { LlmClient, WebSource } from "../llm/types";
@@ -24,6 +25,20 @@ export const candidateSchema = z.object({
     description: z.string().max(600).optional(),
     /** IANA timezone of where the team works, when the sources say. Used to send in their morning. */
     timezone: z.string().max(60).optional(),
+    /**
+     * Any route to them that a page actually showed: a generic inbox, a contact form, a
+     * Discord or Telegram invite. Not guessed — the same rule as an address.
+     */
+    contacts: z
+      .array(
+        z.object({
+          channel: z.enum(CONTACT_CHANNELS),
+          value: nonEmpty.max(300),
+          sourceRef: z.string().max(500).optional(),
+        }),
+      )
+      .max(8)
+      .optional(),
   }),
   person: z
     .object({ name: nonEmpty.max(120), role: z.string().max(120).optional(), email: z.email().optional(), linkedinUrl: z.url().optional() })

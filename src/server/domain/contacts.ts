@@ -21,7 +21,7 @@ export interface CompanyContact {
   /** The address, handle or URL exactly as the source gave it. */
   value: string;
   /** Where it was read. Contacts are evidence like anything else. */
-  sourceRef?: string;
+  sourceRef?: string | undefined;
 }
 
 /** Channels this app can actually send through today. Everything else is for the operator. */
