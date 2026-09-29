@@ -76,15 +76,32 @@ describe("daily run with an agent", () => {
 });
 
 describe("drafting", () => {
-  /** The fixture prospect is qualified and reachable, so the run should draft to them. */
+  /**
+   * The fixture prospect is qualified, reachable, and released — all three, because
+   * qualification alone no longer licenses an email. The operator's release is what does.
+   */
   async function qualifiedProspect() {
     await db
       .update(t.prospects)
-      .set({ stage: "qualified", reviewStatus: "qualified", scoreReason: "Mainnet in six weeks, no audit" })
+      .set({
+        stage: "qualified",
+        reviewStatus: "qualified",
+        scoreReason: "Mainnet in six weeks, no audit",
+        releasedAt: new Date("2026-09-16T08:00:00Z"),
+      })
       .where(eq(t.prospects.id, FIXTURE_IDS.prospect));
     await db.delete(t.messages);
     await db.delete(t.approvals);
   }
+
+  it("writes nothing for a prospect the operator has not released", async () => {
+    await qualifiedProspect();
+    await db.update(t.prospects).set({ releasedAt: null }).where(eq(t.prospects.id, FIXTURE_IDS.prospect));
+    await run({ agent: agent() });
+    expect(await db.select().from(t.approvals).where(eq(t.approvals.kind, "outreach_draft"))).toHaveLength(0);
+    // And it says who it is waiting on rather than reporting nobody qualified.
+    expect(await logText()).toContain("waiting for you to release");
+  });
 
   it("writes a draft that cites evidence and puts it in the approval queue", async () => {
     await qualifiedProspect();
@@ -393,7 +410,12 @@ describe("batched qualification", () => {
   it("writes the day's drafts in one batch too", async () => {
     await db
       .update(t.prospects)
-      .set({ stage: "qualified", reviewStatus: "qualified", scoreReason: "Mainnet in six weeks, no audit" })
+      .set({
+        stage: "qualified",
+        reviewStatus: "qualified",
+        scoreReason: "Mainnet in six weeks, no audit",
+        releasedAt: new Date("2026-09-16T08:00:00Z"),
+      })
       .where(eq(t.prospects.id, FIXTURE_IDS.prospect));
     await db.delete(t.messages);
     await db.delete(t.approvals);
