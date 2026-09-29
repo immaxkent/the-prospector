@@ -64,10 +64,13 @@ function NewEndeavourScreen() {
   // Set when the operator stops waiting, so a result that arrives afterwards is dropped
   // rather than yanking them into a plan they walked away from.
   const abandoned = useRef(false);
+  // The client names the call so it can ask how far it has got before it returns.
+  const planId = useRef(crypto.randomUUID());
   const start = useMutation({
     mutationFn: (data: { brief: string }) => {
       abandoned.current = false;
-      return startIntakeFn({ data });
+      planId.current = crypto.randomUUID();
+      return startIntakeFn({ data: { ...data, planId: planId.current } });
     },
     onSuccess: (result) => {
       if (abandoned.current) return;
@@ -171,6 +174,7 @@ function NewEndeavourScreen() {
           />
           {start.isPending ? (
             <PlanningProgress
+              planId={planId.current}
               onStop={() => {
                 // The request cannot be recalled once the model has it, so this stops
                 // waiting rather than claiming to cancel. The abandoned intake is left
