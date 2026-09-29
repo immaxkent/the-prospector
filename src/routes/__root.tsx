@@ -15,9 +15,9 @@ import { buildLine } from "@/build-info";
 import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
 import { AppShell } from "../components/os/AppShell";
+import { ScrollToTop } from "../components/os/ScrollToTop";
 import { Toaster } from "../components/ui/sonner";
-import { fetchSession } from "../api/session";
-import { datasetQuery } from "../data/queries";
+import { datasetQuery, sessionQuery } from "../data/queries";
 
 /** Routes reachable without a session. Server routes under /auth never pass through the router. */
 const PUBLIC_PATHS = ["/login"];
@@ -81,9 +81,11 @@ function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
 }
 
 export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()({
-  beforeLoad: async ({ location }) => {
+  beforeLoad: async ({ location, context }) => {
     if (PUBLIC_PATHS.includes(location.pathname)) return { session: null };
-    const session = await fetchSession();
+    // Through the cache, not straight to the server: this runs on every navigation, and an
+    // uncached read made every click wait on a round-trip before anything rendered.
+    const session = await context.queryClient.ensureQueryData(sessionQuery);
     if (session.mode === "live" && !session.user) {
       throw redirect({ to: "/login", search: { returnTo: location.href, error: undefined } });
     }
@@ -167,6 +169,7 @@ function RootComponent() {
 
   return (
     <QueryClientProvider client={queryClient}>
+      <ScrollToTop />
       <AppShell>
         {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
         <Outlet />
