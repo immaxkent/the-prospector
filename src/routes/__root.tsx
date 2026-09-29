@@ -15,7 +15,6 @@ import { buildLine } from "@/build-info";
 import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
 import { AppShell } from "../components/os/AppShell";
-import { ScrollToTop } from "../components/os/ScrollToTop";
 import { Toaster } from "../components/ui/sonner";
 import { datasetQuery, sessionQuery } from "../data/queries";
 
@@ -169,7 +168,6 @@ function RootComponent() {
 
   return (
     <QueryClientProvider client={queryClient}>
-      <ScrollToTop />
       <AppShell>
         {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
         <Outlet />

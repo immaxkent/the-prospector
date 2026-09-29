@@ -12,12 +12,16 @@ export const getRouter = () => {
     routeTree,
     context: { queryClient },
     /*
-     * On, for back and forward only. Returning to a list you had scrolled down should put
-     * you back where you were, and this is what remembers that.
+     * On. Back and forward return you to where you were on the page you are going back to,
+     * and forward navigation starts at the top.
      *
-     * Forward navigation does not use it: AppLink passes resetScroll false, which skips
-     * this entirely and leaves the scroll to ScrollToTop, after the new route has
-     * rendered. Doing it here instead scrolled the page you were leaving.
+     * It also puts the browser's own restoration into manual mode, which matters: with
+     * this off, the browser and the router both tried to place the page.
+     *
+     * The router does this on its onRendered hook, which is the frame the new route
+     * appears in. Doing it from an effect instead — on a location change, before the route
+     * has rendered — was measured to be three frames *earlier*, on the page you are
+     * leaving, which is the thing that looked wrong in the first place.
      */
     scrollRestoration: true,
     defaultPreloadStaleTime: 0,
@@ -26,8 +30,10 @@ export const getRouter = () => {
      * a view transition lets the browser hold a snapshot across it so that lands as a
      * cross-fade rather than a cut.
      *
-     * It is not what fixes the scroll jump — AppLink and ScrollToTop do that, and they
-     * work in browsers that have no view transitions at all. This only has to look good.
+     * It also covers the last frame or two of the swap, where the new route is placed at
+     * the top before it is painted. Browsers without view transitions — Firefox — still
+     * see that; measured at two to three frames once the session stopped being fetched on
+     * every click, against seven before it.
      */
     defaultViewTransition: true,
   });

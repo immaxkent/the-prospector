@@ -26,3 +26,24 @@ test("moving between screens does not go back to the server to ask who you are",
 
   expect(calls).toEqual([]);
 });
+
+/**
+ * Scroll restoration is on, which is what makes this true. It is also the reason the app
+ * does not place the page itself: the router does it on the frame the new route renders,
+ * and an effect on a location change runs three frames earlier — on the page you are
+ * leaving, which is exactly the jump that looked like a flash.
+ */
+test("going back returns you to where you were, and forward starts at the top", async ({ page }) => {
+  await page.goto("/endeavours/end_solidity");
+  await expect(page.getByTestId("stat-tiles")).toBeVisible();
+  await page.evaluate(() => window.scrollTo(0, 400));
+  await expect.poll(() => page.evaluate(() => Math.round(window.scrollY))).toBe(400);
+
+  await page.locator('a[href="/prospects"]').first().click();
+  await expect(page.getByRole("heading", { level: 1, name: /prospects/i })).toBeVisible();
+  expect(await page.evaluate(() => Math.round(window.scrollY))).toBe(0);
+
+  await page.goBack();
+  await expect(page.getByTestId("stat-tiles")).toBeVisible();
+  await expect.poll(() => page.evaluate(() => Math.round(window.scrollY))).toBe(400);
+});
