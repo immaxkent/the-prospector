@@ -215,6 +215,14 @@ export const updateSettingsFn = createServerFn({ method: "POST" })
     return updateSettings(await live(), data);
   });
 
+export const purgeEndeavourFn = createServerFn({ method: "POST" })
+  .middleware([requireSession])
+  .validator(z.object({ endeavourId: id, confirmName: z.string().trim().min(1).max(200) }))
+  .handler(async ({ data }) => {
+    const { purgeEndeavour } = await import("../server/commands/purge");
+    return purgeEndeavour(await live(), data);
+  });
+
 export const releaseProspectsFn = createServerFn({ method: "POST" })
   .middleware([requireSession])
   .validator(z.object({ endeavourId: id, prospectIds: z.array(id).min(1).max(200) }))
