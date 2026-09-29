@@ -361,6 +361,25 @@
  */
 
 /*
+ * The cross-fade a navigation happens behind.
+ *
+ * Short on purpose: long enough to hide the reflow, not long enough to be a transition
+ * anyone waits for. Reduced motion gets the swap with no fade at all — the point was to
+ * remove a lurch, and an animation nobody asked for is a worse one.
+ */
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation-duration: 140ms;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-old(root),
+  ::view-transition-new(root) {
+    animation: none;
+  }
+}
+
+/*
  * PROSPECTOR wordmark.
  *
  * At rest it is a hairline outline split into a gold and a cyan copy, a few pixels apart.
