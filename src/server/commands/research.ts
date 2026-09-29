@@ -8,6 +8,7 @@ import { companies, endeavours, evidence, people, prospects, suppressions, trigg
 import type { ScoreFactor } from "../db/schema";
 import type { Candidate } from "../agent/research";
 import { isKnownTimezone } from "../domain/pacing";
+import { dedupeContacts, type CompanyContact } from "../domain/contacts";
 import { newId } from "../ids";
 import { notFound } from "./errors";
 import { recordEvent, type Executor } from "./events";
@@ -38,10 +39,15 @@ async function upsertCompany(tx: Executor, candidate: Candidate) {
   // A timezone we can trust is worth filling in on a company we already knew; a name the
   // runtime does not recognise is dropped rather than stored, so a send is never mis-aimed.
   const timezone = isKnownTimezone(candidate.company.timezone) ? candidate.company.timezone : null;
+  const found = dedupeContacts(candidate.company.contacts ?? []);
   if (byName) {
-    if (timezone && !byName.timezone) {
-      await tx.update(companies).set({ timezone }).where(eq(companies.id, byName.id));
-    }
+    const patch: { timezone?: string; contacts?: CompanyContact[] } = {};
+    if (timezone && !byName.timezone) patch.timezone = timezone;
+    // Contacts accumulate: a later run reading a different page may find the route the
+    // first one missed, and an operator's own entry must survive the next research pass.
+    const merged = dedupeContacts([...byName.contacts, ...found]);
+    if (merged.length > byName.contacts.length) patch.contacts = merged;
+    if (Object.keys(patch).length > 0) await tx.update(companies).set(patch).where(eq(companies.id, byName.id));
     return byName.id;
   }
   const id = newId("company");
@@ -51,6 +57,7 @@ async function upsertCompany(tx: Executor, candidate: Candidate) {
     domain,
     description: candidate.company.description ?? null,
     timezone,
+    contacts: found,
   });
   return id;
 }

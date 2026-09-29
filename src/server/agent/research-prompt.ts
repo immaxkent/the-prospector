@@ -9,6 +9,7 @@ Rules:
 - Every candidate must carry at least one piece of evidence, and every piece of evidence must quote or closely paraphrase a page you actually opened, with that page's URL.
 - Never invent a company, a person, a role, an email address or a trigger. If you cannot find a named person, leave the person out rather than guessing.
 - Do not guess email addresses. Only report one that appears on a page you read.
+- Record every route to the company you actually saw, under company.contacts: a generic inbox (hello@, info@, contact@), a contact form URL, a Discord or Telegram invite, an X or LinkedIn profile. These are usually on a site's footer, contact page or docs. A generic inbox or a community channel is worth reporting even when no named person can be found — do not leave a company contactless because nobody is named.
 - The trigger is the reason to contact them now: something that happened recently, with evidence.
 - Skip anyone the exclusions rule out, and skip companies already in the list of known targets.
 - Prefer recent, specific, checkable facts over general descriptions. Confidence is your honest estimate that the claim is true and current.
@@ -28,10 +29,10 @@ Score each factor from 0 to 10 and explain it in one sentence:
 - decision_maker: whether the known contact can decide or sponsor this.
 - evidence_quality: how solid and current the evidence is.
 - timing: whether now is the right moment.
-- contactability: whether there is a usable way to reach them.
+- contactability: how reachable they are. A named person's address is best, a named company address close behind, a generic inbox usable, a Discord or Telegram handle a route a human can open. Nothing found at all is the only zero.
 
 Rules:
 - Cite the evidence ids that support each factor. A factor with no supporting evidence scores low and cites nothing.
 - Never assume facts that are not in the evidence.
-- Recommend "reject" when the segment clearly does not fit, an exclusion applies, or there is no usable contact; otherwise "qualify" or "review" when you are unsure, and say why in one sentence.`,
+- Recommend "reject" when the segment clearly does not fit or an exclusion applies; otherwise "qualify", or "review" when you are unsure, and say why in one sentence. A company with no contact yet is not a reject: the operator can find one. Score that under contactability and leave the decision to the fit.`,
 };

@@ -19,6 +19,9 @@ import {
   updateEndeavourSettingsFn,
   updateMailboxLimitsFn,
   updateSettingsFn,
+  releaseProspectsFn,
+  holdProspectFn,
+  addCompanyContactFn,
   updateStatTilesFn,
   updateOpportunityFn,
 } from "@/api/mutations";
@@ -73,6 +76,10 @@ export const useCreateMailboxAlias = () =>
 export const useUpdateEndeavourSettings = () => useAction(updateEndeavourSettingsFn, "Configuration saved");
 export const useUpdateSettings = () =>
   useAction(updateSettingsFn, (input) => `Model ${input.model} · £${(input.monthlyBudgetPence / 100).toFixed(2)} a month`);
+export const useReleaseProspects = () =>
+  useAction(releaseProspectsFn, (input) => `${input.prospectIds.length} prospect(s) released for outreach`);
+export const useHoldProspect = () => useAction(holdProspectFn, "Held: nothing will be drafted for this one");
+export const useAddCompanyContact = () => useAction(addCompanyContactFn, (input) => `Added ${input.value}`);
 export const useUpdateStatTiles = () => useAction(updateStatTilesFn, "Headline numbers updated");
 export const useSetEndeavourFromAlias = () =>
   useAction(setEndeavourFromAliasFn, (input) =>

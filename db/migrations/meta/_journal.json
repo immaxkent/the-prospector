@@ -57,6 +57,20 @@
       "when": 1790538041489,
       "tag": "0007_stat_tiles",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1790678002877,
+      "tag": "0008_company_contacts",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1790678261788,
+      "tag": "0009_prospect_released",
+      "breakpoints": true
     }
   ]
 }

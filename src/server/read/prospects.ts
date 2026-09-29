@@ -97,5 +97,9 @@ export function buildProspect(p: ProspectRow, lookups: ProspectLookups): Prospec
     nextAction: p.nextAction ?? (p.reviewStatus === "rejected" ? `Rejected: ${p.rejectionReason ?? "no reason"}` : ""),
     opportunityValue: openOpportunity?.value ?? null,
     status: REVIEW_STATUS[p.reviewStatus],
+    scoreReason: p.scoreReason ?? p.rejectionReason ?? "",
+    contacts: company?.contacts ?? [],
+    companyId: p.companyId,
+    releasedAt: p.releasedAt ? iso(p.releasedAt) : null,
   };
 }
