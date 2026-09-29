@@ -5,7 +5,7 @@
  * Steps that depend on unbuilt work packages record an explicit "pending" line and a
  * coverage gap in the brief. Nothing is ever reported as done when it did not run.
  */
-import { and, eq, gte, inArray, isNull, lt } from "drizzle-orm";
+import { and, eq, gte, inArray, isNotNull, isNull, lt } from "drizzle-orm";
 import { draftOutreach, draftOutreachMany, type DraftResult, type ProofItemRef } from "../agent/draft";
 import { qualifyProspect, qualifyProspects, type EvidenceForQualification, type Qualification } from "../agent/qualify";
 import { researchCandidates } from "../agent/research";
@@ -573,13 +573,37 @@ export const DAILY_RUN_STEPS: RunStep[] = [
         return;
       }
 
+      // Qualification says a prospect fits; release says the operator wants them written
+      // to. Only the second licenses an email, so nothing is drafted for someone who has
+      // not been looked at — whatever the model concluded about them.
       const ready = await ctx.db
         .select()
         .from(prospects)
-        .where(and(eq(prospects.endeavourId, ctx.endeavourId), eq(prospects.reviewStatus, "qualified"), eq(prospects.stage, "qualified")))
+        .where(
+          and(
+            eq(prospects.endeavourId, ctx.endeavourId),
+            eq(prospects.stage, "qualified"),
+            isNotNull(prospects.releasedAt),
+          ),
+        )
         .limit(room);
       if (ready.length === 0) {
-        await ctx.log("info", "no qualified prospect is waiting for a first email");
+        const waiting = await ctx.db
+          .select({ id: prospects.id })
+          .from(prospects)
+          .where(
+            and(
+              eq(prospects.endeavourId, ctx.endeavourId),
+              inArray(prospects.reviewStatus, ["qualified", "needs_review"]),
+              isNull(prospects.releasedAt),
+            ),
+          );
+        await ctx.log(
+          "info",
+          waiting.length > 0
+            ? `${waiting.length} prospect(s) are waiting for you to release them before anything is written`
+            : "no released prospect is waiting for a first email",
+        );
         return;
       }
 

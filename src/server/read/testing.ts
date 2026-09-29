@@ -66,6 +66,7 @@ export function prospectRow(o: Partial<ProspectRow> = {}): ProspectRow {
     segmentId: "seg_1",
     stage: "qualified",
     reviewStatus: "qualified",
+    releasedAt: null,
     qualificationScore: 80,
     scoreFactors: [],
     scoreReason: null,

@@ -256,6 +256,17 @@ export const prospects = pgTable(
     segmentId: text("segment_id").references(() => segments.id, { onDelete: "set null" }),
     stage: pipelineStage("stage").notNull().default("discovered"),
     reviewStatus: reviewStatus("review_status").notNull().default("discovered"),
+    /**
+     * When the operator said this one is worth writing to.
+     *
+     * Kept apart from reviewStatus on purpose: that records what qualification concluded,
+     * this records a decision a person made on top of it. A prospect the model sent to
+     * review can still be released, and releasing one does not rewrite the assessment.
+     *
+     * Nothing is drafted until this is set. Research and qualification are the agent's
+     * work; deciding who is worth an email is not.
+     */
+    releasedAt: timestamp("released_at", { withTimezone: true }),
     qualificationScore: integer("qualification_score"),
     scoreFactors: jsonb("score_factors").$type<ScoreFactor[]>().notNull().default([]),
     scoreReason: text("score_reason"),
