@@ -131,6 +131,42 @@ test("the mailbox separates what is waiting, what went out and what came back", 
   await expect(views.locator("[aria-pressed=true]")).toHaveText(/^SENT/);
 });
 
+test("prospects wait for release, and the decisions are made together", async ({ page }) => {
+  await page.goto("/endeavours/end_solidity");
+  const list = page.getByTestId("review-list");
+  await expect(list).toBeVisible();
+  await expect(list).toContainText("WAITING ON YOU");
+
+  // Each row carries enough to judge without opening it: who, the score, and why.
+  const rows = page.getByTestId("review-row");
+  await expect(rows.first()).toContainText("92/100");
+  await expect(rows.first()).toContainText("Named CTO");
+
+  // No action until something is ticked — the bar is the decision, not the rows.
+  await expect(page.getByRole("button", { name: /Release \d+ for outreach/ })).toHaveCount(0);
+
+  await rows.nth(0).getByRole("checkbox").check();
+  await rows.nth(2).getByRole("checkbox").check();
+  const commit = page.getByRole("button", { name: "Release 2 for outreach" });
+  await expect(commit).toBeVisible();
+  // It says what happens next, because releasing is not sending.
+  await expect(list).toContainText("NOTHING IS SENT");
+
+  await page.getByRole("button", { name: "CLEAR", exact: true }).click();
+  await expect(page.getByRole("button", { name: /Release \d+ for outreach/ })).toHaveCount(0);
+});
+
+test("a prospect with no contact offers somewhere to put one", async ({ page }) => {
+  await page.goto("/endeavours/end_solidity");
+  const row = page.getByTestId("review-row").filter({ hasText: "NO CONTACT" }).first();
+  await row.getByRole("button", { name: "ADD A CONTACT" }).click();
+
+  // Expanding shows the working, and a place to close the gap the agent could not.
+  await expect(row).toContainText("WHY IT SCORED");
+  await expect(row.getByRole("combobox")).toBeVisible();
+  await expect(row.getByRole("button", { name: "Add" })).toBeVisible();
+});
+
 test("unknown routes show the 404 surface", async ({ page }) => {
   await page.goto("/does-not-exist");
   await expect(page.getByText("404 / NO ROUTE")).toBeVisible();

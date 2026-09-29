@@ -19,6 +19,7 @@ import { ApprovalTicket } from "@/components/os/ApprovalTicket";
 import { EndeavourStatusControls } from "@/components/os/EndeavourStatusControls";
 import { EndeavourMailboxSelect } from "@/components/os/EndeavourMailboxSelect";
 import { StatTiles } from "@/components/os/StatTiles";
+import { ReviewList } from "@/components/os/ReviewList";
 import { SectionRail, useSectionSpy } from "@/components/os/SectionRail";
 import { ActivityChart, FunnelChart } from "@/components/os/charts";
 import { dailyActivity, isQuiet } from "@/data/chart-series";
@@ -51,6 +52,7 @@ export const Route = createFileRoute("/endeavours/$id")({
  */
 const SECTIONS = [
   { id: "overview", label: "OVERVIEW" },
+  { id: "review", label: "REVIEW" },
   { id: "prospects", label: "PROSPECTS" },
   { id: "pipeline", label: "PIPELINE" },
   { id: "outreach", label: "OUTREACH" },
@@ -201,6 +203,16 @@ function EndeavourDetail() {
             </Panel>
           </div>
         </div>
+      </Section>
+
+      <Section id="review" label="REVIEW">
+        <Panel
+          title="WAITING ON YOU"
+          meta={<MachineLabel>NOTHING IS DRAFTED UNTIL YOU RELEASE IT</MachineLabel>}
+          bodyClassName="px-4 py-4"
+        >
+          <ReviewList endeavourId={e.id} prospects={mine.prospects} />
+        </Panel>
       </Section>
 
       <Section id="prospects" label="PROSPECTS">

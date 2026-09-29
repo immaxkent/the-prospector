@@ -238,6 +238,10 @@ export const fixtureProspects: Prospect[] = [
     nextAction: "Approve reply proposing Friday review window",
     opportunityValue: 1200,
     status: "QUALIFIED",
+    scoreReason: "Named CTO, recent mainnet date and unaudited contracts in a public repo.",
+    contacts: [{ channel: "email", value: "ilse@northbridge.example" }],
+    companyId: "com_northbridge",
+    releasedAt: null,
   },
   {
     id: "pro_002",
@@ -267,6 +271,10 @@ export const fixtureProspects: Prospect[] = [
     nextAction: "Follow-up #2 due today",
     opportunityValue: 750,
     status: "QUALIFIED",
+    scoreReason: "",
+    contacts: [],
+    companyId: "com_fixture",
+    releasedAt: null,
   },
   {
     id: "pro_003",
@@ -295,6 +303,13 @@ export const fixtureProspects: Prospect[] = [
     nextAction: "First outreach queued",
     opportunityValue: 750,
     status: "NEEDS_REVIEW",
+    scoreReason: "Strong trigger and a clear fit, but nobody named and no decision-maker found.",
+    contacts: [
+      { channel: "email", value: "hello@meridian.example" },
+      { channel: "discord", value: "discord.gg/meridian" },
+    ],
+    companyId: "com_meridian",
+    releasedAt: null,
   },
   {
     id: "pro_004",
@@ -323,6 +338,10 @@ export const fixtureProspects: Prospect[] = [
     nextAction: "Send settlement schedule before call",
     opportunityValue: null,
     status: "QUALIFIED",
+    scoreReason: "",
+    contacts: [],
+    companyId: "com_fixture",
+    releasedAt: null,
   },
   {
     id: "pro_005",
@@ -348,6 +367,10 @@ export const fixtureProspects: Prospect[] = [
     nextAction: "Suppressed — policy conflict",
     opportunityValue: null,
     status: "REJECTED",
+    scoreReason: "",
+    contacts: [],
+    companyId: "com_fixture",
+    releasedAt: null,
   },
   {
     id: "pro_006",
@@ -376,6 +399,10 @@ export const fixtureProspects: Prospect[] = [
     nextAction: "Qualification review pending",
     opportunityValue: 1200,
     status: "RESEARCHING",
+    scoreReason: "",
+    contacts: [],
+    companyId: "com_fixture",
+    releasedAt: null,
   },
 ];
 

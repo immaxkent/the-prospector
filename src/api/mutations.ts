@@ -215,6 +215,38 @@ export const updateSettingsFn = createServerFn({ method: "POST" })
     return updateSettings(await live(), data);
   });
 
+export const releaseProspectsFn = createServerFn({ method: "POST" })
+  .middleware([requireSession])
+  .validator(z.object({ endeavourId: id, prospectIds: z.array(id).min(1).max(200) }))
+  .handler(async ({ data }) => {
+    const { releaseProspects } = await import("../server/commands/release");
+    return releaseProspects(await live(), data);
+  });
+
+export const holdProspectFn = createServerFn({ method: "POST" })
+  .middleware([requireSession])
+  .validator(z.object({ prospectId: id }))
+  .handler(async ({ data }) => {
+    const { holdProspect } = await import("../server/commands/release");
+    return holdProspect(await live(), data);
+  });
+
+export const addCompanyContactFn = createServerFn({ method: "POST" })
+  .middleware([requireSession])
+  .validator(
+    z.object({
+      companyId: id,
+      // The channel list lives in the domain; this only has to be a plausible one.
+      channel: z.enum(["email", "form", "discord", "telegram", "x", "linkedin", "other"]),
+      value: z.string().trim().min(1).max(300),
+      sourceRef: z.string().trim().max(500).optional(),
+    }),
+  )
+  .handler(async ({ data }) => {
+    const { addCompanyContact } = await import("../server/commands/release");
+    return addCompanyContact(await live(), data);
+  });
+
 export const updateStatTilesFn = createServerFn({ method: "POST" })
   .middleware([requireSession])
   // The ids themselves are checked by the command, which is the one place that knows

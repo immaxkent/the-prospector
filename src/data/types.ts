@@ -96,6 +96,14 @@ export interface Prospect {
   nextAction: string;
   opportunityValue: number | null;
   status: "DISCOVERED" | "RESEARCHING" | "QUALIFIED" | "REJECTED" | "NEEDS_REVIEW";
+  /** Why qualification landed where it did, in the model's own words. */
+  scoreReason: string;
+  /** Every route to the company, researched or entered by hand. */
+  contacts: { channel: string; value: string; sourceRef?: string | undefined }[];
+  /** The company these contacts belong to, so one can be added against it. */
+  companyId: string | null;
+  /** When the operator cleared this one for outreach. Null until they do. */
+  releasedAt: string | null;
 }
 
 export interface Message {

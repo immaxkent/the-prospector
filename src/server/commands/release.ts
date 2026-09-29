@@ -106,7 +106,7 @@ export async function holdProspect(db: Database, input: { prospectId: string }) 
  */
 export async function addCompanyContact(
   db: Database,
-  input: { companyId: string; channel: ContactChannel; value: string; sourceRef?: string },
+  input: { companyId: string; channel: ContactChannel; value: string; sourceRef?: string | undefined },
 ) {
   const value = input.value.trim();
   if (!value) throw invalid("the contact cannot be empty");
