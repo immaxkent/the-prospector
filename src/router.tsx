@@ -11,17 +11,23 @@ export const getRouter = () => {
   const router = createRouter({
     routeTree,
     context: { queryClient },
+    /*
+     * On, for back and forward only. Returning to a list you had scrolled down should put
+     * you back where you were, and this is what remembers that.
+     *
+     * Forward navigation does not use it: AppLink passes resetScroll false, which skips
+     * this entirely and leaves the scroll to ScrollToTop, after the new route has
+     * rendered. Doing it here instead scrolled the page you were leaving.
+     */
     scrollRestoration: true,
     defaultPreloadStaleTime: 0,
     /*
-     * Without this, a navigation reads as a flash on the page you are leaving: scroll
-     * snaps to the top of the *old* content, and only then does the new route render.
-     * Measured on the endeavour page — 362px down an 819px list, click, scroll to 0, then
-     * the document grows to 5,812px. Two visible steps for one navigation.
+     * The swap itself, softened. A route change replaces most of the screen at once, and
+     * a view transition lets the browser hold a snapshot across it so that lands as a
+     * cross-fade rather than a cut.
      *
-     * A view transition lets the browser hold a snapshot across the swap, so the reflow
-     * happens behind a cross-fade instead of in front of one. Browsers without it ignore
-     * the flag and behave exactly as before.
+     * It is not what fixes the scroll jump — AppLink and ScrollToTop do that, and they
+     * work in browsers that have no view transitions at all. This only has to look good.
      */
     defaultViewTransition: true,
   });
