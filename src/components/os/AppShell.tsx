@@ -2,7 +2,6 @@ import { Link, useRouterState } from "@tanstack/react-router";
 import { useEffect, useState, type ReactNode } from "react";
 import { cn } from "@/lib/utils";
 import { StatusDot } from "./primitives";
-import { RunNowControl } from "./RunNowControl";
 import { CommandPalette } from "./CommandPalette";
 import { WorldCanvas } from "@/components/world/WorldCanvas";
 import { useDataset, initDataMode } from "@/data/store";
@@ -138,7 +137,6 @@ export function AppShell({ children }: { children: ReactNode }) {
           >
             SEARCH / COMMAND <span className="text-foreground/30">⌘K</span>
           </button>
-          <RunNowControl />
         </div>
       </header>
 

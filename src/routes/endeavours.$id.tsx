@@ -21,6 +21,8 @@ import { EndeavourMailboxSelect } from "@/components/os/EndeavourMailboxSelect";
 import { StatTiles } from "@/components/os/StatTiles";
 import { ReviewList } from "@/components/os/ReviewList";
 import { DeleteEndeavour } from "@/components/os/DeleteEndeavour";
+import { AgentOrb } from "@/components/os/AgentOrb";
+import { RunNowControl } from "@/components/os/RunNowControl";
 import { SectionRail, useSectionSpy } from "@/components/os/SectionRail";
 import { ActivityChart, FunnelChart } from "@/components/os/charts";
 import { dailyActivity, isQuiet } from "@/data/chart-series";
@@ -114,6 +116,15 @@ function EndeavourDetail() {
             <p className="mt-1 text-[14px] text-muted-foreground">{e.objective}</p>
           </div>
           <div className="flex flex-wrap items-center gap-6">
+            {/*
+              Whether the agent is alive, and the button that wakes it, side by side. The
+              run is scoped to this endeavour: a global one on a page about a single
+              endeavour runs three others without saying so.
+            */}
+            <div className="flex flex-wrap items-center gap-4 rounded-[10px] border border-border px-3 py-2">
+              <AgentOrb runs={mine.runs} />
+              <RunNowControl endeavourId={e.id} />
+            </div>
             <EndeavourMailboxSelect endeavour={e} />
             <EndeavourStatusControls endeavour={e} />
           </div>
