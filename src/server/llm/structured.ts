@@ -8,6 +8,7 @@ import { newId } from "../ids";
 import { BatchTimeoutError, type BatchLlmClient, type BatchOutcome } from "./batch";
 import { BudgetExceededError } from "./budgeted";
 import { costUsd } from "./pricing";
+import { describeProviderError } from "./provider-errors";
 import type { Depth, Effort, LlmClient, LlmRequest, LlmResponse } from "./types";
 
 export interface PromptDefinition {
@@ -121,9 +122,11 @@ export async function runStructured<S extends z.ZodType>(call: StructuredCall<S>
     // A call refused for budget never reached the model, so it is not one of its calls.
     if (err instanceof BudgetExceededError) throw err;
     const reason = err instanceof Error ? err.message : String(err);
-    // Recorded and logged: a provider's refusal is the most useful thing it ever says.
-    console.error(`llm call ${base.role} failed: ${reason}`);
-    await call.record({ ...base, model: call.model, inputTokens: 0, outputTokens: 0, costUsd: 0, status: "error", error: reason.slice(0, 2000) });
+    // Recorded and logged: a provider's refusal is the most useful thing it ever says, and
+    // what it does not say — which of several causes this is — is added beside it.
+    const described = describeProviderError(reason);
+    console.error(`llm call ${base.role} failed: ${described}`);
+    await call.record({ ...base, model: call.model, inputTokens: 0, outputTokens: 0, costUsd: 0, status: "error", error: described.slice(0, 2000) });
     throw err;
   }
 

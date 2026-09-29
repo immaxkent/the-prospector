@@ -15,6 +15,7 @@ import {
 import type { CallRecorder } from "../llm/structured";
 import { runStructured } from "../llm/structured";
 import type { LlmClient } from "../llm/types";
+import { notePass, startPlan } from "./progress";
 import { PLANNER_PROMPT, operatorText, renderPlannerInput, type IntakeAnswer } from "./prompt";
 
 const PLANNER_FIELDS = FIELD_KEYS.filter((k): k is Exclude<FieldKey, "mailboxId"> => k !== "mailboxId");
@@ -59,6 +60,8 @@ export interface PlanInput {
   brief: string;
   answers: readonly IntakeAnswer[];
   today: string;
+  /** Lets the caller watch the passes land. Absent when nobody is watching. */
+  planId?: string | undefined;
 }
 
 export interface PlanDeps {
@@ -82,6 +85,9 @@ export async function planIntake(deps: PlanDeps, input: PlanInput) {
   const user = renderPlannerInput(input.brief, input.answers, input.today);
 
   // Passes are independent: each reads the whole brief and fills only its own fields.
+  // Each one landing is reported as it happens, which is the only honest progress there is
+  // — they run together, so there is no order and no percentage, just four arrivals.
+  if (input.planId) startPlan(input.planId, PLANNER_PASSES.length);
   const results = await Promise.all(
     PLANNER_PASSES.map((fields) =>
       runStructured({
@@ -93,6 +99,9 @@ export async function planIntake(deps: PlanDeps, input: PlanInput) {
         model: deps.model,
         effort: "high",
         depth: "standard",
+      }).then((result) => {
+        if (input.planId) notePass(input.planId, fields.join(", "));
+        return result;
       }),
     ),
   );

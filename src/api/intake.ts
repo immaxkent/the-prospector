@@ -38,10 +38,27 @@ const today = () => new Date().toISOString().slice(0, 10);
 
 export const startIntakeFn = createServerFn({ method: "POST" })
   .middleware([requireSession])
-  .validator(z.object({ brief: z.string().max(20_000) }))
+  // planId is the client's own, so it can ask how far the call has got before it returns.
+  .validator(z.object({ brief: z.string().max(20_000), planId: z.string().trim().min(1).max(64).optional() }))
   .handler(async ({ data }) => {
     const [{ startIntake }, { db, deps }] = await Promise.all([import("../server/commands/intake"), planner()]);
-    return startIntake(db, deps, { brief: data.brief, today: today() });
+    return startIntake(db, deps, { brief: data.brief, today: today(), planId: data.planId });
+  });
+
+/**
+ * How far a planning call has got.
+ *
+ * Polled rather than streamed: four arrivals over about a minute does not justify holding
+ * a connection open, and a poll that finds nothing simply reports nothing rather than
+ * failing.
+ */
+export const planProgressFn = createServerFn({ method: "GET" })
+  .middleware([requireSession])
+  .validator(z.object({ planId: z.string().trim().min(1).max(64) }))
+  .handler(async ({ data }) => {
+    const { readPlan } = await import("../server/intake/progress");
+    const plan = readPlan(data.planId);
+    return { done: plan?.done.length ?? 0, total: plan?.total ?? 0, running: !!plan };
   });
 
 export const answerIntakeFn = createServerFn({ method: "POST" })

@@ -21,6 +21,7 @@ import {
 } from "../domain/endeavour-spec";
 import { newId } from "../ids";
 import { mergeDraft, planIntake, type PlanDeps, type PlannerQuestion } from "../intake/planner";
+import { endPlan } from "../intake/progress";
 import { operatorText, type IntakeAnswer } from "../intake/prompt";
 import { conflict, invalid, notFound } from "./errors";
 import { recordEvent, type Executor } from "./events";
@@ -77,13 +78,23 @@ function mergeQuestions(existing: readonly IntakeAnswer[], asked: readonly Plann
   return [...answered, ...open];
 }
 
-export async function startIntake(db: Database, deps: PlanDeps, input: { brief: string; today: string }): Promise<IntakeView> {
+export async function startIntake(
+  db: Database,
+  deps: PlanDeps,
+  input: { brief: string; today: string; planId?: string | undefined },
+): Promise<IntakeView> {
   const brief = input.brief.trim();
   if (brief.length < 40) throw invalid("describe the endeavour in a few sentences first");
 
   const id = newId("intake");
   await db.insert(intakeSessions).values({ id, brief, questions: [] });
-  const plan = await planIntake(deps, { brief, answers: [], today: input.today });
+  let plan;
+  try {
+    plan = await planIntake(deps, { brief, answers: [], today: input.today, planId: input.planId });
+  } finally {
+    // Whether it worked or not, nothing is waiting on this any more.
+    if (input.planId) endPlan(input.planId);
+  }
   const draftSpec = mergeDraft(null, plan.spec);
   const questions = mergeQuestions([], plan.questions);
 

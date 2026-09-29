@@ -12,6 +12,7 @@ import {
 import { FIELD_EXAMPLES } from "@/components/os/field-examples";
 import { IntakeFieldRow, type IntakeFieldState } from "@/components/os/IntakeFieldRow";
 import { Button, MachineLabel, PageHeader, Panel, Tag } from "@/components/os/primitives";
+import { PlanningProgress } from "@/components/os/PlanningProgress";
 import { errorMessage } from "@/data/mutations";
 import { datasetQuery } from "@/data/queries";
 import { parseSendingAddress, sendingAddressKey, sendingAddresses } from "@/data/sending-addresses";
@@ -60,7 +61,26 @@ function NewEndeavourScreen() {
     setAnswers({});
   };
 
-  const start = useMutation({ mutationFn: (data: { brief: string }) => startIntakeFn({ data }), onSuccess: apply, onError });
+  // Set when the operator stops waiting, so a result that arrives afterwards is dropped
+  // rather than yanking them into a plan they walked away from.
+  const abandoned = useRef(false);
+  // The client names the call so it can ask how far it has got before it returns.
+  const planId = useRef(crypto.randomUUID());
+  const start = useMutation({
+    mutationFn: (data: { brief: string }) => {
+      abandoned.current = false;
+      planId.current = crypto.randomUUID();
+      return startIntakeFn({ data: { ...data, planId: planId.current } });
+    },
+    onSuccess: (result) => {
+      if (abandoned.current) return;
+      apply(result);
+    },
+    onError: (err) => {
+      if (abandoned.current) return;
+      onError(err);
+    },
+  });
   const answer = useMutation({
     mutationFn: (data: { intakeId: string; answers: { field: string; answer: string }[] }) =>
       answerIntakeFn({ data: data as never }),
@@ -152,12 +172,25 @@ function NewEndeavourScreen() {
             value={brief}
             onChange={(e) => setBrief(e.target.value)}
           />
-          <div className="flex items-center gap-3">
-            <Button variant="primary" disabled={busy || brief.trim().length < 40} onClick={() => start.mutate({ brief })}>
-              {start.isPending ? "Planning…" : "Plan this endeavour"}
-            </Button>
-            <MachineLabel>{brief.trim().length} CHARACTERS · 40 MINIMUM</MachineLabel>
-          </div>
+          {start.isPending ? (
+            <PlanningProgress
+              planId={planId.current}
+              onStop={() => {
+                // The request cannot be recalled once the model has it, so this stops
+                // waiting rather than claiming to cancel. The abandoned intake is left
+                // unactivated and harms nothing; saying otherwise would be a nicer lie.
+                abandoned.current = true;
+                start.reset();
+              }}
+            />
+          ) : (
+            <div className="flex items-center gap-3">
+              <Button variant="primary" disabled={busy || brief.trim().length < 40} onClick={() => start.mutate({ brief })}>
+                Plan this endeavour
+              </Button>
+              <MachineLabel>{brief.trim().length} CHARACTERS · 40 MINIMUM</MachineLabel>
+            </div>
+          )}
         </Panel>
       </div>
     );
