@@ -73,3 +73,76 @@ export function countProspecting(prospects: readonly CountableProspect[]): Prosp
 
   return { pending, active, pendingBySegment };
 }
+
+/* ---------- setpoints ---------- */
+
+/**
+ * The two numbers the operator sets, and the switch that overrides both.
+ *
+ * Defaults only. An endeavour with a different rhythm, or an operator with a different
+ * appetite for reviewing, sets its own — these are what a new endeavour starts with.
+ */
+export const DEFAULT_MAXIMUM_PENDING = 50;
+export const DEFAULT_ACTIVE_GOAL = 20;
+
+/**
+ * Bounds, not preferences.
+ *
+ * The ceilings are absurdity guards rather than advice: nobody can hold a thousand
+ * conversations, and a cap that large means a typo. The floor is one, because an operator
+ * who wants to work a single prospect at a time is entitled to.
+ */
+export const PENDING_CAP_RANGE = { min: 1, max: 500 } as const;
+export const ACTIVE_GOAL_RANGE = { min: 1, max: 200 } as const;
+
+export interface ProspectingSettings {
+  maximumPending: number;
+  activeGoal: number;
+  /** The operator's own stop, independent of either number. */
+  paused: boolean;
+}
+
+export const DEFAULT_PROSPECTING: ProspectingSettings = {
+  maximumPending: DEFAULT_MAXIMUM_PENDING,
+  activeGoal: DEFAULT_ACTIVE_GOAL,
+  paused: false,
+};
+
+const withinOr = (value: unknown, range: { min: number; max: number }, fallback: number) => {
+  if (typeof value !== "number" || !Number.isFinite(value)) return fallback;
+  return Math.min(range.max, Math.max(range.min, Math.round(value)));
+};
+
+/**
+ * Reading a stored value, which must never throw: settings written by an older version, or
+ * by hand, should degrade to the default rather than take the endeavour down.
+ *
+ * Input from the operator is a different question and is refused with a reason instead —
+ * silently turning 500 into 200 while they watch is worse than saying no.
+ */
+export function normaliseProspecting(stored: Partial<ProspectingSettings> | null | undefined): ProspectingSettings {
+  return {
+    maximumPending: withinOr(stored?.maximumPending, PENDING_CAP_RANGE, DEFAULT_MAXIMUM_PENDING),
+    activeGoal: withinOr(stored?.activeGoal, ACTIVE_GOAL_RANGE, DEFAULT_ACTIVE_GOAL),
+    paused: stored?.paused === true,
+  };
+}
+
+/** Why prospecting is not running, in the operator's terms. Null when it should run. */
+export type ProspectingHalt = "paused" | "buffer_full" | "goal_met";
+
+/**
+ * Whether to look for anyone new, and if not, which of the three reasons it is.
+ *
+ * The reason is returned rather than a bare boolean because a stall the operator cannot
+ * account for reads as the system having died. Every caller that stops has to be able to
+ * say why it stopped.
+ */
+export function prospectingHalt(count: ProspectingCount, settings: ProspectingSettings): ProspectingHalt | null {
+  if (settings.paused) return "paused";
+  // The goal is checked before the buffer: reaching it is success, and reporting it as a
+  // full queue would tell the operator to go and clear work that is doing its job.
+  if (count.active >= settings.activeGoal) return "goal_met";
+  if (count.pending >= settings.maximumPending) return "buffer_full";
+  return null;
+}

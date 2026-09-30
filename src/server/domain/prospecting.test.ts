@@ -1,6 +1,19 @@
 import { describe, expect, it } from "vitest";
 import type { PipelineStage } from "./pipeline";
-import { ACTIVE_STAGES, PENDING_STAGES, countProspecting, isActive, isPending, type CountableProspect } from "./prospecting";
+import {
+  ACTIVE_GOAL_RANGE,
+  ACTIVE_STAGES,
+  DEFAULT_PROSPECTING,
+  PENDING_CAP_RANGE,
+  PENDING_STAGES,
+  countProspecting,
+  isActive,
+  isPending,
+  normaliseProspecting,
+  prospectingHalt,
+  type CountableProspect,
+  type ProspectingCount,
+} from "./prospecting";
 
 const p = (stage: PipelineStage, over: Partial<CountableProspect> = {}): CountableProspect => ({
   stage,
@@ -81,5 +94,63 @@ describe("countProspecting", () => {
 
   it("is zero on nothing, rather than undefined", () => {
     expect(countProspecting([])).toEqual({ pending: 0, active: 0, pendingBySegment: new Map() });
+  });
+});
+
+describe("normaliseProspecting", () => {
+  it("falls back to the defaults rather than taking the endeavour down", () => {
+    // Settings written by an older version, or by hand, must not throw on the way in.
+    expect(normaliseProspecting(null)).toEqual(DEFAULT_PROSPECTING);
+    expect(normaliseProspecting({ maximumPending: Number.NaN })).toEqual(DEFAULT_PROSPECTING);
+    expect(normaliseProspecting({ activeGoal: "twenty" as unknown as number }).activeGoal).toBe(20);
+  });
+
+  it("holds a stored value to its bounds and rounds a fractional one", () => {
+    expect(normaliseProspecting({ maximumPending: 9000 }).maximumPending).toBe(PENDING_CAP_RANGE.max);
+    expect(normaliseProspecting({ maximumPending: 0 }).maximumPending).toBe(PENDING_CAP_RANGE.min);
+    expect(normaliseProspecting({ activeGoal: 12.4 }).activeGoal).toBe(12);
+    expect(normaliseProspecting({ activeGoal: 9000 }).activeGoal).toBe(ACTIVE_GOAL_RANGE.max);
+  });
+
+  it("treats anything but a true as not paused, so a stray value cannot stop the engine", () => {
+    expect(normaliseProspecting({}).paused).toBe(false);
+    expect(normaliseProspecting({ paused: "yes" as unknown as boolean }).paused).toBe(false);
+    expect(normaliseProspecting({ paused: true }).paused).toBe(true);
+  });
+
+  it("keeps what the operator actually set", () => {
+    expect(normaliseProspecting({ maximumPending: 30, activeGoal: 8, paused: true })).toEqual({
+      maximumPending: 30,
+      activeGoal: 8,
+      paused: true,
+    });
+  });
+});
+
+describe("prospectingHalt", () => {
+  const count = (over: Partial<ProspectingCount> = {}): ProspectingCount => ({
+    pending: 0,
+    active: 0,
+    pendingBySegment: new Map(),
+    ...over,
+  });
+
+  it("runs when there is room and the goal is not met", () => {
+    expect(prospectingHalt(count({ pending: 10, active: 3 }), DEFAULT_PROSPECTING)).toBeNull();
+  });
+
+  it("stops on the operator's own switch, whatever the numbers say", () => {
+    expect(prospectingHalt(count(), { ...DEFAULT_PROSPECTING, paused: true })).toBe("paused");
+  });
+
+  it("stops when the buffer is full, and says so", () => {
+    expect(prospectingHalt(count({ pending: 50 }), DEFAULT_PROSPECTING)).toBe("buffer_full");
+    expect(prospectingHalt(count({ pending: 51 }), DEFAULT_PROSPECTING)).toBe("buffer_full");
+  });
+
+  it("reports a met goal as a met goal, not as a full queue", () => {
+    // Both are true when the pipeline is healthy. Calling it a full queue would send the
+    // operator off to clear work that is doing exactly what it should.
+    expect(prospectingHalt(count({ pending: 50, active: 20 }), DEFAULT_PROSPECTING)).toBe("goal_met");
   });
 });

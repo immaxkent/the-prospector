@@ -7,16 +7,20 @@
  */
 import { DEFAULT_PACING, normalisePacing, type PacingSettings } from "./pacing";
 import { DEFAULT_FOLLOWUP_DAYS } from "./followup";
+import { DEFAULT_PROSPECTING, normaliseProspecting, type ProspectingSettings } from "./prospecting";
 
 export interface EndeavourSettings {
   pacing: PacingSettings;
   /** Days after the last outbound to try again, in order. An empty list means never follow up. */
   followUpDays: number[];
+  /** How much unanswered work may be in front of the operator, and when to stop looking. */
+  prospecting: ProspectingSettings;
 }
 
 export const DEFAULT_ENDEAVOUR_SETTINGS: EndeavourSettings = {
   pacing: DEFAULT_PACING,
   followUpDays: [...DEFAULT_FOLLOWUP_DAYS],
+  prospecting: DEFAULT_PROSPECTING,
 };
 
 export const MAX_FOLLOW_UPS = 6;
@@ -36,5 +40,6 @@ export function normaliseSettings(stored: Partial<EndeavourSettings> | null | un
   return {
     pacing: normalisePacing(stored?.pacing),
     followUpDays: normaliseFollowUpDays(stored?.followUpDays),
+    prospecting: normaliseProspecting(stored?.prospecting),
   };
 }
