@@ -1,7 +1,7 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { z } from "zod/v4";
 import { FakeLlm } from "./fake";
-import { LlmOutputError, hashInput, runStructured, toApiSchema, type LlmCallRecord } from "./structured";
+import { LlmOutputError, failedFields, hashInput, runStructured, toApiSchema, type LlmCallRecord } from "./structured";
 import { LlmRefusalError } from "./types";
 
 const schema = z.object({ name: z.string().min(1).max(40), tags: z.array(z.string()).min(1) });
@@ -37,15 +37,60 @@ describe("runStructured", () => {
   });
 
   it("rejects output that breaks the schema, including bounds the API was not told about", async () => {
-    const { run, records } = setup([{ name: "", tags: [] }]);
+    // Twice, because the second attempt is given the same broken answer to fix and cannot.
+    const { run, records } = setup([{ name: "", tags: [] }, { name: "", tags: [] }]);
     await expect(run()).rejects.toBeInstanceOf(LlmOutputError);
-    expect(records[0]!.status).toBe("invalid_output");
+    expect(records.map((r) => r.status)).toEqual(["invalid_output", "invalid_output"]);
+  });
+
+  it("names the fields that broke in the message the operator is shown", async () => {
+    // "Does not match its schema" on its own leaves the operator nothing to look at. The
+    // report that prompted this said exactly that and nothing else.
+    const { run } = setup([{ name: "", tags: ["x"] }, { name: "", tags: ["x"] }]);
+    await expect(run()).rejects.toThrow(/\(name\)/);
+  });
+
+  it("logs which field broke and what was in it, not only the fact that something did", async () => {
+    // The thrown message names the role and nothing else. Without this, the one failure
+    // that carries its own diagnosis could only be read out of the database.
+    const logged: string[] = [];
+    const spy = vi.spyOn(console, "error").mockImplementation((...args) => {
+      logged.push(args.join(" "));
+    });
+    const { run } = setup([{ name: "", tags: ["x"] }, { name: "", tags: ["x"] }]);
+    await expect(run()).rejects.toBeInstanceOf(LlmOutputError);
+    spy.mockRestore();
+
+    expect(logged.join("\n")).toContain("test.role");
+    expect(logged.join("\n")).toContain("name");
   });
 
   it("rejects non-JSON text", async () => {
-    const { run, records } = setup(["not json"], true);
+    const { run, records } = setup(["not json", "still not json"], true);
     await expect(run()).rejects.toThrow("does not match its schema");
-    expect(records[0]!.status).toBe("invalid_output");
+    expect(records.map((r) => r.status)).toEqual(["invalid_output", "invalid_output"]);
+  });
+
+  it("asks again when the shape is wrong, and says what was wrong with it", async () => {
+    // A malformed answer is the one failure a second ask can fix, and intake is a single
+    // user-facing action: a dead end there costs the operator the whole run.
+    const { run, records, llm } = setup([{ name: "", tags: ["x"] }, { name: "Ada", tags: ["x"] }]);
+    const { output } = await run();
+
+    expect(output).toEqual({ name: "Ada", tags: ["x"] });
+    expect(llm.requests).toHaveLength(2);
+    // The retry carries the original question and the parser's own words about the field.
+    expect(llm.requests[1]!.user).toContain("input");
+    expect(llm.requests[1]!.user).toContain("name");
+    // Both attempts are recorded, so the spend is visible rather than hidden in one call.
+    expect(records.map((r) => r.status)).toEqual(["invalid_output", "ok"]);
+  });
+
+  it("does not ask again when the provider refused, because a reworded question is not the fix", async () => {
+    const { run, records, llm } = setup([new LlmRefusalError("cyber"), { name: "Ada", tags: ["x"] }]);
+    await expect(run()).rejects.toBeInstanceOf(LlmRefusalError);
+    expect(llm.requests).toHaveLength(1);
+    expect(records).toHaveLength(1);
   });
 
   it("records provider errors and refusals without spend and rethrows", async () => {
@@ -57,5 +102,26 @@ describe("runStructured", () => {
   it("hashes identical inputs identically", () => {
     expect(hashInput(["a", 1])).toBe(hashInput(["a", 1]));
     expect(hashInput(["a", 1])).not.toBe(hashInput(["a", 2]));
+  });
+});
+
+describe("failedFields", () => {
+  const nested = z.object({
+    spec: z.object({
+      horizon: z.object({ value: z.object({ endsOn: z.iso.date() }) }),
+      pricing: z.object({ value: z.object({ currency: z.string().regex(/^[A-Z]{3}$/) }) }),
+    }),
+  });
+
+  it("drops the union plumbing and keeps the name the operator would recognise", () => {
+    const result = nested.safeParse({ spec: { horizon: { value: { endsOn: "30 October 2026" } }, pricing: { value: { currency: "£" } } } });
+    expect(result.success).toBe(false);
+    expect(failedFields(result.error!)).toEqual(["spec.horizon.endsOn", "spec.pricing.currency"]);
+  });
+
+  it("says each field once, and does not list a whole answer's worth of them", () => {
+    const many = z.object({ a: z.string(), b: z.string(), c: z.string(), d: z.string() });
+    const fields = failedFields(many.safeParse({}).error!);
+    expect(fields).toEqual(["a", "b", "c"]);
   });
 });
