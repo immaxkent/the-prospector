@@ -37,9 +37,10 @@ describe("runStructured", () => {
   });
 
   it("rejects output that breaks the schema, including bounds the API was not told about", async () => {
-    const { run, records } = setup([{ name: "", tags: [] }]);
+    // Twice, because the second attempt is given the same broken answer to fix and cannot.
+    const { run, records } = setup([{ name: "", tags: [] }, { name: "", tags: [] }]);
     await expect(run()).rejects.toBeInstanceOf(LlmOutputError);
-    expect(records[0]!.status).toBe("invalid_output");
+    expect(records.map((r) => r.status)).toEqual(["invalid_output", "invalid_output"]);
   });
 
   it("logs which field broke and what was in it, not only the fact that something did", async () => {
@@ -49,7 +50,7 @@ describe("runStructured", () => {
     const spy = vi.spyOn(console, "error").mockImplementation((...args) => {
       logged.push(args.join(" "));
     });
-    const { run } = setup([{ name: "", tags: ["x"] }]);
+    const { run } = setup([{ name: "", tags: ["x"] }, { name: "", tags: ["x"] }]);
     await expect(run()).rejects.toBeInstanceOf(LlmOutputError);
     spy.mockRestore();
 
@@ -58,9 +59,31 @@ describe("runStructured", () => {
   });
 
   it("rejects non-JSON text", async () => {
-    const { run, records } = setup(["not json"], true);
+    const { run, records } = setup(["not json", "still not json"], true);
     await expect(run()).rejects.toThrow("does not match its schema");
-    expect(records[0]!.status).toBe("invalid_output");
+    expect(records.map((r) => r.status)).toEqual(["invalid_output", "invalid_output"]);
+  });
+
+  it("asks again when the shape is wrong, and says what was wrong with it", async () => {
+    // A malformed answer is the one failure a second ask can fix, and intake is a single
+    // user-facing action: a dead end there costs the operator the whole run.
+    const { run, records, llm } = setup([{ name: "", tags: ["x"] }, { name: "Ada", tags: ["x"] }]);
+    const { output } = await run();
+
+    expect(output).toEqual({ name: "Ada", tags: ["x"] });
+    expect(llm.requests).toHaveLength(2);
+    // The retry carries the original question and the parser's own words about the field.
+    expect(llm.requests[1]!.user).toContain("input");
+    expect(llm.requests[1]!.user).toContain("name");
+    // Both attempts are recorded, so the spend is visible rather than hidden in one call.
+    expect(records.map((r) => r.status)).toEqual(["invalid_output", "ok"]);
+  });
+
+  it("does not ask again when the provider refused, because a reworded question is not the fix", async () => {
+    const { run, records, llm } = setup([new LlmRefusalError("cyber"), { name: "Ada", tags: ["x"] }]);
+    await expect(run()).rejects.toBeInstanceOf(LlmRefusalError);
+    expect(llm.requests).toHaveLength(1);
+    expect(records).toHaveLength(1);
   });
 
   it("records provider errors and refusals without spend and rethrows", async () => {
