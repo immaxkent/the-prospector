@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { z } from "zod/v4";
 import { FakeLlm } from "./fake";
-import { LlmOutputError, hashInput, runStructured, toApiSchema, type LlmCallRecord } from "./structured";
+import { LlmOutputError, failedFields, hashInput, runStructured, toApiSchema, type LlmCallRecord } from "./structured";
 import { LlmRefusalError } from "./types";
 
 const schema = z.object({ name: z.string().min(1).max(40), tags: z.array(z.string()).min(1) });
@@ -41,6 +41,13 @@ describe("runStructured", () => {
     const { run, records } = setup([{ name: "", tags: [] }, { name: "", tags: [] }]);
     await expect(run()).rejects.toBeInstanceOf(LlmOutputError);
     expect(records.map((r) => r.status)).toEqual(["invalid_output", "invalid_output"]);
+  });
+
+  it("names the fields that broke in the message the operator is shown", async () => {
+    // "Does not match its schema" on its own leaves the operator nothing to look at. The
+    // report that prompted this said exactly that and nothing else.
+    const { run } = setup([{ name: "", tags: ["x"] }, { name: "", tags: ["x"] }]);
+    await expect(run()).rejects.toThrow(/\(name\)/);
   });
 
   it("logs which field broke and what was in it, not only the fact that something did", async () => {
@@ -95,5 +102,26 @@ describe("runStructured", () => {
   it("hashes identical inputs identically", () => {
     expect(hashInput(["a", 1])).toBe(hashInput(["a", 1]));
     expect(hashInput(["a", 1])).not.toBe(hashInput(["a", 2]));
+  });
+});
+
+describe("failedFields", () => {
+  const nested = z.object({
+    spec: z.object({
+      horizon: z.object({ value: z.object({ endsOn: z.iso.date() }) }),
+      pricing: z.object({ value: z.object({ currency: z.string().regex(/^[A-Z]{3}$/) }) }),
+    }),
+  });
+
+  it("drops the union plumbing and keeps the name the operator would recognise", () => {
+    const result = nested.safeParse({ spec: { horizon: { value: { endsOn: "30 October 2026" } }, pricing: { value: { currency: "£" } } } });
+    expect(result.success).toBe(false);
+    expect(failedFields(result.error!)).toEqual(["spec.horizon.endsOn", "spec.pricing.currency"]);
+  });
+
+  it("says each field once, and does not list a whole answer's worth of them", () => {
+    const many = z.object({ a: z.string(), b: z.string(), c: z.string(), d: z.string() });
+    const fields = failedFields(many.safeParse({}).error!);
+    expect(fields).toEqual(["a", "b", "c"]);
   });
 });

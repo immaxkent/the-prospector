@@ -55,9 +55,28 @@ export class LlmOutputError extends Error {
   constructor(
     readonly role: string,
     readonly issues: string,
+    /** The fields that failed, so the message can name them. Empty when the answer was not JSON at all. */
+    readonly fields: readonly string[] = [],
   ) {
-    super(`${role} returned output that does not match its schema`);
+    // Named, because this message is what the operator is shown. "Does not match its
+    // schema" on its own leaves them with nothing to look at and nothing to change; the
+    // field tells them it was the deadline, or the price, or the buyers.
+    super(`${role} returned output that does not match its schema${fields.length ? ` (${fields.join(", ")})` : ""}`);
   }
+}
+
+/**
+ * The fields a schema failure was about, deduplicated and in the order they were reported.
+ *
+ * The state unions put the useful name at the end of a long path — `spec.horizon.value.endsOn`
+ * — and the union arm number in the middle of it, which names nothing. Both are dropped, so
+ * what is left is what the operator recognises.
+ */
+export function failedFields(error: z.ZodError, keep = 3): string[] {
+  const named = error.issues.map((issue) =>
+    issue.path.filter((part) => typeof part === "string" && part !== "value").join("."),
+  );
+  return [...new Set(named.filter(Boolean))].slice(0, keep);
 }
 
 // Structured outputs accept a subset of JSON Schema. Bounds are enforced by the local zod parse instead.
@@ -126,7 +145,7 @@ export async function runStructured<S extends z.ZodType>(call: StructuredCall<S>
    * budget is not something a differently-worded question would fix, and retrying it would
    * only spend the budget twice.
    */
-  const attempt = async (user: string): Promise<{ ok: true; output: z.infer<S>; response: LlmResponse } | { ok: false; issues: string }> => {
+  const attempt = async (user: string): Promise<{ ok: true; output: z.infer<S>; response: LlmResponse } | { ok: false; issues: string; fields: string[] }> => {
     let response: LlmResponse;
     try {
       response = await call.llm.complete({
@@ -165,7 +184,7 @@ export async function runStructured<S extends z.ZodType>(call: StructuredCall<S>
       const shown = `the response was not JSON\n${outputSnippet(response.text)}`;
       console.error(`llm call ${call.prompt.role} returned unparseable output:\n${outputSnippet(response.text)}`);
       await record({ ...spend, status: "invalid_output", error: shown.slice(0, 2000) });
-      return { ok: false, issues: "response was not JSON" };
+      return { ok: false, issues: "response was not JSON", fields: [] };
     }
 
     const result = call.schema.safeParse(parsed);
@@ -178,7 +197,7 @@ export async function runStructured<S extends z.ZodType>(call: StructuredCall<S>
       // without the database — which is how an intake failure cost an evening.
       console.error(`llm call ${call.prompt.role} returned output that does not match its schema:\n${issues}`);
       await record({ ...spend, status: "invalid_output", error: issues.slice(0, 2000) });
-      return { ok: false, issues };
+      return { ok: false, issues, fields: failedFields(result.error) };
     }
 
     await record({ ...spend, status: "ok" });
@@ -200,7 +219,7 @@ export async function runStructured<S extends z.ZodType>(call: StructuredCall<S>
    */
   const second = await attempt(correctionMessage(call.user, first.issues));
   if (second.ok) return { output: second.output, response: second.response };
-  throw new LlmOutputError(call.prompt.role, second.issues);
+  throw new LlmOutputError(call.prompt.role, second.issues, second.fields);
 }
 
 export interface StructuredBatchItem {
