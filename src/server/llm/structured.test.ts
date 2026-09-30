@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { z } from "zod/v4";
 import { FakeLlm } from "./fake";
 import { LlmOutputError, hashInput, runStructured, toApiSchema, type LlmCallRecord } from "./structured";
@@ -40,6 +40,21 @@ describe("runStructured", () => {
     const { run, records } = setup([{ name: "", tags: [] }]);
     await expect(run()).rejects.toBeInstanceOf(LlmOutputError);
     expect(records[0]!.status).toBe("invalid_output");
+  });
+
+  it("logs which field broke and what was in it, not only the fact that something did", async () => {
+    // The thrown message names the role and nothing else. Without this, the one failure
+    // that carries its own diagnosis could only be read out of the database.
+    const logged: string[] = [];
+    const spy = vi.spyOn(console, "error").mockImplementation((...args) => {
+      logged.push(args.join(" "));
+    });
+    const { run } = setup([{ name: "", tags: ["x"] }]);
+    await expect(run()).rejects.toBeInstanceOf(LlmOutputError);
+    spy.mockRestore();
+
+    expect(logged.join("\n")).toContain("test.role");
+    expect(logged.join("\n")).toContain("name");
   });
 
   it("rejects non-JSON text", async () => {

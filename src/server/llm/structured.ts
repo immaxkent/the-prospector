@@ -151,6 +151,10 @@ export async function runStructured<S extends z.ZodType>(call: StructuredCall<S>
     // The issues say which field; the snippet says what was in it. A schema failure without
     // the value is a fix built on a guess.
     const issues = `${z.prettifyError(result.error)}\n${outputSnippet(response.text, 200)}`;
+    // Logged as well as recorded. The provider-error path above logs and this one did not,
+    // so the one failure that carries its own diagnosis was the one you could not read
+    // without the database — which is how an intake failure cost an evening.
+    console.error(`llm call ${base.role} returned output that does not match its schema:\n${issues}`);
     await call.record({ ...base, ...spend, status: "invalid_output", error: issues.slice(0, 2000) });
     throw new LlmOutputError(call.prompt.role, issues);
   }
