@@ -41,6 +41,8 @@ export interface Endeavour {
       minReplyDelayMinutes: number;
     };
     followUpDays: number[];
+    /** How much unanswered work may sit in front of the operator, and when to stop looking. */
+    prospecting: { maximumPending: number; activeGoal: number; paused: boolean };
   };
   objective: string;
   unit: "GBP" | "COUNT";

@@ -61,6 +61,7 @@ export const fixtureEndeavours: Endeavour[] = [
     settings: {
       pacing: { window: { startHour: 8, endHour: 17 }, minGapMinutes: 4, maxGapMinutes: 25, useRecipientTimezone: true, minReplyDelayMinutes: 90 },
       followUpDays: [3, 7, 14],
+      prospecting: { maximumPending: 50, activeGoal: 20, paused: false },
     },
     period: null,
     objective: "Generate £3,000 in Solidity audit and consulting revenue",
@@ -111,6 +112,7 @@ export const fixtureEndeavours: Endeavour[] = [
     settings: {
       pacing: { window: { startHour: 8, endHour: 17 }, minGapMinutes: 4, maxGapMinutes: 25, useRecipientTimezone: true, minReplyDelayMinutes: 90 },
       followUpDays: [3, 7, 14],
+      prospecting: { maximumPending: 30, activeGoal: 12, paused: false },
     },
     period: null,
     objective: "Acquire 10 liquidity providers for the market-making desk",
@@ -161,6 +163,7 @@ export const fixtureEndeavours: Endeavour[] = [
     settings: {
       pacing: { window: { startHour: 8, endHour: 17 }, minGapMinutes: 4, maxGapMinutes: 25, useRecipientTimezone: true, minReplyDelayMinutes: 90 },
       followUpDays: [3, 7, 14],
+      prospecting: { maximumPending: 50, activeGoal: 20, paused: true },
     },
     period: null,
     objective: "Sign five paid pilots for the compliance reporting module",

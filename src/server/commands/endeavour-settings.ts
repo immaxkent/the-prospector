@@ -15,7 +15,7 @@ export interface UpdateEndeavourSettingsInput {
   pacing: EndeavourSettings["pacing"];
   followUpDays: number[];
   /** Left out by a caller that is not editing them, which must not reset them. */
-  prospecting?: EndeavourSettings["prospecting"];
+  prospecting?: EndeavourSettings["prospecting"] | undefined;
 }
 
 export async function updateEndeavourSettings(db: Database, input: UpdateEndeavourSettingsInput) {

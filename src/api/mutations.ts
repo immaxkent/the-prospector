@@ -278,6 +278,11 @@ export const updateEndeavourSettingsFn = createServerFn({ method: "POST" })
         minReplyDelayMinutes: z.number().int().min(0).max(10_080),
       }),
       followUpDays: z.array(z.number().int().min(1).max(180)).max(6),
+      // Optional so a caller editing only pacing cannot reset the setpoints by omission.
+      // The bounds are the command's to enforce, with a message the operator can read.
+      prospecting: z
+        .object({ maximumPending: z.number(), activeGoal: z.number(), paused: z.boolean() })
+        .optional(),
     }),
   )
   .handler(async ({ data }) => {

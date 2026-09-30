@@ -27,8 +27,13 @@ export function EndeavourConfig({ endeavour }: { endeavour: Endeavour }) {
     useRecipientTimezone: s.pacing.useRecipientTimezone,
     minReplyDelayMinutes: String(s.pacing.minReplyDelayMinutes),
     followUpDays: s.followUpDays.join(", "),
+    maximumPending: String(s.prospecting.maximumPending),
+    activeGoal: String(s.prospecting.activeGoal),
+    prospectingPaused: s.prospecting.paused,
   });
 
+  const maximumPending = Number(form.maximumPending);
+  const activeGoal = Number(form.activeGoal);
   const minGap = Number(form.minGapMinutes);
   const maxGap = Number(form.maxGapMinutes);
   const replyDelay = Number(form.minReplyDelayMinutes);
@@ -50,7 +55,11 @@ export function EndeavourConfig({ endeavour }: { endeavour: Endeavour }) {
               ? "Follow-up days must be whole numbers between 1 and 180."
               : followUpDays.length > 6
                 ? "Six follow-ups is the most one prospect will get."
-                : null;
+                : !Number.isInteger(maximumPending) || maximumPending < 1 || maximumPending > 500
+                  ? "Pending prospects must be a whole number between 1 and 500."
+                  : !Number.isInteger(activeGoal) || activeGoal < 1 || activeGoal > 200
+                    ? "The goal for live conversations must be a whole number between 1 and 200."
+                    : null;
 
   const archived = endeavour.status === "archived";
   const perHour = maxGap > 0 ? Math.round((60 / ((minGap + maxGap) / 2)) * 10) / 10 : 0;
@@ -137,6 +146,55 @@ export function EndeavourConfig({ endeavour }: { endeavour: Endeavour }) {
         <MachineLabel>SEND IN THE RECIPIENT'S MORNING WHERE WE KNOW THEIR TIMEZONE</MachineLabel>
       </label>
 
+      <div className="space-y-3 border-t border-border pt-4">
+        <MachineLabel>HOW MUCH WORK SITS IN FRONT OF YOU</MachineLabel>
+        <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+          <label className="space-y-1">
+            <MachineLabel>MOST PENDING PROSPECTS</MachineLabel>
+            <input
+              aria-label="Most pending prospects"
+              className={inputCls}
+              inputMode="numeric"
+              value={form.maximumPending}
+              onChange={(e) => setForm((f) => ({ ...f, maximumPending: e.target.value }))}
+            />
+          </label>
+          <label className="space-y-1">
+            <MachineLabel>LIVE CONVERSATIONS WANTED</MachineLabel>
+            <input
+              aria-label="Live conversations wanted"
+              className={inputCls}
+              inputMode="numeric"
+              value={form.activeGoal}
+              onChange={(e) => setForm((f) => ({ ...f, activeGoal: e.target.value }))}
+            />
+          </label>
+        </div>
+
+        <label className="flex items-center gap-2">
+          <input
+            aria-label="Pause prospecting"
+            type="checkbox"
+            checked={form.prospectingPaused}
+            onChange={(e) => setForm((f) => ({ ...f, prospectingPaused: e.target.checked }))}
+          />
+          <MachineLabel>PAUSE PROSPECTING</MachineLabel>
+        </label>
+
+        <p className="text-[13px] text-muted-foreground" data-testid="prospecting-summary">
+          {form.prospectingPaused ? (
+            <>Prospecting is paused. Nothing new will be looked for until you turn it back on.</>
+          ) : (
+            <>
+              Up to {maximumPending || 0} prospect{maximumPending === 1 ? "" : "s"} may be waiting on you at once,
+              counting ones nobody has released yet. Looking stops when that is full, or once{" "}
+              {activeGoal || 0} conversation{activeGoal === 1 ? " is" : "s are"} live. Nothing leaves the list on its
+              own — the weekly review asks you about anything that has gone quiet.
+            </>
+          )}
+        </p>
+      </div>
+
       <p className="text-[13px] text-muted-foreground">
         {problem ?? (
           <>
@@ -168,6 +226,7 @@ export function EndeavourConfig({ endeavour }: { endeavour: Endeavour }) {
                 minReplyDelayMinutes: replyDelay,
               },
               followUpDays,
+              prospecting: { maximumPending, activeGoal, paused: form.prospectingPaused },
             });
           }}
         >
