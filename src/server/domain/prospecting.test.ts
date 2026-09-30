@@ -11,6 +11,7 @@ import {
   isPending,
   normaliseProspecting,
   prospectingHalt,
+  prospectingProblem,
   type CountableProspect,
   type ProspectingCount,
 } from "./prospecting";
@@ -152,5 +153,26 @@ describe("prospectingHalt", () => {
     // Both are true when the pipeline is healthy. Calling it a full queue would send the
     // operator off to clear work that is doing exactly what it should.
     expect(prospectingHalt(count({ pending: 50, active: 20 }), DEFAULT_PROSPECTING)).toBe("goal_met");
+  });
+});
+
+describe("prospectingProblem", () => {
+  const ok = { maximumPending: 50, activeGoal: 20, paused: false };
+
+  it("passes what the operator is allowed to set", () => {
+    expect(prospectingProblem(ok)).toBeNull();
+    expect(prospectingProblem({ ...ok, maximumPending: 1, activeGoal: 1 })).toBeNull();
+  });
+
+  it("says no rather than quietly correcting it", () => {
+    // The stored-value path clamps; this one is a form, and clamping in front of someone
+    // who typed 500 tells them nothing about why they did not get it.
+    expect(prospectingProblem({ ...ok, maximumPending: 501 })).toMatch(/between 1 and 500/);
+    expect(prospectingProblem({ ...ok, maximumPending: 0 })).toMatch(/between 1 and 500/);
+    expect(prospectingProblem({ ...ok, activeGoal: 201 })).toMatch(/live conversations/);
+  });
+
+  it("refuses a fraction, because half a prospect is not a thing", () => {
+    expect(prospectingProblem({ ...ok, activeGoal: 12.5 })).toBe("both numbers must be whole");
   });
 });

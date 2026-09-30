@@ -146,3 +146,22 @@ export function prospectingHalt(count: ProspectingCount, settings: ProspectingSe
   if (count.pending >= settings.maximumPending) return "buffer_full";
   return null;
 }
+
+/**
+ * What is wrong with what the operator typed, in their words, or null when nothing is.
+ *
+ * Separate from {@link normaliseProspecting} on purpose. That one is for reading storage
+ * and must never throw; this one is for a form, where quietly turning 500 into 200 in
+ * front of someone is worse than telling them 500 is too many.
+ */
+export function prospectingProblem(input: ProspectingSettings): string | null {
+  const whole = (n: number) => Number.isFinite(n) && Number.isInteger(n);
+  if (!whole(input.maximumPending) || !whole(input.activeGoal)) return "both numbers must be whole";
+  if (input.maximumPending < PENDING_CAP_RANGE.min || input.maximumPending > PENDING_CAP_RANGE.max) {
+    return `pending prospects must be between ${PENDING_CAP_RANGE.min} and ${PENDING_CAP_RANGE.max}`;
+  }
+  if (input.activeGoal < ACTIVE_GOAL_RANGE.min || input.activeGoal > ACTIVE_GOAL_RANGE.max) {
+    return `the goal for live conversations must be between ${ACTIVE_GOAL_RANGE.min} and ${ACTIVE_GOAL_RANGE.max}`;
+  }
+  return null;
+}
