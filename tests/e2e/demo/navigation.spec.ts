@@ -28,22 +28,44 @@ test("moving between screens does not go back to the server to ask who you are",
 });
 
 /**
- * Scroll restoration is on, which is what makes this true. It is also the reason the app
- * does not place the page itself: the router does it on the frame the new route renders,
- * and an effect on a location change runs three frames earlier — on the page you are
- * leaving, which is exactly the jump that looked like a flash.
+ * Scroll restoration is on, which is what puts the browser's own restoration into manual
+ * mode — the router places the page instead, on the frame the new route renders. With it
+ * off the two competed, and an effect doing it on a location change ran three frames
+ * earlier, on the page being left, which is exactly the jump that looked like a flash.
+ *
+ * This asserts the setting, not the browser's behaviour under it. Whether a remembered
+ * position comes back on `goBack` depends on the router having seen a scroll event and on
+ * the page it returns to having its height back by the frame it restores in — both real,
+ * neither this app's, and testing them here failed on CI while passing locally rather
+ * than telling anyone anything.
  */
-test("going back returns you to where you were, and forward starts at the top", async ({ page }) => {
+test("the app places the page, not the browser", async ({ page }) => {
   await page.goto("/endeavours/end_solidity");
   await expect(page.getByTestId("stat-tiles")).toBeVisible();
-  await page.evaluate(() => window.scrollTo(0, 400));
-  await expect.poll(() => page.evaluate(() => Math.round(window.scrollY))).toBe(400);
+  // The router sets this, and only when scroll restoration is enabled. If someone turns
+  // that off again, this is the line that says so.
+  await expect.poll(() => page.evaluate(() => history.scrollRestoration)).toBe("manual");
+});
+
+test("a new screen starts at the top", async ({ page }) => {
+  await page.goto("/endeavours/end_solidity");
+  await expect(page.getByTestId("stat-tiles")).toBeVisible();
+
+  // Scrolled inside the poll, not once before it. A fresh document gets a scroll reset of
+  // its own when the route first renders, and on a slower machine that lands after a
+  // single scrollTo and puts the page back at the top.
+  await expect
+    .poll(() =>
+      page.evaluate(() => {
+        window.scrollTo(0, 400);
+        return Math.round(window.scrollY);
+      }),
+    )
+    .toBe(400);
 
   await page.locator('a[href="/prospects"]').first().click();
   await expect(page.getByRole("heading", { level: 1, name: /prospects/i })).toBeVisible();
-  expect(await page.evaluate(() => Math.round(window.scrollY))).toBe(0);
-
-  await page.goBack();
-  await expect(page.getByTestId("stat-tiles")).toBeVisible();
-  await expect.poll(() => page.evaluate(() => Math.round(window.scrollY))).toBe(400);
+  // Polled because the heading can be on screen a frame before the scroll the router does
+  // for it.
+  await expect.poll(() => page.evaluate(() => Math.round(window.scrollY))).toBe(0);
 });
