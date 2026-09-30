@@ -183,9 +183,10 @@ Each is one commit with its tests, in order.
 | # | Task | Deliverable |
 |---|---|---|
 | **T1** | **Count the populations.** `src/server/domain/prospecting.ts` — pure functions from prospect rows to `{ pending, active, perSegment }`, with the stage sets above. Unreleased counts as pending. | module + unit tests |
-| **T2** | **The setpoints.** `maximumPendingProspects`, `activeProspectsGoal`, `prospectingPaused` on the endeavour; migration with the defaults; settings UI, with the bounds refused rather than clamped. | migration + route + e2e |
+| **T2** | **The setpoints.** `maximumPending`, `activeGoal`, `paused` in the endeavour's existing settings blob — no migration, and an endeavour saved before they existed reads the defaults; settings UI, with the bounds refused rather than clamped. | command + route + e2e |
 | **T3** | **Allocate.** Pure: cap, segment list, pinned shares and current per-segment pending → how many each segment may add. Equal floors, pinned honoured first, under-floor segments first on freed slots. | module + unit tests |
 | **T4** | **Drive the run from it.** Replace the `break`-when-full loop: every active segment researches up to its allocation; the run stops when pending is full, the active goal is met, or prospecting is paused — and logs which of the three it was. | daily-run + integration test |
+| **T4b** | **Pinned shares.** The allocator honours them already; the column, the operator action and the UI do not exist yet. Until they do, every segment takes the equal split. | migration + command + e2e |
 | **T5** | **Interaction log.** Table, operator action, stage transitions, and exclusion from `Observed.sent`/`Observed.replies`. A test that asserts the exclusion, naming the inflated-rate failure. | migration + command + tests |
 | **T6** | **One elected channel.** Electing disables the others; the UI states it. | command + e2e |
 | **T6b** | **When they arrive.** `digestHour`, `reviewWeekday`, `reviewHour`, `timezone` on the endeavour; migration with defaults; settings UI. The scheduler reads them; nothing is hardcoded to 07:00 or to Monday. | migration + route + e2e |
