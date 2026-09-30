@@ -39,6 +39,10 @@ prospecting stops entirely. One falls through and it resumes.
 
 Plus **PAUSE PROSPECTING**, which stops it regardless of either.
 
+All three are set by the operator, per endeavour, in its settings. The numbers above are
+defaults for a new endeavour and nothing more — an endeavour with a different rhythm, or an
+operator with a different appetite for reviewing, sets its own.
+
 ### The two populations
 
 Both are computable from stages that already exist. No new columns.
@@ -102,6 +106,10 @@ and excluded from `Observed.sent` and `Observed.replies`. Cheap now, painful to 
 One elected channel. The `notification_channels` table currently allows several enabled at
 once; electing a channel disables the others, and the UI says so rather than doing it
 silently.
+
+**When they arrive is set per endeavour**, in its settings: the hour the digest goes out,
+and the weekday and hour of the review, against the endeavour's own timezone. A morning
+digest that lands at 3am for the person reading it is not a morning digest.
 
 **Daily — a morning digest.** Only what should wake someone:
 
@@ -175,13 +183,14 @@ Each is one commit with its tests, in order.
 | # | Task | Deliverable |
 |---|---|---|
 | **T1** | **Count the populations.** `src/server/domain/prospecting.ts` — pure functions from prospect rows to `{ pending, active, perSegment }`, with the stage sets above. Unreleased counts as pending. | module + unit tests |
-| **T2** | **The setpoints.** `maximumPendingProspects`, `activeProspectsGoal`, `prospectingPaused` on the endeavour; migration with the defaults; settings UI. | migration + route + e2e |
+| **T2** | **The setpoints.** `maximumPendingProspects`, `activeProspectsGoal`, `prospectingPaused` on the endeavour; migration with the defaults; settings UI, with the bounds refused rather than clamped. | migration + route + e2e |
 | **T3** | **Allocate.** Pure: cap, segment list, pinned shares and current per-segment pending → how many each segment may add. Equal floors, pinned honoured first, under-floor segments first on freed slots. | module + unit tests |
 | **T4** | **Drive the run from it.** Replace the `break`-when-full loop: every active segment researches up to its allocation; the run stops when pending is full, the active goal is met, or prospecting is paused — and logs which of the three it was. | daily-run + integration test |
 | **T5** | **Interaction log.** Table, operator action, stage transitions, and exclusion from `Observed.sent`/`Observed.replies`. A test that asserts the exclusion, naming the inflated-rate failure. | migration + command + tests |
 | **T6** | **One elected channel.** Electing disables the others; the UI states it. | command + e2e |
-| **T7** | **Daily digest.** The four urgent conditions, assembled, sent to the elected channel, recorded in-app first. | job + tests |
-| **T8** | **Weekly review.** Queried lists, Claude-written covering text against a fixed template, links back into the app, NEWS with sample sizes. | job + prompt + tests |
+| **T6b** | **When they arrive.** `digestHour`, `reviewWeekday`, `reviewHour`, `timezone` on the endeavour; migration with defaults; settings UI. The scheduler reads them; nothing is hardcoded to 07:00 or to Monday. | migration + route + e2e |
+| **T7** | **Daily digest.** The four urgent conditions, assembled, sent to the elected channel at the endeavour's hour, recorded in-app first. | job + tests |
+| **T8** | **Weekly review.** Queried lists, Claude-written covering text against a fixed template, links back into the app, NEWS with sample sizes. Sent on the endeavour's chosen weekday and hour. | job + prompt + tests |
 | **T9** | **The objective warning.** `planWorkload` output rendered as a warning in the review when the setpoints cannot reach the objective. | wiring + test |
 | **T10** | **Bulk actions from the review.** Dequeue, reject, mark won/lost — the existing toggle-and-submit list, reached from the review's links. | route + e2e |
 
