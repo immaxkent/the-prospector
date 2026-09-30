@@ -30,6 +30,21 @@ describe("planner output schema", () => {
     expect(json).not.toContain('"additionalProperties":true');
     expect(json).toContain('"not_applicable"'.replace("not_applicable", "stated"));
   });
+
+  it("says in the prompt what the schema cannot carry, because the server still checks it", () => {
+    // The test above is the reason this one exists. Stripping `format` and `pattern` means
+    // `endsOn` reaches the model as a bare string and `currency` as a bare string, and the
+    // local parse then demands YYYY-MM-DD and an ISO 4217 code. A brief that writes its
+    // deadline as "30 October 2026" and its money as "£" is enough to fail intake outright,
+    // which is how it failed. The constraint has to live in words instead.
+    const system = PLANNER_PROMPT.system;
+    expect(system).toContain("YYYY-MM-DD");
+    expect(system).toContain("ISO 4217");
+    expect(system).toContain("GBP");
+    // Bounds and formats the same stripping removes elsewhere in the spec.
+    expect(system).toMatch(/priority.*1 to 5/i);
+    expect(system).toContain("https://");
+  });
 });
 
 describe("prompt rendering", () => {
