@@ -564,3 +564,101 @@ describe("notifications", () => {
     expect(failed!.title).toContain("failed at load");
   });
 });
+
+describe("the prospecting setpoints", () => {
+  const setpoints = (prospecting: { maximumPending: number; activeGoal: number; paused: boolean }) =>
+    db
+      .update(t.endeavours)
+      .set({ settings: { prospecting } })
+      .where(eq(t.endeavours.id, FIXTURE_IDS.endeavour));
+
+  /** Prospects that occupy the pending buffer without being researched by this run. */
+  const fillBuffer = async (n: number, stage: "qualified" | "replied") => {
+    for (let i = 0; i < n; i++) {
+      await db.insert(t.prospects).values({
+        id: `pro_fill_${stage}_${i}`,
+        endeavourId: FIXTURE_IDS.endeavour,
+        segmentId: FIXTURE_IDS.segment,
+        stage,
+        reviewStatus: "qualified",
+        source: "import",
+      });
+    }
+  };
+
+  it("stops when the buffer is full, and says how full and what unblocks it", async () => {
+    // The stall is deliberate — nothing leaves the buffer without the operator — so the one
+    // thing that must never happen is the run going quiet without saying why.
+    await setpoints({ maximumPending: 3, activeGoal: 20, paused: false });
+    await fillBuffer(3, "qualified");
+
+    const { runId } = await run({ agent: agent() });
+    const text = await logText();
+    // The seeded fixture prospect has already replied, so it is active rather than pending.
+    expect(text).toContain("Prospecting is paused: 3/3 pending");
+    expect(text).toContain("Dequeue or reject to resume");
+
+    // Gaps reach the operator as the brief's risks, which is where they will read them.
+    const [runRow] = await db.select().from(t.dailyRuns).where(eq(t.dailyRuns.id, runId));
+    const risks = (runRow!.brief?.["risks"] ?? []) as string[];
+    expect(risks.join("\n")).toContain("Dequeue or reject to resume");
+    // Nothing was researched, so nothing was paid for.
+    expect(await db.select().from(t.prospects).where(eq(t.prospects.source, "web_research"))).toHaveLength(0);
+  });
+
+  it("calls a met goal a met goal, not a full queue", async () => {
+    // Both are true when the pipeline is healthy. Reporting the queue would send the
+    // operator off to clear work that is doing exactly what it should.
+    await setpoints({ maximumPending: 1, activeGoal: 2, paused: false });
+    await fillBuffer(2, "replied");
+
+    await run({ agent: agent() });
+    const text = await logText();
+    // Two seeded plus the fixture prospect, which has also replied.
+    expect(text).toContain("3 live conversation(s), which is the goal of 2");
+    expect(text).not.toContain("Dequeue or reject");
+  });
+
+  it("does nothing at all while the operator has it paused", async () => {
+    await setpoints({ maximumPending: 50, activeGoal: 20, paused: true });
+    await run({ agent: agent() });
+
+    expect(await logText()).toContain("Prospecting is paused. Nothing new will be looked for");
+    expect(await db.select().from(t.prospects).where(eq(t.prospects.source, "web_research"))).toHaveLength(0);
+  });
+
+  it("asks every segment, rather than letting the first one take the buffer", async () => {
+    // The bug this replaces: one target for the endeavour, taken in priority order, so the
+    // broadest segment filled the day and the others were never researched at all.
+    await db.insert(t.segments).values([
+      {
+        id: "seg_second",
+        endeavourId: FIXTURE_IDS.endeavour,
+        name: "Second segment",
+        definition: "Another kind of buyer",
+        signals: ["a signal"],
+        painHypothesis: "a pain",
+        priority: 2,
+        specVersion: 1,
+      },
+      {
+        id: "seg_third",
+        endeavourId: FIXTURE_IDS.endeavour,
+        name: "Third segment",
+        definition: "A third kind of buyer",
+        signals: ["a signal"],
+        painHypothesis: "a pain",
+        priority: 3,
+        specVersion: 1,
+      },
+    ]);
+
+    await run({ agent: agent() });
+    const text = await logText();
+    for (const name of ["Second segment", "Third segment"]) {
+      expect(text).toContain(name);
+    }
+    // And the split is reported, so the operator can see where the buffer went.
+    expect(text).toMatch(/\d+\/\d+ pending · room for \d+ across 3 segment\(s\)/);
+  });
+});

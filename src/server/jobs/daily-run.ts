@@ -44,6 +44,8 @@ import { PROGRESSION } from "../domain/pipeline";
 import { decideFollowUp, sequenceFinished } from "../domain/followup";
 import { effectiveDailyCap } from "../domain/mailbox";
 import { escalatedSearches, searchesFor } from "../domain/search-budget";
+import { allocateWithinCap } from "../domain/allocation";
+import { countProspecting, prospectingHalt, type ProspectingCount, type ProspectingSettings } from "../domain/prospecting";
 import { planWorkload, type Workload } from "../domain/workload";
 import { DEFAULT_STAGE_PROBABILITY } from "../read/pipeline";
 import { normaliseSettings } from "../domain/endeavour-settings";
@@ -109,6 +111,43 @@ export const TOP_UP_ROUNDS = 2;
  * nothing for replies, follow-ups or drafting.
  */
 export const TOP_UP_SPEND_CEILING_USD = 0.6;
+
+/**
+ * What the setpoints say, and what is already in front of the operator.
+ *
+ * Read together because they are only ever used together: a count without its cap says
+ * nothing, and a cap without the count cannot be acted on.
+ */
+async function prospectingState(ctx: RunContext): Promise<{ settings: ProspectingSettings; count: ProspectingCount }> {
+  const [endeavour] = await ctx.db.select({ settings: endeavours.settings }).from(endeavours).where(eq(endeavours.id, ctx.endeavourId));
+  const rows = await ctx.db
+    .select({ stage: prospects.stage, reviewStatus: prospects.reviewStatus, segmentId: prospects.segmentId })
+    .from(prospects)
+    .where(eq(prospects.endeavourId, ctx.endeavourId));
+  return { settings: normaliseSettings(endeavour?.settings).prospecting, count: countProspecting(rows) };
+}
+
+/**
+ * Why prospecting stopped, in words the operator can act on.
+ *
+ * Nothing leaves the pending buffer on its own — that is the operator's decision — so a
+ * full buffer stops the engine and can keep it stopped. A stall nobody can account for
+ * reads as the system having died, so every one of these says what it is and what unblocks
+ * it, with the numbers.
+ */
+function haltNotice(halt: "paused" | "buffer_full" | "goal_met", count: ProspectingCount, settings: ProspectingSettings) {
+  if (halt === "paused") return "Prospecting is paused. Nothing new will be looked for until you turn it back on.";
+  if (halt === "goal_met") {
+    return `Prospecting is holding: ${count.active} live conversation(s), which is the goal of ${settings.activeGoal}. It resumes when one closes or falls through.`;
+  }
+  return `Prospecting is paused: ${count.pending}/${settings.maximumPending} pending. Dequeue or reject to resume.`;
+}
+
+/** What this run has spent with the model so far. */
+async function runSpendUsd(ctx: RunContext) {
+  const rows = await ctx.db.select({ cost: llmCalls.costUsd }).from(llmCalls).where(eq(llmCalls.runId, ctx.runId ?? ""));
+  return rows.reduce((sum, r) => sum + r.cost, 0);
+}
 
 /** Everything researched today, whatever became of it. Used to tell a dry round from a harsh one. */
 async function researchedToday(ctx: RunContext) {
@@ -201,13 +240,22 @@ export const DAILY_RUN_STEPS: RunStep[] = [
       for (const note of workload.notes) await ctx.log("info", note);
       if (!workload.feasible) ctx.gaps.push(workload.notes.find((n) => n.includes("out of reach")) ?? "The objective is out of reach at these rates");
 
-      const found = await ctx.db
-        .select({ id: prospects.id })
-        .from(prospects)
-        .where(and(eq(prospects.endeavourId, ctx.endeavourId), gte(prospects.createdAt, startOfLocalDay(ctx.now))));
-      const wanted = Math.max(0, workload.newProspects - found.length);
-      if (wanted === 0) {
-        await ctx.log("info", `today's target of ${workload.newProspects} new prospect(s) is already met`);
+      // What the operator is holding decides whether to look at all. The objective
+      // arithmetic above still runs, but it advises the day's drafting rather than driving
+      // discovery: a buffer the operator has not cleared is a better reason to stop than a
+      // target that says there is room in the month.
+      const { settings, count } = await prospectingState(ctx);
+      ctx.metrics["pending"] = count.pending;
+      ctx.metrics["activeConversations"] = count.active;
+      ctx.metrics["pendingCap"] = settings.maximumPending;
+
+      const halt = prospectingHalt(count, settings);
+      if (halt) {
+        const notice = haltNotice(halt, count, settings);
+        await ctx.log("info", notice);
+        // A gap, not a warning: this is the system working as configured, and it is the
+        // operator's to clear. It has to be in front of them either way.
+        ctx.gaps.push(notice);
         return;
       }
 
@@ -220,13 +268,46 @@ export const DAILY_RUN_STEPS: RunStep[] = [
         ctx.gaps.push("Research did not run: the endeavour has no active segment");
         return;
       }
+
+      // Every segment gets a floor and keeps it. Priority decides the odd prospect when the
+      // split is uneven, and nothing else — the loop that broke when the day's target was
+      // full let the broadest segment take the lot and the others were never asked.
+      // Pinned shares are not wired up yet (WP-20 T4b); until they are, every segment takes
+      // the equal split.
+      const allocations = allocateWithinCap(
+        active.map((segment) => ({ id: segment.id, priority: segment.priority, pinned: null })),
+        settings.maximumPending,
+        count.pendingBySegment,
+        count.pending,
+      );
+      const byId = new Map(active.map((segment) => [segment.id, segment]));
+      await ctx.log(
+        "info",
+        `${count.pending}/${settings.maximumPending} pending · room for ${allocations.reduce((sum, a) => sum + a.room, 0)} across ${active.length} segment(s)`,
+      );
+
       const known = await knownTargetNames(ctx.db, ctx.endeavourId);
       let created = 0;
       let searchesUsed = 0;
-      for (const segment of active.sort((a, b) => a.priority - b.priority)) {
-        if (created >= wanted) break;
-        const need = wanted - created;
+      for (const allocation of allocations) {
+        const segment = byId.get(allocation.segmentId)!;
+        if (allocation.room === 0) {
+          await ctx.log("info", `${segment.name}: holding ${allocation.share} already, nothing to add`);
+          continue;
+        }
 
+        // Checked between segments, not only between top-up rounds. Filling an empty buffer
+        // is the largest single piece of research a run ever does, and it should stop at the
+        // day's ceiling like everything else rather than being the one path that ignores it.
+        const spentSoFar = await runSpendUsd(ctx);
+        if (spentSoFar >= TOP_UP_SPEND_CEILING_USD) {
+          const note = `Research stopped at $${spentSoFar.toFixed(2)}, the day's ceiling, with ${created} added`;
+          await ctx.log("warn", note);
+          ctx.gaps.push(note);
+          break;
+        }
+
+        const need = allocation.room;
         // Start at what the shortfall justifies, and look harder only if that came back thin.
         let cap = searchesFor(need);
         let addedForSegment = 0;
@@ -260,14 +341,15 @@ export const DAILY_RUN_STEPS: RunStep[] = [
           }
 
           const harder = escalatedSearches(cap, addedForSegment, need, result.searches ?? 0);
-          if (harder === null || created >= wanted) break;
+          if (harder === null || addedForSegment >= need) break;
           await ctx.log("info", `${segment.name} came back thin, so the next look is allowed ${harder} searches`);
           cap = harder;
         }
       }
       ctx.metrics["discovered"] = created;
       ctx.metrics["searches"] = searchesUsed;
-      if (created < wanted) ctx.gaps.push(`Research found ${created} of ${wanted} new prospect(s) wanted today`);
+      const room = allocations.reduce((sum, a) => sum + a.room, 0);
+      if (created < room) ctx.gaps.push(`Research found ${created} of the ${room} the buffer had room for`);
     },
   },
   {
@@ -377,11 +459,12 @@ export const DAILY_RUN_STEPS: RunStep[] = [
         const have = await qualifiedToday(ctx);
         if (have >= target) return;
 
-        const spent = await ctx.db
-          .select({ cost: llmCalls.costUsd })
-          .from(llmCalls)
-          .where(eq(llmCalls.runId, ctx.runId ?? ""));
-        const total = spent.reduce((sum, r) => sum + r.cost, 0);
+        // Research will refuse for the same reason every round, so asking again only fills
+        // the log with a stall the operator has already been told about once.
+        const { settings, count } = await prospectingState(ctx);
+        if (prospectingHalt(count, settings)) return;
+
+        const total = await runSpendUsd(ctx);
         if (total >= TOP_UP_SPEND_CEILING_USD) {
           await ctx.log(
             "warn",
