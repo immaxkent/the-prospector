@@ -12,6 +12,7 @@ import {
   normaliseProspecting,
   prospectingHalt,
   prospectingProblem,
+  segmentEvidence,
   type CountableProspect,
   type ProspectingCount,
 } from "./prospecting";
@@ -120,10 +121,11 @@ describe("normaliseProspecting", () => {
   });
 
   it("keeps what the operator actually set", () => {
-    expect(normaliseProspecting({ maximumPending: 30, activeGoal: 8, paused: true })).toEqual({
+    expect(normaliseProspecting({ maximumPending: 30, activeGoal: 8, paused: true, allocation: "automatic" })).toEqual({
       maximumPending: 30,
       activeGoal: 8,
       paused: true,
+      allocation: "automatic",
     });
   });
 });
@@ -157,7 +159,7 @@ describe("prospectingHalt", () => {
 });
 
 describe("prospectingProblem", () => {
-  const ok = { maximumPending: 50, activeGoal: 20, paused: false };
+  const ok = { maximumPending: 50, activeGoal: 20, paused: false, allocation: "even" as const };
 
   it("passes what the operator is allowed to set", () => {
     expect(prospectingProblem(ok)).toBeNull();
@@ -174,5 +176,56 @@ describe("prospectingProblem", () => {
 
   it("refuses a fraction, because half a prospect is not a thing", () => {
     expect(prospectingProblem({ ...ok, activeGoal: 12.5 })).toBe("both numbers must be whole");
+  });
+});
+
+describe("the allocation mode", () => {
+  it("defaults to the even split, which needs no evidence", () => {
+    expect(normaliseProspecting(null).allocation).toBe("even");
+    expect(DEFAULT_PROSPECTING.allocation).toBe("even");
+  });
+
+  it("falls back to even on anything it cannot read", () => {
+    // A setting nobody can read should fall back to the behaviour that needs no evidence,
+    // not to the one that acts on it.
+    expect(normaliseProspecting({ allocation: "weighted" as never }).allocation).toBe("even");
+    expect(normaliseProspecting({}).allocation).toBe("even");
+  });
+
+  it("keeps automatic when the operator chose it", () => {
+    expect(normaliseProspecting({ allocation: "automatic" }).allocation).toBe("automatic");
+  });
+});
+
+describe("segmentEvidence", () => {
+  const prospects = [
+    { id: "p1", segmentId: "a" },
+    { id: "p2", segmentId: "a" },
+    { id: "p3", segmentId: "b" },
+    { id: "p4", segmentId: null },
+  ];
+  const sent = (prospectId: string) => ({ prospectId, direction: "outbound", sendState: "sent" });
+  const reply = (prospectId: string) => ({ prospectId, direction: "inbound" });
+
+  it("counts sends and replying prospects per segment", () => {
+    const evidence = segmentEvidence(prospects, [sent("p1"), sent("p2"), sent("p3"), reply("p1"), reply("p3")]);
+    expect(evidence.get("a")).toEqual({ sent: 2, replies: 1 });
+    expect(evidence.get("b")).toEqual({ sent: 1, replies: 1 });
+  });
+
+  it("counts a talkative prospect once", () => {
+    // Otherwise one chatty company outweighs a segment.
+    expect(segmentEvidence(prospects, [sent("p1"), reply("p1"), reply("p1"), reply("p1")]).get("a")).toEqual({
+      sent: 1,
+      replies: 1,
+    });
+  });
+
+  it("does not count a draft as a send", () => {
+    expect(segmentEvidence(prospects, [{ prospectId: "p1", direction: "outbound", sendState: "draft" }]).get("a")?.sent).toBeUndefined();
+  });
+
+  it("ignores a prospect with no segment, which has nowhere to be counted", () => {
+    expect(segmentEvidence(prospects, [sent("p4"), reply("p4")]).size).toBe(0);
   });
 });

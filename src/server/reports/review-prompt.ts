@@ -39,5 +39,6 @@ export function renderReviewInput(facts: ReviewFacts): string {
     `Live conversations: ${facts.active} of a goal of ${facts.activeGoal}`,
     `Segments: ${facts.segments.map((s) => `${s.name} (${s.sent} sent, ${s.replies} replies)`).join("; ") || "none"}`,
     ...(facts.objectiveWarning ? [`Warning to carry: ${facts.objectiveWarning}`] : []),
+    `How the buffer is divided: ${facts.allocation.mode}${facts.allocation.armed ? " (acting)" : " (not enough evidence yet)"}`,
   ].join("\n");
 }

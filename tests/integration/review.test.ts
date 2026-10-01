@@ -117,7 +117,7 @@ describe("the objective warning", () => {
     // this a perfectly healthy endeavour sits at its numbers while the deadline passes.
     await db
       .update(t.endeavours)
-      .set({ settings: { prospecting: { maximumPending: 50, activeGoal: 2, paused: false } } })
+      .set({ settings: { prospecting: { maximumPending: 50, activeGoal: 2, paused: false, allocation: "even" as const } } })
       .where(eq(t.endeavours.id, FIXTURE_IDS.endeavour));
 
     const { sent, run } = send();
@@ -130,11 +130,49 @@ describe("the objective warning", () => {
   it("stays quiet when the goal is enough", async () => {
     await db
       .update(t.endeavours)
-      .set({ settings: { prospecting: { maximumPending: 50, activeGoal: 400, paused: false } } })
+      .set({ settings: { prospecting: { maximumPending: 50, activeGoal: 400, paused: false, allocation: "even" as const } } })
       .where(eq(t.endeavours.id, FIXTURE_IDS.endeavour));
 
     const { sent, run } = send();
     await run();
     expect(sent[0]!.body).not.toContain("will not reach the objective");
+  });
+});
+
+describe("what the review says about the split", () => {
+  const mode = (allocation: "even" | "automatic") =>
+    db
+      .update(t.endeavours)
+      .set({ settings: { prospecting: { maximumPending: 50, activeGoal: 20, paused: false, allocation } } })
+      .where(eq(t.endeavours.id, FIXTURE_IDS.endeavour));
+
+  it("states which setting is on, in the header above everything it is about", async () => {
+    await mode("even");
+    const even = send();
+    await even.run();
+    expect(even.sent[0]!.body).toContain("split evenly between segments");
+
+    await truncateAll(handle);
+    await seedFixtures(db);
+    await mode("automatic");
+    const auto = send();
+    await auto.run();
+    expect(auto.sent[0]!.body).toContain("set to weight by reply rate, but is still split evenly");
+  });
+
+  it("says how many more sends the weighting needs before it can act", async () => {
+    // Otherwise the operator believes it is weighting and reads every share as a decision.
+    await mode("automatic");
+    const { sent, run } = send();
+    await run();
+    expect(sent[0]!.body).toMatch(/\d+ more sends? are needed before any segment can be ranked/);
+  });
+
+  it("will not advise switching off a sample too small to rank anything", async () => {
+    await mode("even");
+    const { sent, run } = send();
+    await run();
+    expect(sent[0]!.body).toContain("not yet enough sent to rank them");
+    expect(sent[0]!.body).not.toContain("worth switching");
   });
 });

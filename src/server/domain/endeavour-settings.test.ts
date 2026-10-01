@@ -57,8 +57,8 @@ describe("prospecting settings on the endeavour", () => {
   });
 
   it("keep what the operator set without disturbing the rest of the settings", () => {
-    const settings = normaliseSettings({ prospecting: { maximumPending: 30, activeGoal: 8, paused: true } });
-    expect(settings.prospecting).toEqual({ maximumPending: 30, activeGoal: 8, paused: true });
+    const settings = normaliseSettings({ prospecting: { maximumPending: 30, activeGoal: 8, paused: true, allocation: "automatic" } });
+    expect(settings.prospecting).toEqual({ maximumPending: 30, activeGoal: 8, paused: true, allocation: "automatic" });
     expect(settings.followUpDays).toEqual(DEFAULT_ENDEAVOUR_SETTINGS.followUpDays);
   });
 });

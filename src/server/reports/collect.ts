@@ -14,7 +14,7 @@ import { allocate } from "../domain/allocation";
 import { RATE_MIN_SAMPLE, activeConversationsNeeded, objectiveWarning } from "../domain/workload";
 import { planWorkloadFor } from "../read/workload";
 import type { DigestInput } from "./digest";
-import type { ReviewFacts } from "./review";
+import type { AllocationState, ReviewFacts, SegmentNews } from "./review";
 
 export const DIGEST_SENT = "report.digest_sent";
 export const REVIEW_SENT = "report.review_sent";
@@ -235,6 +235,17 @@ export async function collectReview(db: Database, endeavourId: string, now: Date
     if (segmentId) repliesBySegment.set(segmentId, (repliesBySegment.get(segmentId) ?? 0) + 1);
   }
 
+  const segmentNews = liveSegments
+    .slice()
+    .sort((a, b) => a.priority - b.priority || a.id.localeCompare(b.id))
+    .map((s) => ({
+      name: s.name,
+      pending: count.pendingBySegment.get(s.id) ?? 0,
+      share: shares.get(s.id) ?? 0,
+      sent: sentBySegment.get(s.id) ?? 0,
+      replies: repliesBySegment.get(s.id) ?? 0,
+    }));
+
   return {
     endeavourId,
     endeavourName: endeavour.name,
@@ -242,16 +253,7 @@ export async function collectReview(db: Database, endeavourId: string, now: Date
     decide,
     silent,
     offChannel,
-    segments: liveSegments
-      .slice()
-      .sort((a, b) => a.priority - b.priority || a.id.localeCompare(b.id))
-      .map((s) => ({
-        name: s.name,
-        pending: count.pendingBySegment.get(s.id) ?? 0,
-        share: shares.get(s.id) ?? 0,
-        sent: sentBySegment.get(s.id) ?? 0,
-        replies: repliesBySegment.get(s.id) ?? 0,
-      })),
+    segments: segmentNews,
     pending: count.pending,
     pendingCap: settings.maximumPending,
     active: count.active,
@@ -260,6 +262,7 @@ export async function collectReview(db: Database, endeavourId: string, now: Date
     // The same arithmetic the daily run uses, so the two cannot disagree about whether the
     // objective is reachable. A failure here costs the warning, not the review.
     objectiveWarning: await objectiveShortfall(db, endeavourId, now, settings.activeGoal),
+    allocation: allocationState(settings.allocation, segmentNews),
   };
 }
 
@@ -283,4 +286,34 @@ async function objectiveShortfall(db: Database, endeavourId: string, now: Date, 
     console.error(`objective warning skipped: ${err instanceof Error ? err.message : String(err)}`);
     return null;
   }
+}
+
+
+/**
+ * Whether the weighting can act, and how far apart the segments are.
+ *
+ * The spread is computed only from segments with a sample, and `armed` stays false until
+ * every one of them has one. Both halves matter: a spread off two measured segments and one
+ * unmeasured is not a ranking, and advising a switch on it would be the mistake the
+ * automatic mode exists to avoid.
+ */
+export function allocationState(mode: "even" | "automatic", segments: readonly SegmentNews[]): AllocationState {
+  const short = segments.filter((s) => s.sent < RATE_MIN_SAMPLE);
+  const shortBy = short.reduce((sum, s) => sum + (RATE_MIN_SAMPLE - s.sent), 0);
+  const armed = segments.length > 0 && short.length === 0;
+
+  const rated = segments.map((s) => ({ name: s.name, rate: s.replies / s.sent })).filter((s) => Number.isFinite(s.rate));
+  const sorted = [...rated].sort((a, b) => b.rate - a.rate);
+  const best = sorted[0];
+  const worst = sorted.at(-1);
+
+  return {
+    mode,
+    armed,
+    shortBy,
+    spread:
+      best && worst && best !== worst
+        ? { best: best.name, bestRate: best.rate, worst: worst.name, worstRate: worst.rate }
+        : null,
+  };
 }

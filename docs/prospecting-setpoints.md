@@ -146,35 +146,44 @@ cannot reach the objective at observed rates, the review says so:
 Otherwise the system can be perfectly healthy against its own setpoints while the deadline
 goes past.
 
-## Dynamic reallocation — deferred, and why
+## Dynamic reallocation — built, and off by default
 
-Weighting the split towards whichever segment performs best is right, and not at this
-volume.
+Weighting the split towards whichever segment performs best is a setting the operator turns
+on: `allocation: "even" | "automatic"`, defaulting to **even**.
 
-With a 50 cap, three segments and the code's 5% prior reply rate, working the buffer and
-replacing it once inside 30 days is ~100 sends: **about five replies in total, under two per
-segment.** `RATE_MIN_SAMPLE = 15` makes a per-segment rate *measurable* within a week. It
-does not make two segments *distinguishable* — 0/16 against 1/16 is not evidence, and
-telling a 5% segment from a 10% one takes hundreds of sends per arm. Reallocating on the
-first would starve a segment on an unlucky first sixteen, and a starved segment can never
-disprove it.
+It was deferred once, and the arithmetic that deferred it is now the guard inside it. With a
+50 cap, three segments and the code's 5% prior reply rate, working the buffer and replacing
+it once inside 30 days is ~100 sends: **about five replies in total, under two per segment.**
+`RATE_MIN_SAMPLE = 15` makes a per-segment rate *measurable* within a week. It does not make
+two segments *distinguishable* — 0/16 against 1/16 is not evidence.
 
-Revenue weighting is worse early, not better: at ~£2,400 typical against £6,000, one win
-anywhere swamps every other signal, on a sample of one.
+So the automatic mode holds the even split until **every active segment** has reached the
+sample. Every one, not just the ones doing well: weighting while one is unmeasured starves it
+on figures it never had the chance to produce, after which it can never disprove them.
+Turning it on early therefore costs nothing — it divides evenly until the evidence arrives.
 
-So the operator pins shares for now, and forms that view from reading the drafts and the
-replies — which at this volume is better evidence than the arithmetic can offer.
+The four things it needed, and where they are:
 
-When it is built, it needs all four of:
+| | |
+|---|---|
+| a reserved exploration floor | `EXPLORATION_FLOOR` — no segment drops below half its even share |
+| bounded movement | rates are cumulative, not weekly: a fortnight's figures swing on one reply |
+| explicit about its basis | the review header says which mode is on and whether it can act |
+| shown and overridable | a pinned share overrules the weighting outright |
 
-- a reserved exploration floor, so no segment reaches zero and becomes unfalsifiable
-- bounded movement per cycle, so it cannot chase a fortnight of noise
-- revenue-weighted once wins exist, reply-weighted before, and explicit about which
-- shown with the numbers behind it, and overridable
+Revenue weighting is still not done: at ~£2,400 against £6,000 one win anywhere swamps every
+other signal, on a sample of one. Reply rate is what it weights by.
 
-**The confounder to remember:** a segment can look bad because its drafts are bad, not
-because the buyers are wrong. Automatic reallocation routes around a fixable writing problem
-without ever naming it.
+**The confounder to remember:** a segment can look bad because its drafts are bad, not because
+the buyers are wrong. Weighting routes around a fixable writing problem without ever naming it,
+which is the strongest argument for leaving the setting off until the drafts have been read.
+
+### What the review says about it
+
+The header states which setting is on — every share below it reads differently depending —
+and advises only when the evidence supports the advice. A recommendation to switch, given off
+a sample too small to rank segments, would be the exact mistake the automatic mode exists to
+avoid, delivered by the thing that warns about it.
 
 ## Tasks
 

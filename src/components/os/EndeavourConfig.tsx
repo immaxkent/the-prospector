@@ -31,6 +31,7 @@ export function EndeavourConfig({ endeavour }: { endeavour: Endeavour }) {
     maximumPending: String(s.prospecting.maximumPending),
     activeGoal: String(s.prospecting.activeGoal),
     prospectingPaused: s.prospecting.paused,
+    allocation: s.prospecting.allocation,
     digestHour: s.reporting.digestHour,
     reviewWeekday: s.reporting.reviewWeekday,
     reviewHour: s.reporting.reviewHour,
@@ -196,6 +197,36 @@ export function EndeavourConfig({ endeavour }: { endeavour: Endeavour }) {
           <MachineLabel>PAUSE PROSPECTING</MachineLabel>
         </label>
 
+        <label className="space-y-1 block">
+          <MachineLabel>HOW THE BUFFER IS DIVIDED</MachineLabel>
+          <select
+            aria-label="How the buffer is divided"
+            className={inputCls}
+            value={form.allocation}
+            onChange={(e) => setForm((f) => ({ ...f, allocation: e.target.value as "even" | "automatic" }))}
+          >
+            <option value="even">EVENLY BETWEEN SEGMENTS</option>
+            <option value="automatic">WEIGHTED BY REPLY RATE</option>
+          </select>
+        </label>
+
+        <p className="text-[13px] text-muted-foreground" data-testid="allocation-summary">
+          {form.allocation === "automatic" ? (
+            <>
+              Segments with a better reply rate get more of the buffer — but not until every
+              one of them has enough sends to rank, and never below half an even share. Turning
+              it on early costs nothing: it divides evenly until the evidence arrives, and the
+              weekly review says how far off that is.
+            </>
+          ) : (
+            <>
+              Divided evenly, which is honest about having no evidence to divide it any other
+              way. The weekly review will say when there is enough to weight it, and by how much
+              the segments differ.
+            </>
+          )}
+        </p>
+
         <p className="text-[13px] text-muted-foreground" data-testid="prospecting-summary">
           {form.prospectingPaused ? (
             <>Prospecting is paused. Nothing new will be looked for until you turn it back on.</>
@@ -312,7 +343,7 @@ export function EndeavourConfig({ endeavour }: { endeavour: Endeavour }) {
                 minReplyDelayMinutes: replyDelay,
               },
               followUpDays,
-              prospecting: { maximumPending, activeGoal, paused: form.prospectingPaused },
+              prospecting: { maximumPending, activeGoal, paused: form.prospectingPaused, allocation: form.allocation },
               reporting: {
                 digestHour: form.digestHour,
                 reviewWeekday: form.reviewWeekday,

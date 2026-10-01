@@ -61,7 +61,7 @@ export const fixtureEndeavours: Endeavour[] = [
     settings: {
       pacing: { window: { startHour: 8, endHour: 17 }, minGapMinutes: 4, maxGapMinutes: 25, useRecipientTimezone: true, minReplyDelayMinutes: 90 },
       followUpDays: [3, 7, 14],
-      prospecting: { maximumPending: 50, activeGoal: 20, paused: false },
+      prospecting: { maximumPending: 50, activeGoal: 20, paused: false, allocation: "automatic" },
       reporting: { digestHour: 7, reviewWeekday: 1, reviewHour: 8, timezone: "Europe/London" },
     },
     pendingProspects: 31,
@@ -120,7 +120,7 @@ export const fixtureEndeavours: Endeavour[] = [
     settings: {
       pacing: { window: { startHour: 8, endHour: 17 }, minGapMinutes: 4, maxGapMinutes: 25, useRecipientTimezone: true, minReplyDelayMinutes: 90 },
       followUpDays: [3, 7, 14],
-      prospecting: { maximumPending: 30, activeGoal: 12, paused: false },
+      prospecting: { maximumPending: 30, activeGoal: 12, paused: false, allocation: "even" },
       reporting: { digestHour: 6, reviewWeekday: 5, reviewHour: 17, timezone: "America/New_York" },
     },
     pendingProspects: 12,
@@ -178,7 +178,7 @@ export const fixtureEndeavours: Endeavour[] = [
     settings: {
       pacing: { window: { startHour: 8, endHour: 17 }, minGapMinutes: 4, maxGapMinutes: 25, useRecipientTimezone: true, minReplyDelayMinutes: 90 },
       followUpDays: [3, 7, 14],
-      prospecting: { maximumPending: 50, activeGoal: 20, paused: true },
+      prospecting: { maximumPending: 50, activeGoal: 20, paused: true, allocation: "even" },
       reporting: { digestHour: 9, reviewWeekday: 1, reviewHour: 9, timezone: "Europe/London" },
     },
     pendingProspects: 50,
