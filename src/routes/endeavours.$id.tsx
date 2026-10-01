@@ -119,7 +119,9 @@ function EndeavourDetail() {
   });
 
   return (
-    <div className="space-y-5">
+    // Room for the section rail, which is fixed to the right edge from 1024px up. Without
+    // this the rail sits on top of the content it is meant to help you move around.
+    <div className="space-y-5 lg:pr-[214px]">
       <div className="border-b border-border pb-4">
         <div className="flex flex-wrap items-end justify-between gap-4">
           <div>
