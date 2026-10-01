@@ -76,6 +76,38 @@ test.describe("endeavour configuration", () => {
     await expect(config.getByRole("button", { name: "Save configuration" })).toBeDisabled();
   });
 
+  test("sets when the reports arrive, in the operator's own timezone", async ({ page }) => {
+    const config = await open(page);
+    await expect(config.getByTestId("reporting-summary")).toContainText("Europe/London");
+    // The distinction that matters: this is where the operator is, not where recipients are.
+    await expect(config.getByTestId("reporting-summary")).toContainText("not where the recipients are");
+
+    await config.getByLabel("Digest hour").selectOption("6");
+    await config.getByLabel("Review day").selectOption("5");
+    await config.getByLabel("Review hour").selectOption("17");
+    await config.getByLabel("Report timezone").fill("America/New_York");
+    await expect(config.getByTestId("reporting-summary")).toContainText("Friday at 17:00");
+    await config.getByRole("button", { name: "Save configuration" }).click();
+    await expect(page.locator("[data-sonner-toast]").first()).toContainText("Configuration saved");
+
+    const [stored] = await query<{
+      settings: { reporting: { digestHour: number; reviewWeekday: number; reviewHour: number; timezone: string } };
+    }>("select settings from endeavours where id = 'end_fixture_solidity'");
+    expect(stored?.settings.reporting).toEqual({
+      digestHour: 6,
+      reviewWeekday: 5,
+      reviewHour: 17,
+      timezone: "America/New_York",
+    });
+  });
+
+  test("refuses a timezone the server does not know, rather than failing at send time", async ({ page }) => {
+    const config = await open(page);
+    await config.getByLabel("Report timezone").fill("Mars/Olympus");
+    await expect(config).toContainText("not a timezone this server knows");
+    await expect(config.getByRole("button", { name: "Save configuration" })).toBeDisabled();
+  });
+
   test("refuses a window that never opens, without saving", async ({ page }) => {
     const config = await open(page);
     await config.getByLabel("Window opens").selectOption("18");

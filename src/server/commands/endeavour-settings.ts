@@ -7,6 +7,7 @@ import type { Database } from "../db/client";
 import { endeavours } from "../db/schema";
 import { normaliseSettings, type EndeavourSettings } from "../domain/endeavour-settings";
 import { prospectingProblem } from "../domain/prospecting";
+import { reportingProblem } from "../domain/reporting-schedule";
 import { conflict, invalid, notFound } from "./errors";
 import { recordEvent } from "./events";
 
@@ -16,6 +17,7 @@ export interface UpdateEndeavourSettingsInput {
   followUpDays: number[];
   /** Left out by a caller that is not editing them, which must not reset them. */
   prospecting?: EndeavourSettings["prospecting"] | undefined;
+  reporting?: EndeavourSettings["reporting"] | undefined;
 }
 
 export async function updateEndeavourSettings(db: Database, input: UpdateEndeavourSettingsInput) {
@@ -31,6 +33,10 @@ export async function updateEndeavourSettings(db: Database, input: UpdateEndeavo
       const problem = prospectingProblem(input.prospecting);
       if (problem) throw invalid(problem);
     }
+    if (input.reporting) {
+      const problem = reportingProblem(input.reporting);
+      if (problem) throw invalid(problem);
+    }
 
     // Merged over what is stored, not written over it: a caller editing pacing must not
     // reset the setpoints to their defaults by not mentioning them.
@@ -41,6 +47,7 @@ export async function updateEndeavourSettings(db: Database, input: UpdateEndeavo
       pacing: input.pacing,
       followUpDays: input.followUpDays,
       prospecting: input.prospecting ?? current.prospecting,
+      reporting: input.reporting ?? current.reporting,
     });
     await tx.update(endeavours).set({ settings }).where(eq(endeavours.id, endeavour.id));
     await recordEvent(tx, {

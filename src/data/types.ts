@@ -43,6 +43,8 @@ export interface Endeavour {
     followUpDays: number[];
     /** How much unanswered work may sit in front of the operator, and when to stop looking. */
     prospecting: { maximumPending: number; activeGoal: number; paused: boolean };
+    /** When the digest and the weekly review arrive, where the operator is. */
+    reporting: { digestHour: number; reviewWeekday: number; reviewHour: number; timezone: string };
   };
   /** Live and unanswered, and conversations in progress. Counted, never stored. */
   pendingProspects: number;

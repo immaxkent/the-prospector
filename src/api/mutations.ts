@@ -307,6 +307,14 @@ export const updateEndeavourSettingsFn = createServerFn({ method: "POST" })
       prospecting: z
         .object({ maximumPending: z.number(), activeGoal: z.number(), paused: z.boolean() })
         .optional(),
+      reporting: z
+        .object({
+          digestHour: z.number(),
+          reviewWeekday: z.number(),
+          reviewHour: z.number(),
+          timezone: z.string().max(60),
+        })
+        .optional(),
     }),
   )
   .handler(async ({ data }) => {

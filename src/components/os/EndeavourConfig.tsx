@@ -4,6 +4,7 @@ import type { Endeavour } from "@/data/types";
 import { useUpdateEndeavourSettings } from "@/data/mutations";
 import { useAppMode } from "@/data/store";
 import { Button, MachineLabel } from "./primitives";
+import { WEEKDAYS } from "@/lib/weekdays";
 
 const inputCls =
   "w-full rounded-[3px] border border-border bg-card px-2.5 py-2 text-[13px] outline-none focus:border-signal";
@@ -30,10 +31,24 @@ export function EndeavourConfig({ endeavour }: { endeavour: Endeavour }) {
     maximumPending: String(s.prospecting.maximumPending),
     activeGoal: String(s.prospecting.activeGoal),
     prospectingPaused: s.prospecting.paused,
+    digestHour: s.reporting.digestHour,
+    reviewWeekday: s.reporting.reviewWeekday,
+    reviewHour: s.reporting.reviewHour,
+    timezone: s.reporting.timezone,
   });
 
   const maximumPending = Number(form.maximumPending);
   const activeGoal = Number(form.activeGoal);
+  // Checked here as well as on the server: a name Intl does not know would throw at send
+  // time, by which point the digest has silently stopped arriving.
+  const timezoneProblem = (() => {
+    try {
+      new Intl.DateTimeFormat("en-GB", { timeZone: form.timezone });
+      return null;
+    } catch {
+      return `${form.timezone} is not a timezone this server knows.`;
+    }
+  })();
   const minGap = Number(form.minGapMinutes);
   const maxGap = Number(form.maxGapMinutes);
   const replyDelay = Number(form.minReplyDelayMinutes);
@@ -59,7 +74,7 @@ export function EndeavourConfig({ endeavour }: { endeavour: Endeavour }) {
                   ? "Pending prospects must be a whole number between 1 and 500."
                   : !Number.isInteger(activeGoal) || activeGoal < 1 || activeGoal > 200
                     ? "The goal for live conversations must be a whole number between 1 and 200."
-                    : null;
+                    : timezoneProblem;
 
   const archived = endeavour.status === "archived";
   const perHour = maxGap > 0 ? Math.round((60 / ((minGap + maxGap) / 2)) * 10) / 10 : 0;
@@ -195,6 +210,77 @@ export function EndeavourConfig({ endeavour }: { endeavour: Endeavour }) {
         </p>
       </div>
 
+      <div className="space-y-3 border-t border-border pt-4">
+        <MachineLabel>WHEN THE REPORTS ARRIVE</MachineLabel>
+        <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+          <label className="space-y-1">
+            <MachineLabel>DAILY DIGEST AT</MachineLabel>
+            <select
+              aria-label="Digest hour"
+              className={inputCls}
+              value={form.digestHour}
+              onChange={(e) => setForm((f) => ({ ...f, digestHour: Number(e.target.value) }))}
+            >
+              {hours.slice(0, 24).map((h) => (
+                <option key={h} value={h}>
+                  {pad(h)}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="space-y-1">
+            <MachineLabel>WEEKLY REVIEW ON</MachineLabel>
+            <select
+              aria-label="Review day"
+              className={inputCls}
+              value={form.reviewWeekday}
+              onChange={(e) => setForm((f) => ({ ...f, reviewWeekday: Number(e.target.value) }))}
+            >
+              {WEEKDAYS.map((day, i) => (
+                <option key={day} value={i}>
+                  {day.toUpperCase()}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="space-y-1">
+            <MachineLabel>REVIEW AT</MachineLabel>
+            <select
+              aria-label="Review hour"
+              className={inputCls}
+              value={form.reviewHour}
+              onChange={(e) => setForm((f) => ({ ...f, reviewHour: Number(e.target.value) }))}
+            >
+              {hours.slice(0, 24).map((h) => (
+                <option key={h} value={h}>
+                  {pad(h)}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
+
+        <label className="space-y-1 block">
+          <MachineLabel>IN THIS TIMEZONE</MachineLabel>
+          <input
+            aria-label="Report timezone"
+            className={inputCls}
+            value={form.timezone}
+            onChange={(e) => setForm((f) => ({ ...f, timezone: e.target.value }))}
+          />
+        </label>
+
+        <p className="text-[13px] text-muted-foreground" data-testid="reporting-summary">
+          {timezoneProblem ?? (
+            <>
+              The digest lands at {pad(form.digestHour)} and the review on {WEEKDAYS[form.reviewWeekday]} at{" "}
+              {pad(form.reviewHour)}, in {form.timezone}. This is where you are, not where the recipients
+              are — the sending window above is that.
+            </>
+          )}
+        </p>
+      </div>
+
       <p className="text-[13px] text-muted-foreground">
         {problem ?? (
           <>
@@ -227,6 +313,12 @@ export function EndeavourConfig({ endeavour }: { endeavour: Endeavour }) {
               },
               followUpDays,
               prospecting: { maximumPending, activeGoal, paused: form.prospectingPaused },
+              reporting: {
+                digestHour: form.digestHour,
+                reviewWeekday: form.reviewWeekday,
+                reviewHour: form.reviewHour,
+                timezone: form.timezone.trim(),
+              },
             });
           }}
         >
