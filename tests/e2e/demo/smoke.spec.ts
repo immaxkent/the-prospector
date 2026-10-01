@@ -277,3 +277,15 @@ test("a pinned share is reported as a decision about all of them", async ({ page
   const shares = page.getByTestId("segment-shares");
   await expect(shares.getByTestId("segment-shares-summary")).toContainText("share what is left");
 });
+
+test("a prospect nobody has scored says so, rather than showing nought out of a hundred", async ({ page }) => {
+  // Nought on a nought-to-a-hundred scale reads as the worst prospect in the list. Every
+  // freshly researched prospect looked like that until the read model stopped inventing it.
+  await page.goto("/prospects");
+  const row = page.getByRole("row").filter({ hasText: "Halden Rollup" });
+  await expect(row).toContainText("—");
+  await expect(row).not.toContainText("0");
+
+  await row.click();
+  await expect(page.getByText("NOT SCORED YET").first()).toBeVisible();
+});

@@ -16,7 +16,7 @@ import {
   Th,
   Tr,
 } from "@/components/os/primitives";
-import { gbp, relative, stamp } from "@/lib/format";
+import { gbp, relative, scoreText, stamp } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { ProspectActions } from "@/components/os/ProspectActions";
 import { LogInteraction } from "@/components/os/LogInteraction";
@@ -132,10 +132,16 @@ function ProspectsScreen() {
                     <Td align="right" mono className="w-[70px]">
                       <span
                         className={cn(
-                          p.score >= 80 ? "text-signal" : p.score < 55 ? "text-muted-foreground" : undefined,
+                          p.score === null
+                            ? "text-muted-foreground"
+                            : p.score >= 80
+                              ? "text-signal"
+                              : p.score < 55
+                                ? "text-muted-foreground"
+                                : undefined,
                         )}
                       >
-                        {p.score}
+                        {scoreText(p.score)}
                       </span>
                     </Td>
                     <Td className="whitespace-nowrap font-medium">{p.person}</Td>
@@ -176,7 +182,7 @@ function ProspectsScreen() {
         meta={
           selected && (
             <MachineLabel>
-              {selected.role} · {selected.segment} · SCORE {selected.score} · {selected.status}
+              {selected.role} · {selected.segment} · {selected.score === null ? "NOT SCORED YET" : `SCORE ${selected.score}`} · {selected.status}
             </MachineLabel>
           )
         }

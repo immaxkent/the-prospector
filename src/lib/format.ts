@@ -57,3 +57,12 @@ export function relative(iso: string | null) {
 export function daysUntil(iso: string) {
   return Math.round((new Date(iso).getTime() - Date.now()) / 86400000);
 }
+
+/**
+ * A qualification score, or a dash when there is not one yet.
+ *
+ * Shared by every screen that shows a score so they cannot disagree. The dash matters: a
+ * nought on a nought-to-a-hundred scale reads as the worst prospect in the list, and an
+ * unscored one is not a bad prospect — it is an unexamined one.
+ */
+export const scoreText = (score: number | null) => (score === null ? "—" : String(score));

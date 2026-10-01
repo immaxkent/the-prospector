@@ -337,6 +337,40 @@ export const fixtureProspects: Prospect[] = [
     releasedAt: null,
   },
   {
+    /*
+     * Found, not yet assessed. Here because the screen used to draw this as a score of
+     * nought, which on a nought-to-a-hundred scale reads as the worst prospect in the list
+     * rather than an unexamined one.
+     */
+    id: "pro_unscored",
+    endeavourId: "end_solidity",
+    score: null,
+    scoreFactors: [],
+    person: "Unknown",
+    role: "Not identified yet",
+    company: "Halden Rollup",
+    segment: "Launch-stage protocols",
+    trigger: "Series A announced this week",
+    evidence: [
+      {
+        id: "ev_unscored",
+        claim: "Raised $4m led by an infrastructure fund",
+        source: "Funding announcement",
+        observedAt: shiftFixtureDate("2026-09-16T06:12:40Z"),
+      },
+    ],
+    fitFactors: [],
+    stage: "researched",
+    lastTouch: null,
+    nextAction: "Waiting to be qualified",
+    opportunityValue: null,
+    status: "RESEARCHING",
+    scoreReason: "",
+    contacts: [],
+    companyId: null,
+    releasedAt: null,
+  },
+  {
     id: "pro_004",
     endeavourId: "end_liquidity",
     score: 88,

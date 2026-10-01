@@ -30,7 +30,7 @@ import { dailyActivity, isQuiet } from "@/data/chart-series";
 import { EndeavourConfig } from "@/components/os/EndeavourConfig";
 import { SegmentShares } from "@/components/os/SegmentShares";
 import { StrategyEditor } from "@/components/os/StrategyEditor";
-import { gbp, num, pct, shortDate, stamp, daysUntil } from "@/lib/format";
+import { daysUntil, gbp, num, pct, scoreText, shortDate, stamp } from "@/lib/format";
 import type { PipelineStage } from "@/data/types";
 import { cn } from "@/lib/utils";
 
@@ -271,7 +271,7 @@ function EndeavourDetail() {
               {mine.prospects.map((p) => (
                 <Tr key={p.id}>
                   <Td align="right" mono>
-                    {p.score}
+                    {scoreText(p.score)}
                   </Td>
                   <Td>{p.person}</Td>
                   <Td>{p.company}</Td>

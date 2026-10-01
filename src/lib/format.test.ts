@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { clockTime, daysUntil, gbp, num, pct, relative, stamp } from "./format";
+import { clockTime, daysUntil, gbp, num, pct, relative, scoreText, stamp } from "./format";
 
 describe("gbp", () => {
   it("formats whole pounds", () => {
@@ -53,5 +53,20 @@ describe("relative and daysUntil", () => {
 
   it("counts days to a deadline", () => {
     expect(daysUntil("2026-11-06T12:00:00Z")).toBe(50);
+  });
+});
+
+describe("scoreText", () => {
+  it("shows a dash when nothing has scored it yet", () => {
+    // Not zero. On a nought-to-a-hundred scale a nought reads as the worst prospect in the
+    // list, and an unscored one is unexamined rather than bad — every freshly researched
+    // prospect showed as nought until this.
+    expect(scoreText(null)).toBe("—");
+  });
+
+  it("shows the score it was given, including a genuine zero", () => {
+    expect(scoreText(0)).toBe("0");
+    expect(scoreText(76)).toBe("76");
+    expect(scoreText(100)).toBe("100");
   });
 });

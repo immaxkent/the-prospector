@@ -17,7 +17,7 @@ import {
   Th,
   Tr,
 } from "@/components/os/primitives";
-import { clockTime, stamp } from "@/lib/format";
+import { clockTime, scoreText, stamp } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/research")({
@@ -124,7 +124,7 @@ function ResearchScreen() {
                       {p.evidence[0]?.claim ?? p.fitFactors.join(", ")}
                     </Td>
                     <Td align="right" mono>
-                      {p.score}
+                      {scoreText(p.score)}
                     </Td>
                   </Tr>
                 ))}
