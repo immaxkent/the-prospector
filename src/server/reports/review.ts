@@ -25,6 +25,17 @@ export interface SegmentNews {
   replies: number;
 }
 
+export interface AllocationState {
+  mode: "even" | "automatic";
+  /** True once every segment has enough sends for the weighting to act. */
+  armed: boolean;
+  /** Sends still needed before it can, across every segment short of the sample. */
+  shortBy: number;
+  /** Best and worst reply rate among segments that have a sample. Null when none have. */
+  spread: { best: string; bestRate: number; worst: string; worstRate: number } | null;
+}
+
+/** A difference worth switching for: anything less is within the noise of these samples. */
 export interface ReviewFacts {
   endeavourId: string;
   endeavourName: string;
@@ -45,6 +56,8 @@ export interface ReviewFacts {
    * numbers while the deadline goes past.
    */
   objectiveWarning: string | null;
+  /** Which setting is on, and whether it can act yet. Printed in the header. */
+  allocation: AllocationState;
 }
 
 export interface Review {
@@ -123,7 +136,11 @@ export function buildReview(facts: ReviewFacts, covering: string): Review {
   });
 
   const asks = sections.filter((s) => s.title !== "NEWS").reduce((sum, s) => sum + s.lines.length, 0);
-  const body = [covering, "", ...sections.flatMap((s) => [s.title, ...s.lines, ""])].join("\n").trimEnd();
+  // The allocation note sits in the header rather than in NEWS: every share below is read
+  // differently depending on which setting is on, so it has to come first.
+  const body = [covering, "", allocationNote(facts.allocation), "", ...sections.flatMap((s) => [s.title, ...s.lines, ""])]
+    .join("\n")
+    .trimEnd();
 
   return {
     sections,
@@ -148,4 +165,43 @@ export function plainCovering(facts: ReviewFacts): string {
   const asks = facts.followUp.length + facts.decide.length + facts.silent.length + facts.offChannel.length;
   if (asks === 0) return "Nothing is waiting on you this week.";
   return `${asks} thing${asks === 1 ? "" : "s"} need you this week.`;
+}
+
+/* ---------- how the buffer is being divided, and whether that is right ---------- */
+
+export const WORTH_SWITCHING_RATIO = 2;
+
+/**
+ * What the review says about the split, in the header.
+ *
+ * Two jobs. It states which setting is on, because an operator who has forgotten cannot
+ * read any of the figures below correctly. And it advises — but only when the evidence
+ * actually supports the advice, which is the whole difficulty: a recommendation to switch,
+ * given off a sample too small to rank segments, would be the exact mistake the automatic
+ * mode is built to avoid, delivered by the thing that warns about it.
+ */
+export function allocationNote(state: AllocationState): string {
+  if (state.mode === "automatic") {
+    if (state.armed) {
+      const lead = state.spread
+        ? ` ${state.spread.best} is replying best and holds the larger share.`
+        : "";
+      return `The buffer is weighted by reply rate.${lead}`;
+    }
+    return `The buffer is set to weight by reply rate, but is still split evenly: ${state.shortBy} more send${state.shortBy === 1 ? "" : "s"} are needed before any segment can be ranked.`;
+  }
+
+  if (!state.armed || !state.spread) {
+    return "The buffer is split evenly between segments. There is not yet enough sent to rank them, so that is the honest split.";
+  }
+  if (state.spread.worstRate > 0 && state.spread.bestRate / state.spread.worstRate >= WORTH_SWITCHING_RATIO) {
+    const best = Math.round(state.spread.bestRate * 100);
+    const worst = Math.round(state.spread.worstRate * 100);
+    return `The buffer is split evenly. ${state.spread.best} is replying at ${best}% against ${state.spread.worst} at ${worst}% — worth switching to weight by reply rate if you want more of the buffer going where it is landing.`;
+  }
+  if (state.spread.worstRate === 0 && state.spread.bestRate > 0) {
+    const best = Math.round(state.spread.bestRate * 100);
+    return `The buffer is split evenly. ${state.spread.best} is replying at ${best}% and ${state.spread.worst} at nothing at all — worth switching to weight by reply rate.`;
+  }
+  return "The buffer is split evenly, and the segments are replying at much the same rate, so there is nothing to be gained by weighting it.";
 }

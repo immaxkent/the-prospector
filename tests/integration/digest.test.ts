@@ -79,7 +79,7 @@ describe("the morning digest", () => {
   it("reports a stalled engine in the same words the run log uses", async () => {
     await db
       .update(t.endeavours)
-      .set({ settings: { prospecting: { maximumPending: 1, activeGoal: 20, paused: false } } })
+      .set({ settings: { prospecting: { maximumPending: 1, activeGoal: 20, paused: false, allocation: "even" as const } } })
       .where(eq(t.endeavours.id, FIXTURE_IDS.endeavour));
     await db.insert(t.prospects).values({
       id: "pro_fill",

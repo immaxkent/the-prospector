@@ -58,7 +58,7 @@ test.describe("endeavour configuration", () => {
     const [stored] = await query<{
       settings: { prospecting: { maximumPending: number; activeGoal: number; paused: boolean }; followUpDays: number[] };
     }>("select settings from endeavours where id = 'end_fixture_solidity'");
-    expect(stored?.settings.prospecting).toEqual({ maximumPending: 30, activeGoal: 8, paused: true });
+    expect(stored?.settings.prospecting).toEqual({ maximumPending: 30, activeGoal: 8, paused: true, allocation: "even" });
     // The pacing form and the setpoints share one blob, and one must not wipe the other.
     expect(stored?.settings.followUpDays).toEqual([3, 7, 14]);
   });
@@ -67,6 +67,23 @@ test.describe("endeavour configuration", () => {
     const config = await open(page);
     await config.getByLabel("Pause prospecting").check();
     await expect(config.getByTestId("prospecting-summary")).toContainText("Prospecting is paused");
+  });
+
+  test("offers the weighting as a choice, and says what turning it on would do", async ({ page }) => {
+    const config = await open(page);
+    await expect(config.getByTestId("allocation-summary")).toContainText("honest about having no evidence");
+
+    await config.getByLabel("How the buffer is divided").selectOption("automatic");
+    // The part that stops it being read as an immediate change: it waits for the evidence.
+    await expect(config.getByTestId("allocation-summary")).toContainText("not until every one of them has enough sends");
+    await expect(config.getByTestId("allocation-summary")).toContainText("never below half an even share");
+    await config.getByRole("button", { name: "Save configuration" }).click();
+    await expect(page.locator("[data-sonner-toast]").first()).toContainText("Configuration saved");
+
+    const [stored] = await query<{ settings: { prospecting: { allocation: string } } }>(
+      "select settings from endeavours where id = 'end_fixture_solidity'",
+    );
+    expect(stored?.settings.prospecting.allocation).toBe("automatic");
   });
 
   test("refuses a cap nobody could work through, without saving", async ({ page }) => {

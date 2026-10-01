@@ -95,17 +95,31 @@ export const DEFAULT_ACTIVE_GOAL = 20;
 export const PENDING_CAP_RANGE = { min: 1, max: 500 } as const;
 export const ACTIVE_GOAL_RANGE = { min: 1, max: 200 } as const;
 
+export const ALLOCATIONS = ["even", "automatic"] as const;
+export type AllocationMode = (typeof ALLOCATIONS)[number];
+
 export interface ProspectingSettings {
   maximumPending: number;
   activeGoal: number;
   /** The operator's own stop, independent of either number. */
   paused: boolean;
+  /**
+   * How the buffer is divided between segments.
+   *
+   * `even` is the default and stays the default: at the volumes this runs at there is
+   * usually not enough evidence to divide it any other way, and an even split is honest
+   * about that. `automatic` weights by reply rate, and holds the even split itself until
+   * every segment has a sample worth reading — so turning it on early changes nothing
+   * except that it will start when the evidence does.
+   */
+  allocation: AllocationMode;
 }
 
 export const DEFAULT_PROSPECTING: ProspectingSettings = {
   maximumPending: DEFAULT_MAXIMUM_PENDING,
   activeGoal: DEFAULT_ACTIVE_GOAL,
   paused: false,
+  allocation: "even",
 };
 
 const withinOr = (value: unknown, range: { min: number; max: number }, fallback: number) => {
@@ -125,6 +139,9 @@ export function normaliseProspecting(stored: Partial<ProspectingSettings> | null
     maximumPending: withinOr(stored?.maximumPending, PENDING_CAP_RANGE, DEFAULT_MAXIMUM_PENDING),
     activeGoal: withinOr(stored?.activeGoal, ACTIVE_GOAL_RANGE, DEFAULT_ACTIVE_GOAL),
     paused: stored?.paused === true,
+    // Anything unrecognised is the even split. A setting nobody can read should fall back
+    // to the behaviour that needs no evidence, not to the one that acts on it.
+    allocation: stored?.allocation === "automatic" ? "automatic" : "even",
   };
 }
 
@@ -184,4 +201,36 @@ export function haltNotice(halt: ProspectingHalt, count: ProspectingCount, setti
     return `Prospecting is holding: ${count.active} live conversation(s), which is the goal of ${settings.activeGoal}. It resumes when one closes or falls through.`;
   }
   return `Prospecting is paused: ${count.pending}/${settings.maximumPending} pending. Dequeue or reject to resume.`;
+}
+
+/**
+ * What each segment has sent and heard back, for weighting the split.
+ *
+ * Replies are counted per prospect rather than per message: someone who answers three times
+ * is one reply, or a talkative prospect would outweigh a segment.
+ */
+export function segmentEvidence(
+  prospectRows: readonly { id: string; segmentId: string | null }[],
+  messageRows: readonly { prospectId: string | null; direction: string; sendState?: string | null }[],
+): Map<string, { sent: number; replies: number }> {
+  const segmentOf = new Map(prospectRows.map((p) => [p.id, p.segmentId]));
+  const evidence = new Map<string, { sent: number; replies: number }>();
+  const bump = (segmentId: string, key: "sent" | "replies") => {
+    const current = evidence.get(segmentId) ?? { sent: 0, replies: 0 };
+    evidence.set(segmentId, { ...current, [key]: current[key] + 1 });
+  };
+
+  const replied = new Set<string>();
+  for (const message of messageRows) {
+    if (!message.prospectId) continue;
+    const segmentId = segmentOf.get(message.prospectId);
+    if (!segmentId) continue;
+    if (message.direction === "outbound" && message.sendState === "sent") bump(segmentId, "sent");
+    if (message.direction === "inbound") replied.add(message.prospectId);
+  }
+  for (const prospectId of replied) {
+    const segmentId = segmentOf.get(prospectId);
+    if (segmentId) bump(segmentId, "replies");
+  }
+  return evidence;
 }

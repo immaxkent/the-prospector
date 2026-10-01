@@ -44,8 +44,16 @@ import { PROGRESSION } from "../domain/pipeline";
 import { decideFollowUp, sequenceFinished } from "../domain/followup";
 import { effectiveDailyCap } from "../domain/mailbox";
 import { escalatedSearches, searchesFor } from "../domain/search-budget";
-import { allocateWithinCap } from "../domain/allocation";
-import { countProspecting, haltNotice, prospectingHalt, type ProspectingCount, type ProspectingSettings } from "../domain/prospecting";
+import { allocateWithinCap, automaticShares } from "../domain/allocation";
+import { RATE_MIN_SAMPLE } from "../domain/workload";
+import {
+  countProspecting,
+  haltNotice,
+  prospectingHalt,
+  segmentEvidence,
+  type ProspectingCount,
+  type ProspectingSettings,
+} from "../domain/prospecting";
 import { type Workload } from "../domain/workload";
 import { planWorkloadFor } from "../read/workload";
 import { DEFAULT_STAGE_PROBABILITY } from "../read/pipeline";
@@ -127,6 +135,10 @@ async function prospectingState(ctx: RunContext): Promise<{ settings: Prospectin
     .where(eq(prospects.endeavourId, ctx.endeavourId));
   return { settings: normaliseSettings(endeavour?.settings).prospecting, count: countProspecting(rows) };
 }
+
+/** A segment's name from its id, for a log line nobody should have to decode. */
+const byIdName = (segments: readonly { id: string; name: string }[], id: string) =>
+  segments.find((s) => s.id === id)?.name ?? id;
 
 /** What this run has spent with the model so far. */
 async function runSpendUsd(ctx: RunContext) {
@@ -257,13 +269,41 @@ export const DAILY_RUN_STEPS: RunStep[] = [
       // Every segment gets a floor and keeps it. Priority decides the odd prospect when the
       // split is uneven, and nothing else — the loop that broke when the day's target was
       // full let the broadest segment take the lot and the others were never asked.
-      // Pinned shares are not wired up yet (WP-20 T4b); until they are, every segment takes
-      // the equal split.
+      const inputs = active.map((segment) => ({ id: segment.id, priority: segment.priority, pinned: segment.pinnedShare }));
+      let targets: ReadonlyMap<string, number> | undefined;
+      if (settings.allocation === "automatic") {
+        const prospectRows = await ctx.db
+          .select({ id: prospects.id, segmentId: prospects.segmentId })
+          .from(prospects)
+          .where(eq(prospects.endeavourId, ctx.endeavourId));
+        const messageRows = await ctx.db
+          .select({ prospectId: messages.prospectId, direction: messages.direction, sendState: messages.sendState })
+          .from(messages)
+          .where(eq(messages.endeavourId, ctx.endeavourId));
+        const weighted = automaticShares(
+          inputs,
+          settings.maximumPending,
+          segmentEvidence(prospectRows, messageRows),
+          RATE_MIN_SAMPLE,
+        );
+        // Null means the evidence is too thin to use, which is the common case and not a
+        // fault. It divides evenly and says so, rather than silently acting as if it had
+        // weighted anything.
+        targets = weighted ?? undefined;
+        await ctx.log(
+          "info",
+          weighted
+            ? `weighting the buffer by reply rate: ${[...weighted].map(([id, n]) => `${byIdName(active, id)} ${n}`).join(" · ")}`
+            : `weighting is on but the evidence is too thin, so the buffer is split evenly (every segment needs ${RATE_MIN_SAMPLE} sends)`,
+        );
+      }
+
       const allocations = allocateWithinCap(
-        active.map((segment) => ({ id: segment.id, priority: segment.priority, pinned: null })),
+        inputs,
         settings.maximumPending,
         count.pendingBySegment,
         count.pending,
+        targets,
       );
       const byId = new Map(active.map((segment) => [segment.id, segment]));
       await ctx.log(

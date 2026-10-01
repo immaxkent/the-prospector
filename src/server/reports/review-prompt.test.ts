@@ -16,6 +16,7 @@ const facts: ReviewFacts = {
   activeGoal: 20,
   minSample: 15,
   objectiveWarning: null,
+  allocation: { mode: "even" as const, armed: false, shortBy: 0, spread: null },
 };
 
 describe("the review prompt", () => {

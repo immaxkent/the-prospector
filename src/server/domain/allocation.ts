@@ -118,9 +118,10 @@ export function allocateWithinCap(
   maximumPending: number,
   pendingBySegment: ReadonlyMap<string, number>,
   totalPending: number,
+  targets?: ReadonlyMap<string, number> | undefined,
 ): SegmentAllocation[] {
   const headroom = Math.max(0, maximumPending - totalPending);
-  const allocations = allocate(segments, maximumPending, pendingBySegment);
+  const allocations = allocate(segments, maximumPending, pendingBySegment, targets);
 
   let left = headroom;
   return allocations.map((allocation) => {

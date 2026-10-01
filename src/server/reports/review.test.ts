@@ -1,5 +1,14 @@
 import { describe, expect, it } from "vitest";
-import { NAMED_LIMIT, buildReview, plainCovering, segmentLine, type ReviewFacts, type ReviewItem } from "./review";
+import {
+  NAMED_LIMIT,
+  allocationNote,
+  buildReview,
+  plainCovering,
+  segmentLine,
+  type AllocationState,
+  type ReviewFacts,
+  type ReviewItem,
+} from "./review";
 
 const item = (company: string, days: number): ReviewItem => ({ prospectId: `pro_${company}`, company, days });
 
@@ -17,6 +26,7 @@ const facts = (over: Partial<ReviewFacts> = {}): ReviewFacts => ({
   activeGoal: 20,
   minSample: 15,
   objectiveWarning: null,
+  allocation: { mode: "even" as const, armed: false, shortBy: 0, spread: null },
   ...over,
 });
 
@@ -108,5 +118,43 @@ describe("plainCovering", () => {
     expect(plainCovering(facts({ followUp: [item("A", 1)], silent: [item("B", 2)], offChannel: [item("C", 3)] }))).toBe(
       "3 things need you this week.",
     );
+  });
+});
+
+describe("allocationNote", () => {
+  const state = (over: Partial<AllocationState> = {}): AllocationState => ({
+    mode: "even",
+    armed: false,
+    shortBy: 0,
+    spread: null,
+    ...over,
+  });
+  const spread = { best: "TradFi", bestRate: 0.12, worst: "Incidents", worstRate: 0.03 };
+
+  it("says which setting is on, because the figures below cannot be read without it", () => {
+    expect(allocationNote(state())).toContain("split evenly");
+    expect(allocationNote(state({ mode: "automatic", armed: true }))).toContain("weighted by reply rate");
+  });
+
+  it("admits when weighting is on but waiting, and says how far off it is", () => {
+    // Otherwise the operator believes it is weighting and reads every share as a decision.
+    expect(allocationNote(state({ mode: "automatic", shortBy: 23 }))).toContain("23 more sends are needed");
+  });
+
+  it("advises switching only when the gap is bigger than the noise", () => {
+    expect(allocationNote(state({ armed: true, spread }))).toContain("worth switching");
+    const close = { best: "A", bestRate: 0.06, worst: "B", worstRate: 0.05 };
+    expect(allocationNote(state({ armed: true, spread: close }))).toContain("nothing to be gained");
+  });
+
+  it("will not advise switching off a sample too small to rank anything", () => {
+    // A recommendation given off a sample that cannot rank segments is the exact mistake
+    // the automatic mode exists to avoid, delivered by the thing that warns about it.
+    expect(allocationNote(state({ armed: false, spread }))).toContain("not yet enough sent to rank them");
+  });
+
+  it("handles a segment replying at nothing without dividing by it", () => {
+    const dead = { best: "A", bestRate: 0.1, worst: "B", worstRate: 0 };
+    expect(allocationNote(state({ armed: true, spread: dead }))).toContain("nothing at all");
   });
 });
