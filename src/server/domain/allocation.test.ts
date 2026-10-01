@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { allocate, allocateWithinCap, type SegmentAllocationInput } from "./allocation";
+import {
+  EXPLORATION_FLOOR,
+  allocate,
+  allocateWithinCap,
+  automaticShares,
+  type SegmentAllocationInput,
+} from "./allocation";
 
 const seg = (id: string, priority: number, pinned: number | null = null): SegmentAllocationInput => ({ id, priority, pinned });
 const three = [seg("a", 1), seg("b", 2), seg("c", 3)];
@@ -101,5 +107,90 @@ describe("allocateWithinCap", () => {
   it("gives nothing at all once the buffer is full", () => {
     expect(allocateWithinCap(three, 50, none, 50).every((a) => a.room === 0)).toBe(true);
     expect(allocateWithinCap(three, 50, none, 60).every((a) => a.room === 0)).toBe(true);
+  });
+});
+
+describe("automaticShares", () => {
+  const evidence = (entries: Record<string, { sent: number; replies: number }>) => new Map(Object.entries(entries));
+
+  it("holds its hand until every segment has a sample worth reading", () => {
+    // A reply rate off nine sends is noise, and a split built on noise is worse than an
+    // even one because it looks like a decision.
+    const thin = evidence({ a: { sent: 40, replies: 8 }, b: { sent: 40, replies: 1 }, c: { sent: 9, replies: 0 } });
+    expect(automaticShares(three, 50, thin, 15)).toBeNull();
+  });
+
+  it("waits on the quiet segment too, not just the ones doing well", () => {
+    // Weighting while c is unmeasured would starve it on figures it never had the chance
+    // to produce, after which it can never disprove them.
+    expect(automaticShares(three, 50, evidence({ a: { sent: 90, replies: 20 }, b: { sent: 90, replies: 2 } }), 15)).toBeNull();
+  });
+
+  it("weights by reply rate once there is evidence from all of them", () => {
+    const shares = automaticShares(
+      three,
+      50,
+      evidence({ a: { sent: 100, replies: 20 }, b: { sent: 100, replies: 10 }, c: { sent: 100, replies: 10 } }),
+      15,
+    )!;
+    expect([...shares.values()].reduce((x, y) => x + y)).toBe(50);
+    // Twice the rate, so more of the shared remainder — but never twice the share, because
+    // the floor is held back from the weighting.
+    expect(shares.get("a")!).toBeGreaterThan(shares.get("b")!);
+    expect(shares.get("a")!).toBeLessThan(shares.get("b")! * 2);
+    // Equal rates, so equal within the one prospect that cannot be divided. Somebody has
+    // to have it, and the higher priority does.
+    expect(shares.get("b")! - shares.get("c")!).toBe(1);
+  });
+
+  it("gives the same answer whatever order the rows arrived in", () => {
+    const ev = evidence({ a: { sent: 100, replies: 20 }, b: { sent: 100, replies: 10 }, c: { sent: 100, replies: 10 } });
+    const forwards = automaticShares(three, 50, ev, 15)!;
+    const backwards = automaticShares([...three].reverse(), 50, ev, 15)!;
+    expect([...backwards.entries()].sort()).toEqual([...forwards.entries()].sort());
+  });
+
+  it("never starves a segment, however badly it is doing", () => {
+    // The floor is what makes the weighting falsifiable instead of self-fulfilling.
+    const shares = automaticShares(
+      three,
+      50,
+      evidence({ a: { sent: 100, replies: 40 }, b: { sent: 100, replies: 0 }, c: { sent: 100, replies: 0 } }),
+      15,
+    )!;
+    expect(shares.get("b")!).toBeGreaterThanOrEqual(Math.floor((50 / 3) * EXPLORATION_FLOOR));
+    expect([...shares.values()].reduce((x, y) => x + y)).toBe(50);
+  });
+
+  it("stays even when there is a sample and no signal in it", () => {
+    expect(
+      automaticShares(three, 50, evidence({ a: { sent: 50, replies: 0 }, b: { sent: 50, replies: 0 }, c: { sent: 50, replies: 0 } }), 15),
+    ).toBeNull();
+  });
+
+  it("has nothing to say about no segments", () => {
+    expect(automaticShares([], 50, new Map(), 15)).toBeNull();
+  });
+});
+
+describe("allocate with weighted targets", () => {
+  const targets = new Map([["a", 30], ["b", 10], ["c", 10]]);
+
+  it("uses them instead of the even split, and still adds up to the cap", () => {
+    const shares = allocate(three, 50, none, targets).map((x) => x.share);
+    expect(shares).toEqual([30, 10, 10]);
+    expect(shares.reduce((x, y) => x + y)).toBe(50);
+  });
+
+  it("lets a pin overrule the arithmetic, and scales the rest to what is left", () => {
+    // The operator asked for that number explicitly. A weighting does not get to overrule it.
+    const shares = allocate([seg("a", 1, 20), seg("b", 2), seg("c", 3)], 50, none, targets).map((x) => x.share);
+    expect(shares[0]).toBe(20);
+    expect(shares.reduce((x, y) => x + y)).toBe(50);
+    expect(shares[1]).toBe(shares[2]);
+  });
+
+  it("falls back to the even split when the targets say nothing", () => {
+    expect(allocate(three, 50, none, new Map()).map((x) => x.share)).toEqual([17, 17, 16]);
   });
 });
