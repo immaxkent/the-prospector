@@ -165,3 +165,23 @@ export function prospectingProblem(input: ProspectingSettings): string | null {
   }
   return null;
 }
+
+/**
+ * Why prospecting stopped, in words the operator can act on.
+ *
+ * Here rather than at the two call sites because the run log and the morning digest must
+ * say the same thing: an operator reading one and then the other should not have to work
+ * out whether they are being told about the same stall.
+ *
+ * Nothing leaves the pending buffer on its own — that is the operator's decision — so a
+ * full buffer stops the engine and can keep it stopped. A stall nobody can account for
+ * reads as the system having died, so each of these says what it is and what unblocks it,
+ * with the numbers.
+ */
+export function haltNotice(halt: ProspectingHalt, count: ProspectingCount, settings: ProspectingSettings): string {
+  if (halt === "paused") return "Prospecting is paused. Nothing new will be looked for until you turn it back on.";
+  if (halt === "goal_met") {
+    return `Prospecting is holding: ${count.active} live conversation(s), which is the goal of ${settings.activeGoal}. It resumes when one closes or falls through.`;
+  }
+  return `Prospecting is paused: ${count.pending}/${settings.maximumPending} pending. Dequeue or reject to resume.`;
+}

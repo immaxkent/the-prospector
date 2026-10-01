@@ -45,7 +45,7 @@ import { decideFollowUp, sequenceFinished } from "../domain/followup";
 import { effectiveDailyCap } from "../domain/mailbox";
 import { escalatedSearches, searchesFor } from "../domain/search-budget";
 import { allocateWithinCap } from "../domain/allocation";
-import { countProspecting, prospectingHalt, type ProspectingCount, type ProspectingSettings } from "../domain/prospecting";
+import { countProspecting, haltNotice, prospectingHalt, type ProspectingCount, type ProspectingSettings } from "../domain/prospecting";
 import { planWorkload, rateObservations, type Workload } from "../domain/workload";
 import { DEFAULT_STAGE_PROBABILITY } from "../read/pipeline";
 import { normaliseSettings } from "../domain/endeavour-settings";
@@ -125,22 +125,6 @@ async function prospectingState(ctx: RunContext): Promise<{ settings: Prospectin
     .from(prospects)
     .where(eq(prospects.endeavourId, ctx.endeavourId));
   return { settings: normaliseSettings(endeavour?.settings).prospecting, count: countProspecting(rows) };
-}
-
-/**
- * Why prospecting stopped, in words the operator can act on.
- *
- * Nothing leaves the pending buffer on its own — that is the operator's decision — so a
- * full buffer stops the engine and can keep it stopped. A stall nobody can account for
- * reads as the system having died, so every one of these says what it is and what unblocks
- * it, with the numbers.
- */
-function haltNotice(halt: "paused" | "buffer_full" | "goal_met", count: ProspectingCount, settings: ProspectingSettings) {
-  if (halt === "paused") return "Prospecting is paused. Nothing new will be looked for until you turn it back on.";
-  if (halt === "goal_met") {
-    return `Prospecting is holding: ${count.active} live conversation(s), which is the goal of ${settings.activeGoal}. It resumes when one closes or falls through.`;
-  }
-  return `Prospecting is paused: ${count.pending}/${settings.maximumPending} pending. Dequeue or reject to resume.`;
 }
 
 /** What this run has spent with the model so far. */
