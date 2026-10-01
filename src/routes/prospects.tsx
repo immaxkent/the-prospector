@@ -19,6 +19,7 @@ import {
 import { gbp, relative, stamp } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { ProspectActions } from "@/components/os/ProspectActions";
+import { LogInteraction } from "@/components/os/LogInteraction";
 
 export const Route = createFileRoute("/prospects")({
   head: () => ({
@@ -245,6 +246,10 @@ function ProspectsScreen() {
               ) : (
                 <MachineLabel>NO CONVERSATION YET</MachineLabel>
               )}
+            </Section>
+
+            <Section title="CONTACT ELSEWHERE">
+              <LogInteraction prospectId={selected.id} />
             </Section>
 
             <Section title="NEXT ACTION">

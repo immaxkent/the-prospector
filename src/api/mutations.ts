@@ -265,6 +265,45 @@ export const updateStatTilesFn = createServerFn({ method: "POST" })
     return updateStatTiles(await live(), data.tiles);
   });
 
+export const resolveProspectsFn = createServerFn({ method: "POST" })
+  .middleware([requireSession])
+  .validator(
+    z.object({
+      endeavourId: id,
+      prospectIds: z.array(id).min(1).max(200),
+      resolution: z.enum(["dequeue", "reject", "won", "lost"]),
+      reason: z.string().max(500).nullable(),
+    }),
+  )
+  .handler(async ({ data }) => {
+    const { resolveProspects } = await import("../server/commands/resolve");
+    return resolveProspects(await live(), data);
+  });
+
+export const logInteractionFn = createServerFn({ method: "POST" })
+  .middleware([requireSession])
+  .validator(
+    z.object({
+      prospectId: id,
+      channel: z.enum(["discord", "linkedin", "x", "call", "in_person", "email", "other"]),
+      direction: z.enum(["outbound", "inbound"]),
+      occurredAt: z.iso.datetime(),
+      note: z.string().max(500).nullable(),
+    }),
+  )
+  .handler(async ({ data }) => {
+    const { logInteraction } = await import("../server/commands/interactions");
+    return logInteraction(await live(), { ...data, occurredAt: new Date(data.occurredAt) });
+  });
+
+export const pinSegmentShareFn = createServerFn({ method: "POST" })
+  .middleware([requireSession])
+  .validator(z.object({ segmentId: id, share: z.number().nullable() }))
+  .handler(async ({ data }) => {
+    const { pinSegmentShare } = await import("../server/commands/segment-share");
+    return pinSegmentShare(await live(), data);
+  });
+
 export const updateEndeavourSettingsFn = createServerFn({ method: "POST" })
   .middleware([requireSession])
   .validator(
@@ -278,6 +317,19 @@ export const updateEndeavourSettingsFn = createServerFn({ method: "POST" })
         minReplyDelayMinutes: z.number().int().min(0).max(10_080),
       }),
       followUpDays: z.array(z.number().int().min(1).max(180)).max(6),
+      // Optional so a caller editing only pacing cannot reset the setpoints by omission.
+      // The bounds are the command's to enforce, with a message the operator can read.
+      prospecting: z
+        .object({ maximumPending: z.number(), activeGoal: z.number(), paused: z.boolean() })
+        .optional(),
+      reporting: z
+        .object({
+          digestHour: z.number(),
+          reviewWeekday: z.number(),
+          reviewHour: z.number(),
+          timezone: z.string().max(60),
+        })
+        .optional(),
     }),
   )
   .handler(async ({ data }) => {

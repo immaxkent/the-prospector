@@ -5,11 +5,11 @@
  * worked is worse than none, because it looks connected. The test send happens first, and a
  * refusal comes back in the provider's own words.
  */
-import { eq } from "drizzle-orm";
+import { desc, eq } from "drizzle-orm";
 import type { Database } from "../db/client";
 import { notificationChannels } from "../db/schema";
 import { sealJson, unsealJson } from "../crypto/tokens";
-import { channelFromCredentials, fanOut, inAppOnly, type DeliveryChannel, type Fetch } from "../notify/channels";
+import { channelFromCredentials, inAppOnly, type DeliveryChannel, type Fetch } from "../notify/channels";
 import { checkCredentials, describeChannel, PROVIDERS, type Provider } from "@/data/notify-providers";
 import { newId } from "../ids";
 import { invalid, notFound } from "./errors";
@@ -69,20 +69,42 @@ export async function connectChannel(db: Database, deps: ChannelDeps, input: Con
 
   const label = describeChannel(input.provider, trimmed);
   const id = newId("notificationChannel");
-  await db.insert(notificationChannels).values({
-    id,
-    provider: input.provider,
-    label,
-    secretCiphertext: sealJson(trimmed, deps.tokenKey),
-    lastDeliveredAt: now,
-  });
-  await recordEvent(db, {
-    eventType: "notification_channel.connected",
-    entityType: "notification_channel",
-    entityId: id,
-    subject: `${input.provider} · ${label}`,
-  });
-  return { id, provider: input.provider, label };
+  // Bound out here: the narrowing from isProvider above does not survive into the closure.
+  const provider = input.provider;
+
+  return db.transaction(async (tx) => {
+    /*
+     * One endpoint, not a fan-out.
+     *
+     * A daily digest arriving in two places is read in neither: the second copy is noise,
+     * and the operator learns to ignore both. Connecting a channel elects it and retires
+     * whatever was there — stored rather than deleted, so a mistaken switch is one
+     * reconnection away rather than a credential to go and find again.
+     */
+    const superseded = await tx
+      .update(notificationChannels)
+      .set({ enabled: false })
+      .where(eq(notificationChannels.enabled, true))
+      .returning({ provider: notificationChannels.provider, label: notificationChannels.label });
+
+    await tx.insert(notificationChannels).values({
+      id,
+      provider,
+      label,
+      secretCiphertext: sealJson(trimmed, deps.tokenKey),
+      lastDeliveredAt: now,
+    });
+    await recordEvent(tx, {
+      eventType: "notification_channel.connected",
+      entityType: "notification_channel",
+      entityId: id,
+      subject: `${provider} · ${label}`,
+      detail: superseded.length
+        ? `now the only endpoint; ${superseded.map((c) => c.provider).join(", ")} stopped receiving`
+        : "now the only endpoint",
+    });
+    return { id, provider, label, superseded: superseded.map((c) => c.provider) };
+  }, { isolationLevel: "read committed" });
 }
 
 export async function disconnectChannel(db: Database, input: { channelId: string }) {
@@ -125,11 +147,24 @@ export async function testChannel(db: Database, deps: ChannelDeps, input: { chan
  * Everywhere notifications should go. Connected channels first; the environment variables
  * remain a fallback so a box configured the old way keeps working.
  */
+/**
+ * The one endpoint notifications go to.
+ *
+ * Newest first, and only one: connecting a channel retires the others, so there should
+ * never be two. If there somehow are — a half-applied migration, a hand-edited row — the
+ * most recent is the one the operator last chose, which is a better guess than both.
+ */
 export async function deliveryChannel(db: Database, deps: ChannelDeps & { fromEnv?: DeliveryChannel }): Promise<DeliveryChannel> {
-  const rows = await db.select().from(notificationChannels).where(eq(notificationChannels.enabled, true));
-  const channels = rows.map((row) =>
-    channelFromCredentials(row.provider, unsealJson<Record<string, string>>(row.secretCiphertext, deps.tokenKey), deps.appUrl, deps.fetchImpl),
+  const [row] = await db
+    .select()
+    .from(notificationChannels)
+    .where(eq(notificationChannels.enabled, true))
+    .orderBy(desc(notificationChannels.createdAt));
+  if (!row) return deps.fromEnv ?? inAppOnly;
+  return channelFromCredentials(
+    row.provider,
+    unsealJson<Record<string, string>>(row.secretCiphertext, deps.tokenKey),
+    deps.appUrl,
+    deps.fetchImpl,
   );
-  if (channels.length === 0) return deps.fromEnv ?? inAppOnly;
-  return fanOut(channels);
 }

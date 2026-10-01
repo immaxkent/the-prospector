@@ -6,6 +6,7 @@ import { claimNext, enqueue } from "../../src/server/jobs/queue";
 import {
   DAILY_RUN_JOB,
   POLL_INBOUND_JOB,
+  REPORT_JOB,
   SEND_DUE_JOB,
   bucketKey,
   dailyRunKey,
@@ -59,16 +60,30 @@ describe("scheduleDueRuns", () => {
 });
 
 describe("scheduleRecurringWork", () => {
-  it("queues a send pass per mailbox and an inbox pass per endeavour", async () => {
-    expect(await scheduleRecurringWork(db, MORNING)).toEqual({ queued: 2 });
+  it("queues a send pass per mailbox, an inbox pass per endeavour, and the morning digest", async () => {
+    // 09:00 UTC is 10:00 in London, past the default digest hour of seven.
+    expect(await scheduleRecurringWork(db, MORNING)).toEqual({ queued: 3 });
     const queued = (await db.select().from(t.jobs)).map((j) => j.type).sort();
-    expect(queued).toEqual([POLL_INBOUND_JOB, SEND_DUE_JOB]);
+    expect(queued).toEqual([REPORT_JOB, POLL_INBOUND_JOB, SEND_DUE_JOB]);
+  });
+
+  it("queues no digest before the hour the operator chose", async () => {
+    // 04:00 UTC is 05:00 in London, before seven.
+    const early = new Date("2026-09-17T04:00:00Z");
+    await scheduleRecurringWork(db, early);
+    expect((await db.select().from(t.jobs)).some((j) => j.type === REPORT_JOB)).toBe(false);
+  });
+
+  it("queues one digest a day however often the worker ticks", async () => {
+    await scheduleRecurringWork(db, MORNING);
+    await scheduleRecurringWork(db, new Date(MORNING.getTime() + 3 * 3_600_000));
+    expect((await db.select().from(t.jobs)).filter((j) => j.type === REPORT_JOB)).toHaveLength(1);
   });
 
   it("does not pile up when the worker ticks every few seconds", async () => {
     await scheduleRecurringWork(db, MORNING);
     await scheduleRecurringWork(db, new Date(MORNING.getTime() + 20_000));
-    expect(await db.select().from(t.jobs)).toHaveLength(2);
+    expect(await db.select().from(t.jobs)).toHaveLength(3);
   });
 
   it("queues again once the bucket has moved on", async () => {
@@ -78,12 +93,17 @@ describe("scheduleRecurringWork", () => {
     expect((await db.select().from(t.jobs)).filter((j) => j.type === SEND_DUE_JOB)).toHaveLength(2);
   });
 
-  it("leaves a paused endeavour and an endeavour with no mailbox alone", async () => {
+  it("leaves a paused endeavour entirely alone", async () => {
     await db.update(t.endeavours).set({ status: "paused" }).where(eq(t.endeavours.id, FIXTURE_IDS.endeavour));
     expect(await scheduleRecurringWork(db, MORNING)).toEqual({ queued: 0 });
+  });
 
-    await db.update(t.endeavours).set({ status: "active", mailboxId: null }).where(eq(t.endeavours.id, FIXTURE_IDS.endeavour));
-    expect(await scheduleRecurringWork(db, MORNING)).toEqual({ queued: 0 });
+  it("still reports on an active endeavour with no mailbox, but sends and polls nothing", async () => {
+    // No mailbox means no mail to move. It does not mean nothing to say: prospecting runs
+    // without a mailbox, and a stall is exactly what the operator needs telling about.
+    await db.update(t.endeavours).set({ mailboxId: null }).where(eq(t.endeavours.id, FIXTURE_IDS.endeavour));
+    expect(await scheduleRecurringWork(db, MORNING)).toEqual({ queued: 1 });
+    expect((await db.select().from(t.jobs)).map((j) => j.type)).toEqual([REPORT_JOB]);
   });
 
   it("keys each bucket by the minutes it covers", () => {
@@ -96,8 +116,8 @@ describe("scheduleRecurringWork", () => {
 describe("tick", () => {
   it("schedules and runs the daily loop, leaving a completed run behind", async () => {
     const result = await tick(db, { ...opts, now: MORNING });
-    // The daily run, plus the two recurring jobs that keep working between runs.
-    expect(result).toMatchObject({ queued: 3, processed: 3, failed: 0 });
+    // The daily run, the two recurring jobs that keep working between runs, and the digest.
+    expect(result).toMatchObject({ queued: 4, processed: 4, failed: 0 });
     const [run] = await db.select().from(t.dailyRuns);
     expect(run).toMatchObject({ status: "succeeded", trigger: "schedule" });
     const daily = (await db.select().from(t.jobs)).find((j) => j.type === DAILY_RUN_JOB);
@@ -129,9 +149,9 @@ describe("tick", () => {
     await claimNext(db, "dead-worker", EARLY);
     const result = await tick(db, { ...opts, now: new Date("2026-09-17T09:30:00Z") });
     expect(result.recovered).toBe(1);
-    // The recovered manual job, the scheduled daily run, and the two recurring jobs; the
-    // second run finds the day already done.
-    expect(result.processed).toBe(4);
+    // The recovered manual job, the scheduled daily run, the two recurring jobs and the
+    // digest; the second run finds the day already done.
+    expect(result.processed).toBe(5);
     expect(await db.select().from(t.dailyRuns)).toHaveLength(1);
   });
 

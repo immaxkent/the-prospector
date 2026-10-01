@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { DEFAULT_PACING } from "./pacing";
+import { DEFAULT_PROSPECTING } from "./prospecting";
 import {
   DEFAULT_ENDEAVOUR_SETTINGS,
   MAX_FOLLOW_UPS,
@@ -45,5 +46,19 @@ describe("normaliseSettings", () => {
     const settings = normaliseSettings({ pacing: { ...DEFAULT_PACING, minGapMinutes: 12, maxGapMinutes: 40 } });
     expect(settings.pacing).toMatchObject({ minGapMinutes: 12, maxGapMinutes: 40, window: DEFAULT_PACING.window });
     expect(settings.followUpDays).toEqual([3, 7, 14]);
+  });
+});
+
+describe("prospecting settings on the endeavour", () => {
+  it("come with the defaults, so an endeavour saved before they existed still has them", () => {
+    expect(normaliseSettings({}).prospecting).toEqual(DEFAULT_PROSPECTING);
+    expect(normaliseSettings(null).prospecting).toEqual(DEFAULT_PROSPECTING);
+    expect(DEFAULT_ENDEAVOUR_SETTINGS.prospecting).toEqual(DEFAULT_PROSPECTING);
+  });
+
+  it("keep what the operator set without disturbing the rest of the settings", () => {
+    const settings = normaliseSettings({ prospecting: { maximumPending: 30, activeGoal: 8, paused: true } });
+    expect(settings.prospecting).toEqual({ maximumPending: 30, activeGoal: 8, paused: true });
+    expect(settings.followUpDays).toEqual(DEFAULT_ENDEAVOUR_SETTINGS.followUpDays);
   });
 });

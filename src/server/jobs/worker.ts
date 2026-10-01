@@ -25,6 +25,9 @@ export const POLL_INBOUND_JOB = "mailbox.poll_inbound";
 export const SEND_EVERY_MINUTES = 5;
 export const POLL_EVERY_MINUTES = 20;
 
+/** The digest and the weekly review. One job type; the payload says which. */
+export const REPORT_JOB = "endeavour.report";
+
 export interface JobContext {
   agent: AgentDeps | null;
   mail: SendDeps | null;
@@ -46,6 +49,24 @@ export const JOB_HANDLERS: Record<string, JobHandler> = {
       db,
       { agent: ctx.agent, mail: ctx.mail, notifications: ctx.notifications ?? inAppOnly },
       { endeavourId: String(payload["endeavourId"]), now },
+    );
+  },
+
+  [REPORT_JOB]: async (db, payload, now, ctx) => {
+    const [{ sendReport }, { loadBudgetState }, { getConfig }] = await Promise.all([
+      import("../reports/send"),
+      import("../commands/settings"),
+      import("../config"),
+    ]);
+    // Read here rather than inside the report: a digest is worth sending even when the
+    // budget cannot be read, and "unknown" must not be reported as "spent".
+    const remaining = await loadBudgetState(db, getConfig().usdPerGbp, now)
+      .then((b) => b.remainingTodayPence)
+      .catch(() => null);
+    await sendReport(
+      db,
+      { notifications: ctx.notifications ?? inAppOnly, agent: ctx.agent, budgetRemainingPence: remaining },
+      { endeavourId: String(payload["endeavourId"]), kind: payload["kind"] === "review" ? "review" : "digest", now },
     );
   },
 
@@ -131,6 +152,34 @@ export async function scheduleRecurringWork(db: Database, now: Date) {
     });
     if (created) queued += 1;
   }
+
+  // Reports are queued on the endeavour's own clock rather than the server's, and the
+  // idempotency key is that local day: a box that ticks every few seconds must not queue
+  // the same digest a thousand times, and one restarted at noon must still send today's.
+  const { digestDue, localMoment, normaliseReporting, reviewDue } = await import("../domain/reporting-schedule");
+  const { DIGEST_SENT, REVIEW_SENT, lastSentAt } = await import("../reports/collect");
+  const { normaliseSettings } = await import("../domain/endeavour-settings");
+
+  for (const endeavour of active) {
+    const [row] = await db.select({ settings: endeavours.settings }).from(endeavours).where(eq(endeavours.id, endeavour.id));
+    const schedule = normaliseReporting(normaliseSettings(row?.settings).reporting);
+    const today = localMoment(now, schedule.timezone).date;
+
+    for (const [kind, due, eventType] of [
+      ["digest", digestDue, DIGEST_SENT],
+      ["review", reviewDue, REVIEW_SENT],
+    ] as const) {
+      if (!due(now, schedule, await lastSentAt(db, endeavour.id, eventType))) continue;
+      const { created } = await enqueue(db, {
+        type: REPORT_JOB,
+        payload: { endeavourId: endeavour.id, kind },
+        idempotencyKey: `report:${kind}:${endeavour.id}:${today}`,
+        runAt: now,
+      });
+      if (created) queued += 1;
+    }
+  }
+
   return { queued };
 }
 

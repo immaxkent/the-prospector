@@ -39,6 +39,75 @@ test.describe("endeavour configuration", () => {
     expect(stored?.settings.followUpDays).toEqual([4, 10]);
   });
 
+  test("carries the setpoints, and says what they mean in the operator's terms", async ({ page }) => {
+    const config = await open(page);
+    await expect(config.getByLabel("Most pending prospects")).toHaveValue("50");
+    await expect(config.getByLabel("Live conversations wanted")).toHaveValue("20");
+    await expect(config.getByTestId("prospecting-summary")).toContainText("counting ones nobody has released yet");
+    await expect(config.getByTestId("prospecting-summary")).toContainText("Nothing leaves the list on its own");
+  });
+
+  test("saves the setpoints without disturbing the pacing beside them", async ({ page }) => {
+    const config = await open(page);
+    await config.getByLabel("Most pending prospects").fill("30");
+    await config.getByLabel("Live conversations wanted").fill("8");
+    await config.getByLabel("Pause prospecting").check();
+    await config.getByRole("button", { name: "Save configuration" }).click();
+    await expect(page.locator("[data-sonner-toast]").first()).toContainText("Configuration saved");
+
+    const [stored] = await query<{
+      settings: { prospecting: { maximumPending: number; activeGoal: number; paused: boolean }; followUpDays: number[] };
+    }>("select settings from endeavours where id = 'end_fixture_solidity'");
+    expect(stored?.settings.prospecting).toEqual({ maximumPending: 30, activeGoal: 8, paused: true });
+    // The pacing form and the setpoints share one blob, and one must not wipe the other.
+    expect(stored?.settings.followUpDays).toEqual([3, 7, 14]);
+  });
+
+  test("says so when the pause is on, rather than leaving the numbers to imply it", async ({ page }) => {
+    const config = await open(page);
+    await config.getByLabel("Pause prospecting").check();
+    await expect(config.getByTestId("prospecting-summary")).toContainText("Prospecting is paused");
+  });
+
+  test("refuses a cap nobody could work through, without saving", async ({ page }) => {
+    const config = await open(page);
+    await config.getByLabel("Most pending prospects").fill("900");
+    await expect(config).toContainText("between 1 and 500");
+    await expect(config.getByRole("button", { name: "Save configuration" })).toBeDisabled();
+  });
+
+  test("sets when the reports arrive, in the operator's own timezone", async ({ page }) => {
+    const config = await open(page);
+    await expect(config.getByTestId("reporting-summary")).toContainText("Europe/London");
+    // The distinction that matters: this is where the operator is, not where recipients are.
+    await expect(config.getByTestId("reporting-summary")).toContainText("not where the recipients are");
+
+    await config.getByLabel("Digest hour").selectOption("6");
+    await config.getByLabel("Review day").selectOption("5");
+    await config.getByLabel("Review hour").selectOption("17");
+    await config.getByLabel("Report timezone").fill("America/New_York");
+    await expect(config.getByTestId("reporting-summary")).toContainText("Friday at 17:00");
+    await config.getByRole("button", { name: "Save configuration" }).click();
+    await expect(page.locator("[data-sonner-toast]").first()).toContainText("Configuration saved");
+
+    const [stored] = await query<{
+      settings: { reporting: { digestHour: number; reviewWeekday: number; reviewHour: number; timezone: string } };
+    }>("select settings from endeavours where id = 'end_fixture_solidity'");
+    expect(stored?.settings.reporting).toEqual({
+      digestHour: 6,
+      reviewWeekday: 5,
+      reviewHour: 17,
+      timezone: "America/New_York",
+    });
+  });
+
+  test("refuses a timezone the server does not know, rather than failing at send time", async ({ page }) => {
+    const config = await open(page);
+    await config.getByLabel("Report timezone").fill("Mars/Olympus");
+    await expect(config).toContainText("not a timezone this server knows");
+    await expect(config.getByRole("button", { name: "Save configuration" })).toBeDisabled();
+  });
+
   test("refuses a window that never opens, without saving", async ({ page }) => {
     const config = await open(page);
     await config.getByLabel("Window opens").selectOption("18");

@@ -121,6 +121,7 @@ export function segmentRow(o: Partial<SegmentRow> = {}): SegmentRow {
     signals: [],
     painHypothesis: "Audits booked out",
     priority: 1,
+    pinnedShare: null,
     specVersion: 1,
     status: "active",
     createdAt: T0,

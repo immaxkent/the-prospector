@@ -158,3 +158,93 @@ export function planWorkload(input: WorkloadInput): Workload {
 
   return { newProspects, wanted, gap, expectedFromPipeline, rates, limitedBy, feasible, notes };
 }
+
+/* ---------- what the rates are counted over ---------- */
+
+export interface RateInputProspect {
+  id: string;
+  stage: string;
+  reviewStatus?: string;
+}
+
+export interface RateInputMessage {
+  prospectId: string | null;
+  direction: "outbound" | "inbound";
+  sendState?: string | null;
+}
+
+/**
+ * The observations the rates are built from, counted over prospects this endeavour actually
+ * emailed.
+ *
+ * A rate is a statement about a population, and this one says: when we send a cold email,
+ * what happens. A prospect that never got one does not belong in it — reached on Discord,
+ * imported mid-conversation, or introduced by someone. Counting it raises the meeting rate
+ * without ever having been a reply, and the arithmetic concludes a higher share of replies
+ * become meetings and asks for fewer prospects than the objective needs.
+ *
+ * Money is a different question and is counted separately: a deal won on Discord is still
+ * won, and still comes off the objective.
+ */
+export function rateObservations(
+  prospectRows: readonly RateInputProspect[],
+  messageRows: readonly RateInputMessage[],
+): Observed {
+  const own = new Set(prospectRows.map((p) => p.id));
+  const sent = messageRows.filter((m) => m.direction === "outbound" && m.sendState === "sent");
+  const emailed = new Set(sent.map((m) => m.prospectId).filter((id): id is string => !!id && own.has(id)));
+  const replied = new Set(
+    messageRows.filter((m) => m.direction === "inbound" && m.prospectId && own.has(m.prospectId)).map((m) => m.prospectId!),
+  );
+
+  const reached = prospectRows.filter((p) => emailed.has(p.id));
+  return {
+    sent: sent.length,
+    replies: replied.size,
+    meetings: reached.filter((p) => p.stage === "meeting" || p.stage === "proposal" || p.stage === "won").length,
+    wins: reached.filter((p) => p.stage === "won").length,
+  };
+}
+
+/* ---------- whether the setpoints can reach the objective ---------- */
+
+/**
+ * How many live conversations the objective needs, against how many the operator asked for.
+ *
+ * The setpoints are a statement about capacity: this much work at once, this many
+ * conversations, then stop. Nothing in them knows what the objective is, so a perfectly
+ * healthy endeavour can sit at its goal while the deadline goes past. This is the one place
+ * the arithmetic gets to say so.
+ *
+ * It compares like with like — a stock of conversations against the wins still needed —
+ * rather than a stock against a daily flow. What it assumes, and what the warning says out
+ * loud, is that those conversations resolve inside the horizon.
+ *
+ * Null when there is nothing to compare: no deal value, or a conversion of zero. Silence is
+ * the honest answer there, not a warning built on a divide by nothing.
+ */
+export function activeConversationsNeeded(gap: number, dealValue: number, rates: Workload["rates"]): number | null {
+  if (gap <= 0) return 0;
+  if (dealValue <= 0) return null;
+  const perConversation = rates.meetingFromReply * rates.winFromMeeting;
+  if (perConversation <= 0) return null;
+  return Math.ceil(gap / dealValue / perConversation);
+}
+
+/**
+ * The sentence, or null when the goal is enough.
+ *
+ * It names the source of the rates because the two readings are different advice: measured
+ * rates say raise the goal, assumed ones say the number is a guess and the first replies
+ * will move it.
+ */
+export function objectiveWarning(needed: number | null, activeGoal: number, source: RateSource): string | null {
+  if (needed === null || needed <= activeGoal) return null;
+  const basis =
+    source === "measured"
+      ? "on your measured rates"
+      : source === "mixed"
+        ? "on rates that are partly measured"
+        : "on assumed rates, which the first replies will correct";
+  return `A goal of ${activeGoal} live conversations will not reach the objective: ${basis}, that needs about ${needed}, assuming they resolve before the deadline.`;
+}
