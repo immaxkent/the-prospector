@@ -195,6 +195,27 @@ Each is one commit with its tests, in order.
 | **T9** | **The objective warning.** `planWorkload` output rendered as a warning in the review when the setpoints cannot reach the objective. | wiring + test |
 | **T10** | **Bulk actions from the review.** Dequeue, reject, mark won/lost — the existing toggle-and-submit list, reached from the review's links. | route + e2e |
 
+## What changed while building it
+
+Three things the plan did not anticipate, recorded because the commits alone would not say
+why.
+
+**The conversion rates were already wrong.** They were counted over every prospect rather
+than every emailed one, so a prospect introduced by someone and carried to a meeting raised
+the meeting rate while never having been a reply — and the arithmetic then asked for fewer
+prospects. The interaction log would have made that common rather than rare. `rateObservations`
+now counts over the population the rates actually describe.
+
+**Spend was only guarded between top-up rounds.** Filling an empty buffer is the largest
+single piece of research a run ever does, and it was the one path that ignored the day's
+ceiling.
+
+**A quiet morning has to be recorded.** The scheduler decides whether today's digest is due
+by asking when the last one went out. Had silence recorded nothing, every tick for the rest
+of the day would have built an empty digest and asked again — and on the morning something
+did happen, it would have arrived at whatever hour the first event landed rather than the
+hour the operator chose.
+
 ## Not in this work package
 
 - Automatic segment reallocation. Deferred above, with its preconditions written down.
