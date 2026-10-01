@@ -18,6 +18,7 @@ import {
   suppressProspectFn,
   updateEndeavourSettingsFn,
   pinSegmentShareFn,
+  logInteractionFn,
   updateMailboxLimitsFn,
   updateSettingsFn,
   purgeEndeavourFn,
@@ -76,6 +77,10 @@ export const useCreateMailboxAlias = () =>
         `${out.alias.address} exists — Gmail needs you to add it as a send-as. See Walkthroughs.`,
   );
 export const useUpdateEndeavourSettings = () => useAction(updateEndeavourSettingsFn, "Configuration saved");
+export const useLogInteraction = () =>
+  useAction(logInteractionFn, (input) =>
+    input.direction === "inbound" ? "Recorded: they answered" : "Recorded: you reached out",
+  );
 export const usePinSegmentShare = () =>
   useAction(pinSegmentShareFn, (input) =>
     input.share === null ? "Back to the equal split" : `Pinned at ${input.share}`,

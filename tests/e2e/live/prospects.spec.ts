@@ -51,3 +51,42 @@ test.describe("prospect inspector", () => {
     expect(await query("select kind, value from suppressions")).toEqual([{ kind: "domain", value: "northbridge.example" }]);
   });
 });
+
+test.describe("contact that did not go through the mailbox", () => {
+  test.beforeEach(async () => {
+    await resetDatabase();
+    dbScript("seed-fixtures");
+  });
+  test.afterAll(() => resetDatabase());
+
+  test("records a conversation happening elsewhere, and says it is kept out of the rates", async ({ page }) => {
+    await signIn(page, "/prospects");
+    await page.getByRole("cell", { name: "Northbridge Protocol" }).click();
+    await page.getByTestId("log-contact").click();
+
+    const form = page.getByTestId("log-interaction");
+    await form.getByLabel("Channel").selectOption("discord");
+    await form.getByLabel("Direction").selectOption("inbound");
+    await form.getByLabel("Note").fill("Answered in their server");
+    // The operator has to know this does not improve their reply rate, or every number
+    // after it is misread.
+    await expect(form).toContainText("kept out of the reply and meeting rates");
+    await form.getByRole("button", { name: "Record it" }).click();
+
+    await expect(page.locator("[data-sonner-toast]").first()).toContainText("they answered");
+    expect(await query("select channel, direction from interactions")).toEqual([
+      { channel: "discord", direction: "inbound" },
+    ]);
+  });
+
+  test("refuses a date that has not happened", async ({ page }) => {
+    await signIn(page, "/prospects");
+    await page.getByRole("cell", { name: "Northbridge Protocol" }).click();
+    await page.getByTestId("log-contact").click();
+
+    const form = page.getByTestId("log-interaction");
+    await form.getByLabel("When it happened").fill("2099-01-01");
+    await expect(form).toContainText("has not happened yet");
+    await expect(form.getByRole("button", { name: "Record it" })).toBeDisabled();
+  });
+});

@@ -265,6 +265,22 @@ export const updateStatTilesFn = createServerFn({ method: "POST" })
     return updateStatTiles(await live(), data.tiles);
   });
 
+export const logInteractionFn = createServerFn({ method: "POST" })
+  .middleware([requireSession])
+  .validator(
+    z.object({
+      prospectId: id,
+      channel: z.enum(["discord", "linkedin", "x", "call", "in_person", "email", "other"]),
+      direction: z.enum(["outbound", "inbound"]),
+      occurredAt: z.iso.datetime(),
+      note: z.string().max(500).nullable(),
+    }),
+  )
+  .handler(async ({ data }) => {
+    const { logInteraction } = await import("../server/commands/interactions");
+    return logInteraction(await live(), { ...data, occurredAt: new Date(data.occurredAt) });
+  });
+
 export const pinSegmentShareFn = createServerFn({ method: "POST" })
   .middleware([requireSession])
   .validator(z.object({ segmentId: id, share: z.number().nullable() }))
