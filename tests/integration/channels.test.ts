@@ -122,15 +122,38 @@ describe("disconnectChannel", () => {
 });
 
 describe("deliveryChannel", () => {
-  it("sends to every connected channel", async () => {
+  it("sends to the one elected channel, not to everything ever connected", async () => {
+    // A digest arriving in two places is read in neither: the second copy is noise, and
+    // the operator learns to ignore both.
     const { calls, deps } = provider();
     await connectChannel(db, deps, { provider: "slack", values: { webhookUrl: HOOK } }, NOW);
-    await connectChannel(db, deps, { provider: "telegram", values: { botToken: "123456:AAHdqTcvCH1vGWJxfSeofSAs0K5PALDsaw", chatId: "9" } }, NOW);
+    const second = await connectChannel(
+      db,
+      deps,
+      { provider: "telegram", values: { botToken: "123456:AAHdqTcvCH1vGWJxfSeofSAs0K5PALDsaw", chatId: "9" } },
+      NOW,
+    );
+    expect(second.superseded).toEqual(["slack"]);
     calls.length = 0;
 
     const channel = await deliveryChannel(db, deps);
     await channel.deliver({ kind: "k", title: "T", body: "B" });
-    expect(calls.map((c) => new URL(c.url).host).sort()).toEqual(["api.telegram.org", "hooks.slack.com"]);
+    expect(calls.map((c) => new URL(c.url).host)).toEqual(["api.telegram.org"]);
+  });
+
+  it("keeps the retired one stored, so switching back is a reconnection not a hunt", async () => {
+    const { deps } = provider();
+    const first = await connectChannel(db, deps, { provider: "slack", values: { webhookUrl: HOOK } }, NOW);
+    await connectChannel(
+      db,
+      deps,
+      { provider: "telegram", values: { botToken: "123456:AAHdqTcvCH1vGWJxfSeofSAs0K5PALDsaw", chatId: "9" } },
+      NOW,
+    );
+
+    const rows = await db.select().from(t.notificationChannels);
+    expect(rows).toHaveLength(2);
+    expect(rows.find((r) => r.id === first.id)?.enabled).toBe(false);
   });
 
   it("falls back to however the box was configured before, when nothing is connected", async () => {

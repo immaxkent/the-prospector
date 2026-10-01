@@ -7,7 +7,8 @@ import { errorMessage } from "@/data/mutations";
 import { useAppMode } from "@/data/store";
 import { PROVIDERS, PROVIDER_INFO, type Provider } from "@/data/notify-providers";
 import { ProviderLogo } from "./provider-logos";
-import { Button, MachineLabel, StatusDot, Tag } from "./primitives";
+import { Button, MachineLabel, Tag } from "./primitives";
+import { cn } from "@/lib/utils";
 
 const inputCls =
   "w-full rounded-[3px] border border-border bg-card px-2 py-1.5 text-[12px] outline-none focus:border-signal";
@@ -38,7 +39,12 @@ export function NotificationChannel() {
       await refresh();
       setConnecting(null);
       setValues({});
-      toast.success(`${PROVIDER_INFO[result.provider as Provider].name} connected — a test has already arrived`);
+      const retired = (result as { superseded?: string[] }).superseded ?? [];
+      toast.success(
+        retired.length
+          ? `${PROVIDER_INFO[result.provider as Provider].name} is now the only endpoint — ${retired.map((p) => PROVIDER_INFO[p as Provider].name).join(" and ")} stopped receiving`
+          : `${PROVIDER_INFO[result.provider as Provider].name} connected — a test has already arrived`,
+      );
     },
     onError: (err) => toast.error(errorMessage(err)),
   });
@@ -91,17 +97,28 @@ export function NotificationChannel() {
       ) : (
         <ul className="space-y-2" data-testid="connected-channels">
           {connected.map((channel) => (
-            <li key={channel.id} className="flex flex-wrap items-center justify-between gap-2 rounded-[3px] border border-border px-3 py-2">
+            <li
+              key={channel.id}
+              data-testid={`channel-${channel.id}`}
+              className={cn(
+                "flex flex-wrap items-center justify-between gap-2 rounded-[3px] border border-border px-3 py-2",
+                // Retired channels stay listed so switching back is a reconnection rather
+                // than a hunt for a credential, but they must not read as live.
+                !channel.enabled && "opacity-50",
+              )}
+            >
               <span className="flex items-center gap-2 text-[13px]">
                 <ProviderLogo provider={channel.provider} />
                 {PROVIDER_INFO[channel.provider].name}
                 <span className="machine text-muted-foreground">{channel.label}</span>
               </span>
               <span className="flex items-center gap-2">
-                {channel.lastError ? (
+                {!channel.enabled ? (
+                  <Tag>RETIRED</Tag>
+                ) : channel.lastError ? (
                   <Tag tone="warn">LAST SEND FAILED</Tag>
                 ) : (
-                  <StatusDot tone="ok" />
+                  <Tag tone="signal">RECEIVING</Tag>
                 )}
                 <Button size="sm" disabled={busy} onClick={() => test.mutate(channel.id)}>
                   Send a test
@@ -115,6 +132,12 @@ export function NotificationChannel() {
           ))}
         </ul>
       )}
+
+      <p className="text-[13px] text-muted-foreground" data-testid="one-endpoint-note">
+        Notifications go to one endpoint. Connecting another elects it and retires this one — the
+        credential is kept, so switching back is a reconnection rather than a hunt. A digest
+        arriving in two places is read in neither.
+      </p>
 
       {connecting === null ? (
         <div className="flex flex-wrap gap-2">

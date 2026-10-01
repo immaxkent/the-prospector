@@ -49,3 +49,10 @@ test("the connect form can be abandoned without leaving anything behind", async 
   await panel.getByRole("button", { name: "Cancel" }).click();
   await expect(panel.getByTestId("connect-form")).toHaveCount(0);
 });
+
+test("says there is only one endpoint, rather than leaving a silent switch", async ({ page }) => {
+  await signIn(page, "/settings");
+  const panel = page.getByTestId("notification-channel");
+  await expect(panel.getByTestId("one-endpoint-note")).toContainText("read in neither");
+  await expect(panel.getByTestId("one-endpoint-note")).toContainText("the credential is kept");
+});
