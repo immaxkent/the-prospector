@@ -158,3 +158,50 @@ export function planWorkload(input: WorkloadInput): Workload {
 
   return { newProspects, wanted, gap, expectedFromPipeline, rates, limitedBy, feasible, notes };
 }
+
+/* ---------- what the rates are counted over ---------- */
+
+export interface RateInputProspect {
+  id: string;
+  stage: string;
+  reviewStatus?: string;
+}
+
+export interface RateInputMessage {
+  prospectId: string | null;
+  direction: "outbound" | "inbound";
+  sendState?: string | null;
+}
+
+/**
+ * The observations the rates are built from, counted over prospects this endeavour actually
+ * emailed.
+ *
+ * A rate is a statement about a population, and this one says: when we send a cold email,
+ * what happens. A prospect that never got one does not belong in it — reached on Discord,
+ * imported mid-conversation, or introduced by someone. Counting it raises the meeting rate
+ * without ever having been a reply, and the arithmetic concludes a higher share of replies
+ * become meetings and asks for fewer prospects than the objective needs.
+ *
+ * Money is a different question and is counted separately: a deal won on Discord is still
+ * won, and still comes off the objective.
+ */
+export function rateObservations(
+  prospectRows: readonly RateInputProspect[],
+  messageRows: readonly RateInputMessage[],
+): Observed {
+  const own = new Set(prospectRows.map((p) => p.id));
+  const sent = messageRows.filter((m) => m.direction === "outbound" && m.sendState === "sent");
+  const emailed = new Set(sent.map((m) => m.prospectId).filter((id): id is string => !!id && own.has(id)));
+  const replied = new Set(
+    messageRows.filter((m) => m.direction === "inbound" && m.prospectId && own.has(m.prospectId)).map((m) => m.prospectId!),
+  );
+
+  const reached = prospectRows.filter((p) => emailed.has(p.id));
+  return {
+    sent: sent.length,
+    replies: replied.size,
+    meetings: reached.filter((p) => p.stage === "meeting" || p.stage === "proposal" || p.stage === "won").length,
+    wins: reached.filter((p) => p.stage === "won").length,
+  };
+}

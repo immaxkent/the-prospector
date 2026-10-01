@@ -662,3 +662,4 @@ describe("the prospecting setpoints", () => {
     expect(text).toMatch(/\d+\/\d+ pending · room for \d+ across 3 segment\(s\)/);
   });
 });
+

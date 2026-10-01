@@ -187,6 +187,35 @@ export const segments = pgTable("segments", {
   ...timestamps,
 });
 
+/**
+ * Contact that did not go through the mailbox: a Discord thread, a LinkedIn message, a call.
+ *
+ * A separate table rather than a row in `messages`, and that is the point. The conversion
+ * rates are built from `messages`, so anything recorded here cannot reach them by accident —
+ * counting a Discord conversation as a reply to an email nobody sent would inflate the reply
+ * rate and the system would decide fewer prospects were needed.
+ */
+export const interactions = pgTable(
+  "interactions",
+  {
+    id: id(),
+    endeavourId: text("endeavour_id")
+      .notNull()
+      .references(() => endeavours.id, { onDelete: "cascade" }),
+    prospectId: text("prospect_id")
+      .notNull()
+      .references(() => prospects.id, { onDelete: "cascade" }),
+    /** `email` means email sent from the operator's own client, outside this app. */
+    channel: text("channel", { enum: ["discord", "linkedin", "x", "call", "in_person", "email", "other"] }).notNull(),
+    direction: text("direction", { enum: ["outbound", "inbound"] }).notNull(),
+    /** When it happened, which is not when it was recorded. */
+    occurredAt: timestamp("occurred_at", { withTimezone: true }).notNull(),
+    note: text("note"),
+    ...timestamps,
+  },
+  (t) => [index("interactions_prospect_idx").on(t.prospectId), index("interactions_endeavour_idx").on(t.endeavourId)],
+);
+
 export const offers = pgTable("offers", {
   id: id(),
   endeavourId: text("endeavour_id")

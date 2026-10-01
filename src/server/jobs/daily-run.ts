@@ -46,7 +46,7 @@ import { effectiveDailyCap } from "../domain/mailbox";
 import { escalatedSearches, searchesFor } from "../domain/search-budget";
 import { allocateWithinCap } from "../domain/allocation";
 import { countProspecting, prospectingHalt, type ProspectingCount, type ProspectingSettings } from "../domain/prospecting";
-import { planWorkload, type Workload } from "../domain/workload";
+import { planWorkload, rateObservations, type Workload } from "../domain/workload";
 import { DEFAULT_STAGE_PROBABILITY } from "../read/pipeline";
 import { normaliseSettings } from "../domain/endeavour-settings";
 import { newId } from "../ids";
@@ -926,12 +926,7 @@ async function todaysWorkload(ctx: RunContext): Promise<Workload> {
           ? { value: pricing.minimumDeal, source: "minimum" as const }
           : { value: 0, source: "expected" as const };
 
-  const own_ids = new Set(own.map((p) => p.id));
   const messageRows = await ctx.db.select().from(messages).where(eq(messages.endeavourId, ctx.endeavourId));
-  const sent = messageRows.filter((m) => m.direction === "outbound" && m.sendState === "sent");
-  const repliedProspects = new Set(
-    messageRows.filter((m) => m.direction === "inbound" && m.prospectId && own_ids.has(m.prospectId)).map((m) => m.prospectId),
-  );
 
   // Days left in the sprint; an ongoing endeavour is paced a review period at a time.
   const endsOn = horizon?.kind === "sprint" ? horizon.endsOn : undefined;
@@ -954,12 +949,8 @@ async function todaysWorkload(ctx: RunContext): Promise<Workload> {
       count,
       probability: DEFAULT_STAGE_PROBABILITY[stage as keyof typeof DEFAULT_STAGE_PROBABILITY] ?? 0,
     })),
-    observed: {
-      sent: sent.length,
-      replies: repliedProspects.size,
-      meetings: own.filter((p) => ["meeting", "proposal", "won"].includes(p.stage)).length,
-      wins: own.filter((p) => p.stage === "won").length,
-    },
+    // Counted over prospects this endeavour actually emailed. See rateObservations.
+    observed: rateObservations(own, messageRows),
     dailyCeiling: dailyNewTarget,
     capacityToday,
     daysRemaining,

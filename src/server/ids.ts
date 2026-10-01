@@ -29,6 +29,7 @@ export const ID_PREFIXES = {
   event: "evt",
   notification: "ntf",
   notificationChannel: "nch",
+  interaction: "ixn",
 } as const;
 
 export type IdKind = keyof typeof ID_PREFIXES;
