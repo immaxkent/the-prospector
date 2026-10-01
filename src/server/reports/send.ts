@@ -14,8 +14,12 @@ import { endeavours } from "../db/schema";
 import { recordEvent } from "../commands/events";
 import type { DeliveryChannel } from "../notify/channels";
 import type { AgentDeps } from "../agent/deps";
+import { z } from "zod/v4";
+import { runStructured } from "../llm/structured";
 import { buildDigest } from "./digest";
-import { DIGEST_SENT, REVIEW_SENT, collectDigest } from "./collect";
+import { DIGEST_SENT, REVIEW_SENT, collectDigest, collectReview } from "./collect";
+import { buildReview, plainCovering, type ReviewFacts } from "./review";
+import { REVIEW_PROMPT, renderReviewInput } from "./review-prompt";
 
 export interface ReportDeps {
   notifications: DeliveryChannel;
@@ -36,8 +40,7 @@ export async function sendReport(db: Database, deps: ReportDeps, input: SendRepo
   if (!endeavour) return { sent: false, reason: "no such endeavour" as const };
 
   if (input.kind === "digest") return sendDigest(db, deps, input, endeavour.name);
-  // The weekly review is its own piece of work and arrives with T8.
-  return { sent: false, reason: "not implemented" as const };
+  return sendReview(db, deps, input, endeavour.name);
 }
 
 async function sendDigest(db: Database, deps: ReportDeps, input: SendReportInput, name: string) {
@@ -76,3 +79,56 @@ async function sendDigest(db: Database, deps: ReportDeps, input: SendReportInput
 }
 
 export { REVIEW_SENT };
+
+const coveringSchema = z.object({ covering: z.string().trim().min(1) });
+
+/**
+ * The covering sentence, or the flat one.
+ *
+ * A model that is unavailable, over budget or returns something unusable must not cost the
+ * operator the review: the lists are the part that matters and they are already counted.
+ * So every failure here falls back to a plain sentence rather than propagating.
+ */
+async function covering(deps: ReportDeps, facts: ReviewFacts, runId: string | null): Promise<string> {
+  if (!deps.agent) return plainCovering(facts);
+  try {
+    const { output } = await runStructured({
+      llm: deps.agent.llm,
+      record: deps.agent.record,
+      prompt: REVIEW_PROMPT,
+      schema: coveringSchema,
+      user: renderReviewInput(facts),
+      model: deps.agent.model,
+      depth: "light",
+      maxTokens: 400,
+      runId,
+    });
+    return output.covering;
+  } catch (err) {
+    console.error(`weekly review covering text failed, falling back to the plain one: ${err instanceof Error ? err.message : String(err)}`);
+    return plainCovering(facts);
+  }
+}
+
+async function sendReview(db: Database, deps: ReportDeps, input: SendReportInput, name: string) {
+  const facts = await collectReview(db, input.endeavourId, input.now);
+  if (!facts) return { sent: false, reason: "no such endeavour" as const };
+
+  const review = buildReview(facts, await covering(deps, facts, null));
+
+  // Always recorded and always sent, unlike the digest. A week in which nothing needed the
+  // operator is itself worth saying once: silence for a day means nothing happened, and
+  // silence for a week means nobody knows whether anything is running.
+  await recordEvent(db, {
+    eventType: REVIEW_SENT,
+    entityType: "endeavour",
+    entityId: input.endeavourId,
+    endeavourId: input.endeavourId,
+    subject: name,
+    detail: review.notification.title,
+    data: { sections: review.sections },
+  });
+
+  await deps.notifications.deliver(review.notification);
+  return { sent: true, sections: review.sections };
+}
