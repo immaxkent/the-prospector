@@ -265,6 +265,21 @@ export const updateStatTilesFn = createServerFn({ method: "POST" })
     return updateStatTiles(await live(), data.tiles);
   });
 
+export const resolveProspectsFn = createServerFn({ method: "POST" })
+  .middleware([requireSession])
+  .validator(
+    z.object({
+      endeavourId: id,
+      prospectIds: z.array(id).min(1).max(200),
+      resolution: z.enum(["dequeue", "reject", "won", "lost"]),
+      reason: z.string().max(500).nullable(),
+    }),
+  )
+  .handler(async ({ data }) => {
+    const { resolveProspects } = await import("../server/commands/resolve");
+    return resolveProspects(await live(), data);
+  });
+
 export const logInteractionFn = createServerFn({ method: "POST" })
   .middleware([requireSession])
   .validator(

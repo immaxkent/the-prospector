@@ -20,6 +20,7 @@ import { EndeavourStatusControls } from "@/components/os/EndeavourStatusControls
 import { EndeavourMailboxSelect } from "@/components/os/EndeavourMailboxSelect";
 import { StatTiles } from "@/components/os/StatTiles";
 import { ReviewList } from "@/components/os/ReviewList";
+import { ResolveList } from "@/components/os/ResolveList";
 import { DeleteEndeavour } from "@/components/os/DeleteEndeavour";
 import { AgentOrb } from "@/components/os/AgentOrb";
 import { RunNowControl } from "@/components/os/RunNowControl";
@@ -104,6 +105,18 @@ function EndeavourDetail() {
   // One clock for the whole row, so two tiles cannot disagree about what day it is.
   const statContext = { endeavour: e, budget: status.budget, now: new Date(), ...mine };
   const activity = dailyActivity(mine.threads, statContext.now);
+  /*
+   * Silent for a fortnight, and still live.
+   *
+   * The same fortnight the weekly review asks about, so the screen it links to shows the
+   * same prospects. Nothing here is moved — the list is the question, and the operator is
+   * the only one who answers it.
+   */
+  const quiet = mine.prospects.filter((p) => {
+    if (["won", "lost", "nurture"].includes(p.stage)) return false;
+    if (!p.lastTouch) return false;
+    return statContext.now.getTime() - new Date(p.lastTouch).getTime() >= 14 * 86_400_000;
+  });
 
   return (
     <div className="space-y-5">
@@ -225,6 +238,20 @@ function EndeavourDetail() {
           bodyClassName="px-4 py-4"
         >
           <ReviewList endeavourId={e.id} prospects={mine.prospects} />
+        </Panel>
+
+        {/* The other half of the review: what to clear out. Nothing leaves the buffer on
+            its own, so this is where the weekly review's "update on these" lands. */}
+        <Panel
+          title="GONE QUIET"
+          meta={<MachineLabel>NOTHING LEAVES THE LIST UNTIL YOU SAY SO</MachineLabel>}
+          bodyClassName="p-0"
+        >
+          <ResolveList
+            endeavourId={e.id}
+            prospects={quiet}
+            emptyNote="Nothing has gone quiet. Anything silent for a fortnight will appear here and in the weekly review."
+          />
         </Panel>
       </Section>
 

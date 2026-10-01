@@ -90,3 +90,23 @@ test.describe("contact that did not go through the mailbox", () => {
     await expect(form.getByRole("button", { name: "Record it" })).toBeDisabled();
   });
 });
+
+test.describe("clearing things out of the buffer", () => {
+  test.beforeEach(async () => {
+    await resetDatabase();
+    dbScript("seed-fixtures");
+  });
+  test.afterAll(() => resetDatabase());
+
+  test("says what each decision means, because dequeue and reject are not the same", async ({ page }) => {
+    // An operator who cannot see the difference records "never replied" as a rejection
+    // reason, which teaches the agent nothing.
+    await signIn(page, "/endeavours/end_fixture_solidity");
+    const bar = page.getByTestId("resolve-bar");
+    await expect(page.getByTestId("resolve-help")).toContainText("no judgement recorded");
+    await bar.getByRole("button", { name: "REJECT" }).click();
+    await expect(page.getByTestId("resolve-help")).toContainText("what the agent learns from");
+    // And it will not take a rejection with no reason.
+    await expect(bar.getByRole("button", { name: /^REJECT/ }).last()).toBeDisabled();
+  });
+});
