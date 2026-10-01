@@ -23,7 +23,8 @@ Rules:
 - Do not repeat the lists. They are directly below and the reader can see them.
 - No greeting, no sign-off, no "here is your weekly review".
 - Flat and specific rather than encouraging. "Three replies are waiting, the oldest nine days" is useful; "great progress this week" is not.
-- If nothing needs them, say so in one short sentence.`,
+- If nothing needs them, say so in one short sentence.
+- If a warning is given to you, it outranks everything else: lead with it.`,
 };
 
 export function renderReviewInput(facts: ReviewFacts): string {
@@ -37,5 +38,6 @@ export function renderReviewInput(facts: ReviewFacts): string {
     `Pending buffer: ${facts.pending} of ${facts.pendingCap}`,
     `Live conversations: ${facts.active} of a goal of ${facts.activeGoal}`,
     `Segments: ${facts.segments.map((s) => `${s.name} (${s.sent} sent, ${s.replies} replies)`).join("; ") || "none"}`,
+    ...(facts.objectiveWarning ? [`Warning to carry: ${facts.objectiveWarning}`] : []),
   ].join("\n");
 }

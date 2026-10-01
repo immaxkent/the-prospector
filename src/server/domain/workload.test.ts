@@ -1,5 +1,13 @@
 import { describe, expect, it } from "vitest";
-import { PRIOR_RATES, RATE_MIN_SAMPLE, planWorkload, rateObservations, type WorkloadInput } from "./workload";
+import {
+  PRIOR_RATES,
+  RATE_MIN_SAMPLE,
+  activeConversationsNeeded,
+  objectiveWarning,
+  planWorkload,
+  rateObservations,
+  type WorkloadInput,
+} from "./workload";
 
 const base: WorkloadInput = {
   objectiveValue: 6000,
@@ -211,5 +219,43 @@ describe("rateObservations", () => {
 
   it("ignores messages belonging to prospects that are not ours", () => {
     expect(rateObservations([{ id: "p1", stage: "contacted" }], [replyFrom("someone_else")]).replies).toBe(0);
+  });
+});
+
+describe("whether the setpoints can reach the objective", () => {
+  const rates = { reply: 0.05, meetingFromReply: 0.3, winFromMeeting: 0.25, perProspect: 0.00375, source: "prior" as const };
+
+  it("works out how many conversations the gap actually needs", () => {
+    // £6,000 left at £2,400 a deal is 2.5 wins; at 0.3 × 0.25 that is 34 conversations.
+    expect(activeConversationsNeeded(6000, 2400, rates)).toBe(34);
+  });
+
+  it("needs none once the objective is covered", () => {
+    expect(activeConversationsNeeded(0, 2400, rates)).toBe(0);
+  });
+
+  it("says nothing rather than dividing by nothing", () => {
+    // No deal value, or a conversion of zero: silence is the honest answer, not a warning
+    // built on arithmetic that cannot be done.
+    expect(activeConversationsNeeded(6000, 0, rates)).toBeNull();
+    expect(activeConversationsNeeded(6000, 2400, { ...rates, winFromMeeting: 0 })).toBeNull();
+  });
+
+  it("stays quiet when the goal is enough", () => {
+    expect(objectiveWarning(12, 20, "measured")).toBeNull();
+    expect(objectiveWarning(20, 20, "measured")).toBeNull();
+    expect(objectiveWarning(null, 20, "measured")).toBeNull();
+  });
+
+  it("says what the goal would have to be, and on what basis", () => {
+    // Measured and assumed are different advice: one says raise the goal, the other says
+    // the number is a guess that the first replies will move.
+    expect(objectiveWarning(34, 20, "measured")).toContain("on your measured rates, that needs about 34");
+    expect(objectiveWarning(34, 20, "prior")).toContain("which the first replies will correct");
+    expect(objectiveWarning(34, 20, "mixed")).toContain("partly measured");
+  });
+
+  it("says out loud what it is assuming", () => {
+    expect(objectiveWarning(34, 20, "measured")).toContain("assuming they resolve before the deadline");
   });
 });

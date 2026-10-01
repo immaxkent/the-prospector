@@ -16,6 +16,7 @@ const facts = (over: Partial<ReviewFacts> = {}): ReviewFacts => ({
   active: 6,
   activeGoal: 20,
   minSample: 15,
+  objectiveWarning: null,
   ...over,
 });
 
@@ -49,6 +50,15 @@ describe("buildReview", () => {
       "· Quiet — silent 20 days",
       "· Discord — in talks elsewhere, nothing logged for 9 days",
     ]);
+  });
+
+  it("puts a warning about the setpoints straight after the setpoints it is about", () => {
+    // A reader who takes those two numbers as healthy has to learn immediately that they
+    // are not enough; anywhere lower and the figures above it read as fine.
+    const warning = "A goal of 20 live conversations will not reach the objective.";
+    const review = buildReview(facts({ objectiveWarning: warning }), "x");
+    const news = review.sections.at(-1)!;
+    expect(news.lines[1]).toBe(`· ${warning}`);
   });
 
   it("always carries NEWS, and leads it with where the buffer stands", () => {

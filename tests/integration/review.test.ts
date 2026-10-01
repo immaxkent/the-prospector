@@ -110,3 +110,31 @@ describe("the weekly review", () => {
     expect(sent[0]!.body).toMatch(/need you this week|Nothing is waiting on you/);
   });
 });
+
+describe("the objective warning", () => {
+  it("says the goal is not enough when the arithmetic says so", async () => {
+    // The setpoints are about capacity and know nothing about the objective, so without
+    // this a perfectly healthy endeavour sits at its numbers while the deadline passes.
+    await db
+      .update(t.endeavours)
+      .set({ settings: { prospecting: { maximumPending: 50, activeGoal: 2, paused: false } } })
+      .where(eq(t.endeavours.id, FIXTURE_IDS.endeavour));
+
+    const { sent, run } = send();
+    await run();
+    expect(sent[0]!.body).toContain("will not reach the objective");
+    // The basis is named: assumed rates are a guess the first replies will correct.
+    expect(sent[0]!.body).toContain("assumed rates");
+  });
+
+  it("stays quiet when the goal is enough", async () => {
+    await db
+      .update(t.endeavours)
+      .set({ settings: { prospecting: { maximumPending: 50, activeGoal: 400, paused: false } } })
+      .where(eq(t.endeavours.id, FIXTURE_IDS.endeavour));
+
+    const { sent, run } = send();
+    await run();
+    expect(sent[0]!.body).not.toContain("will not reach the objective");
+  });
+});

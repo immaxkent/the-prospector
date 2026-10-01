@@ -11,7 +11,8 @@ import { companies, endeavours, events, interactions, messages, prospects, segme
 import { normaliseSettings } from "../domain/endeavour-settings";
 import { countProspecting, haltNotice, prospectingHalt } from "../domain/prospecting";
 import { allocate } from "../domain/allocation";
-import { RATE_MIN_SAMPLE } from "../domain/workload";
+import { RATE_MIN_SAMPLE, activeConversationsNeeded, objectiveWarning } from "../domain/workload";
+import { planWorkloadFor } from "../read/workload";
 import type { DigestInput } from "./digest";
 import type { ReviewFacts } from "./review";
 
@@ -256,5 +257,30 @@ export async function collectReview(db: Database, endeavourId: string, now: Date
     active: count.active,
     activeGoal: settings.activeGoal,
     minSample: RATE_MIN_SAMPLE,
+    // The same arithmetic the daily run uses, so the two cannot disagree about whether the
+    // objective is reachable. A failure here costs the warning, not the review.
+    objectiveWarning: await objectiveShortfall(db, endeavourId, now, settings.activeGoal),
   };
+}
+
+
+/**
+ * Whether the operator's goal for live conversations can reach the objective.
+ *
+ * Null when it can, or when the arithmetic cannot be done — no deal value, no conversion.
+ * Silence is the honest answer there; a warning built on a divide by nothing is worse than
+ * none, because it would be acted on.
+ */
+async function objectiveShortfall(db: Database, endeavourId: string, now: Date, activeGoal: number) {
+  try {
+    const workload = await planWorkloadFor(db, endeavourId, now);
+    return objectiveWarning(
+      activeConversationsNeeded(workload.gap, workload.dealValue, workload.rates),
+      activeGoal,
+      workload.rates.source,
+    );
+  } catch (err) {
+    console.error(`objective warning skipped: ${err instanceof Error ? err.message : String(err)}`);
+    return null;
+  }
 }

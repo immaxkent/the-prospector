@@ -46,7 +46,8 @@ import { effectiveDailyCap } from "../domain/mailbox";
 import { escalatedSearches, searchesFor } from "../domain/search-budget";
 import { allocateWithinCap } from "../domain/allocation";
 import { countProspecting, haltNotice, prospectingHalt, type ProspectingCount, type ProspectingSettings } from "../domain/prospecting";
-import { planWorkload, rateObservations, type Workload } from "../domain/workload";
+import { type Workload } from "../domain/workload";
+import { planWorkloadFor } from "../read/workload";
 import { DEFAULT_STAGE_PROBABILITY } from "../read/pipeline";
 import { normaliseSettings } from "../domain/endeavour-settings";
 import { newId } from "../ids";
@@ -877,68 +878,7 @@ async function endeavourBrief(ctx: RunContext) {
  * carries part of the objective, so only the remainder has to be started now.
  */
 async function todaysWorkload(ctx: RunContext): Promise<Workload> {
-  const { endeavour, dailyNewTarget } = await endeavourBrief(ctx);
-  const value = <T>(f: { state: string } & Record<string, unknown>) =>
-    f.state === "stated" || f.state === "confirmed" ? (f["value"] as T) : undefined;
-  const objective = value<{ metric: string; target: number }>(endeavour.spec.objective);
-  const pricing = value<{ amount?: number; expectedDeal?: number; minimumDeal?: number }>(endeavour.spec.pricing);
-  const horizon = value<{ kind: string; endsOn?: string }>(endeavour.spec.horizon);
-
-  const own = await ctx.db.select().from(prospects).where(eq(prospects.endeavourId, ctx.endeavourId));
-  const live = own.filter((p) => p.reviewStatus !== "rejected" && p.stage !== "won" && p.stage !== "lost");
-  const byStage = new Map<string, number>();
-  for (const p of live) byStage.set(p.stage, (byStage.get(p.stage) ?? 0) + 1);
-
-  const opportunityRows = await ctx.db.select().from(opportunities).where(eq(opportunities.endeavourId, ctx.endeavourId));
-  const wonDeals = opportunityRows.filter((o) => o.stage === "won");
-
-  /**
-   * An objective counted in partnerships or customers is not measured in money: each win is
-   * worth exactly one, and there is no price to forecast from. Only revenue reasons in value.
-   */
-  const counted = objective?.metric !== "revenue";
-  const wonValue = counted ? own.filter((p) => p.stage === "won").length : wonDeals.reduce((sum, o) => sum + o.value, 0);
-
-  // Evidence first: what deals actually turned out to be worth beats any estimate of them.
-  const deal = wonDeals.length
-    ? { value: wonValue / wonDeals.length, source: "measured" as const }
-    : pricing?.expectedDeal
-      ? { value: pricing.expectedDeal, source: "expected" as const }
-      : pricing?.amount
-        ? { value: pricing.amount, source: "fixed" as const }
-        : pricing?.minimumDeal
-          ? { value: pricing.minimumDeal, source: "minimum" as const }
-          : { value: 0, source: "expected" as const };
-
-  const messageRows = await ctx.db.select().from(messages).where(eq(messages.endeavourId, ctx.endeavourId));
-
-  // Days left in the sprint; an ongoing endeavour is paced a review period at a time.
-  const endsOn = horizon?.kind === "sprint" ? horizon.endsOn : undefined;
-  const daysRemaining = endsOn
-    ? Math.max(1, Math.ceil((new Date(`${endsOn}T23:59:59Z`).getTime() - ctx.now.getTime()) / 86_400_000))
-    : 30;
-
-  const [mailbox] = endeavour.mailboxId
-    ? await ctx.db.select().from(mailboxes).where(eq(mailboxes.id, endeavour.mailboxId))
-    : [];
-  const capacityToday = mailbox ? effectiveDailyCap(mailbox.limits, localDate(ctx.now, mailbox.limits.timezone)) : dailyNewTarget;
-
-  return planWorkload({
-    unit: counted ? "count" : "money",
-    objectiveValue: objective?.target ?? 0,
-    wonValue,
-    dealValue: counted ? 1 : deal.value,
-    ...(counted ? {} : { dealValueSource: deal.source }),
-    pipeline: [...byStage.entries()].map(([stage, count]) => ({
-      count,
-      probability: DEFAULT_STAGE_PROBABILITY[stage as keyof typeof DEFAULT_STAGE_PROBABILITY] ?? 0,
-    })),
-    // Counted over prospects this endeavour actually emailed. See rateObservations.
-    observed: rateObservations(own, messageRows),
-    dailyCeiling: dailyNewTarget,
-    capacityToday,
-    daysRemaining,
-  });
+  return planWorkloadFor(ctx.db, ctx.endeavourId, ctx.now);
 }
 
 /** Starts today's run, or returns the existing one so a repeated trigger never duplicates work. */

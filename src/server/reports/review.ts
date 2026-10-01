@@ -39,6 +39,12 @@ export interface ReviewFacts {
   activeGoal: number;
   /** Below this many sends, a per-segment rate is not worth reading. */
   minSample: number;
+  /**
+   * Set when the setpoints cannot reach the objective. The setpoints are about capacity and
+   * know nothing about the goal, so without this a perfectly healthy endeavour sits at its
+   * numbers while the deadline goes past.
+   */
+  objectiveWarning: string | null;
 }
 
 export interface Review {
@@ -109,6 +115,9 @@ export function buildReview(facts: ReviewFacts, covering: string): Review {
     title: "NEWS",
     lines: [
       `· ${facts.pending}/${facts.pendingCap} pending · ${facts.active}/${facts.activeGoal} live conversations`,
+      // First after the setpoints, because it is about them: a reader who takes those two
+      // numbers as healthy needs to know immediately that they are not enough.
+      ...(facts.objectiveWarning ? [`· ${facts.objectiveWarning}`] : []),
       ...facts.segments.map((segment) => segmentLine(segment, facts.minSample)),
     ],
   });

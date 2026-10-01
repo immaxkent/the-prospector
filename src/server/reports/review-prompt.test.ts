@@ -15,6 +15,7 @@ const facts: ReviewFacts = {
   active: 6,
   activeGoal: 20,
   minSample: 15,
+  objectiveWarning: null,
 };
 
 describe("the review prompt", () => {
