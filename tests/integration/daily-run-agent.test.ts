@@ -566,7 +566,7 @@ describe("notifications", () => {
 });
 
 describe("the prospecting setpoints", () => {
-  const setpoints = (prospecting: { maximumPending: number; activeGoal: number; paused: boolean }) =>
+  const setpoints = (prospecting: { maximumPending: number; activeGoal: number; paused: boolean; allocation: "even" | "automatic" }) =>
     db
       .update(t.endeavours)
       .set({ settings: { prospecting } })
@@ -589,7 +589,7 @@ describe("the prospecting setpoints", () => {
   it("stops when the buffer is full, and says how full and what unblocks it", async () => {
     // The stall is deliberate — nothing leaves the buffer without the operator — so the one
     // thing that must never happen is the run going quiet without saying why.
-    await setpoints({ maximumPending: 3, activeGoal: 20, paused: false });
+    await setpoints({ maximumPending: 3, activeGoal: 20, paused: false, allocation: "even" as const });
     await fillBuffer(3, "qualified");
 
     const { runId } = await run({ agent: agent() });
@@ -609,7 +609,7 @@ describe("the prospecting setpoints", () => {
   it("calls a met goal a met goal, not a full queue", async () => {
     // Both are true when the pipeline is healthy. Reporting the queue would send the
     // operator off to clear work that is doing exactly what it should.
-    await setpoints({ maximumPending: 1, activeGoal: 2, paused: false });
+    await setpoints({ maximumPending: 1, activeGoal: 2, paused: false, allocation: "even" as const });
     await fillBuffer(2, "replied");
 
     await run({ agent: agent() });
@@ -620,7 +620,7 @@ describe("the prospecting setpoints", () => {
   });
 
   it("does nothing at all while the operator has it paused", async () => {
-    await setpoints({ maximumPending: 50, activeGoal: 20, paused: true });
+    await setpoints({ maximumPending: 50, activeGoal: 20, paused: true, allocation: "even" as const });
     await run({ agent: agent() });
 
     expect(await logText()).toContain("Prospecting is paused. Nothing new will be looked for");
@@ -663,3 +663,25 @@ describe("the prospecting setpoints", () => {
   });
 });
 
+
+describe("weighting the buffer by reply rate", () => {
+  const mode = (allocation: "even" | "automatic") =>
+    db
+      .update(t.endeavours)
+      .set({ settings: { prospecting: { maximumPending: 50, activeGoal: 20, paused: false, allocation } } })
+      .where(eq(t.endeavours.id, FIXTURE_IDS.endeavour));
+
+  it("says it is on and waiting, rather than acting as if it had weighted anything", async () => {
+    // The common case by far, and the one that would otherwise be invisible: turned on,
+    // dividing evenly, because nothing yet has a sample worth reading.
+    await mode("automatic");
+    await run({ agent: agent() });
+    expect(await logText()).toContain("the evidence is too thin, so the buffer is split evenly");
+  });
+
+  it("says nothing about weighting when the operator has not asked for it", async () => {
+    await mode("even");
+    await run({ agent: agent() });
+    expect(await logText()).not.toContain("weighting");
+  });
+});

@@ -320,7 +320,12 @@ export const updateEndeavourSettingsFn = createServerFn({ method: "POST" })
       // Optional so a caller editing only pacing cannot reset the setpoints by omission.
       // The bounds are the command's to enforce, with a message the operator can read.
       prospecting: z
-        .object({ maximumPending: z.number(), activeGoal: z.number(), paused: z.boolean() })
+        .object({
+          maximumPending: z.number(),
+          activeGoal: z.number(),
+          paused: z.boolean(),
+          allocation: z.enum(["even", "automatic"]),
+        })
         .optional(),
       reporting: z
         .object({
