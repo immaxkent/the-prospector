@@ -2,6 +2,8 @@ import { normaliseSettings } from "../domain/endeavour-settings";
 import type { Endeavour, Health, PipelineStage as ViewStage } from "@/data/types";
 import type { EndeavourSpec, FieldState } from "../domain/endeavour-spec";
 import { PROGRESSION } from "../domain/pipeline";
+import { allocate } from "../domain/allocation";
+import { countProspecting } from "../domain/prospecting";
 import {
   daysBetween,
   iso,
@@ -13,6 +15,7 @@ import {
   type OpportunityRow,
   type ProspectRow,
   type RunRow,
+  type SegmentRow,
 } from "./rows";
 
 export interface EndeavourInputs {
@@ -23,6 +26,7 @@ export interface EndeavourInputs {
   approvals: readonly ApprovalRow[];
   runs: readonly RunRow[];
   insights: readonly InsightRow[];
+  segments: readonly SegmentRow[];
   now: Date;
 }
 
@@ -115,6 +119,19 @@ export function buildEndeavour(input: EndeavourInputs): Endeavour {
     input.messages.filter((m) => m.direction === "outbound" && m.messageClass === cls && sameLocalDay(m.sentAt, now))
       .length;
 
+  // How the pending buffer is actually divided, so the operator can see where it went and
+  // pin a share rather than guess at the arithmetic.
+  const settings = normaliseSettings(e.settings);
+  const counted = countProspecting(input.prospects);
+  const live = input.segments.filter((seg) => seg.status === "active");
+  const shares = new Map(
+    allocate(
+      live.map((seg) => ({ id: seg.id, priority: seg.priority, pinned: seg.pinnedShare })),
+      settings.prospecting.maximumPending,
+      counted.pendingBySegment,
+    ).map((a) => [a.segmentId, a]),
+  );
+
   const pending = input.approvals
     .filter((a) => a.status === "pending")
     .sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime());
@@ -135,7 +152,20 @@ export function buildEndeavour(input: EndeavourInputs): Endeavour {
     status: e.status,
     mailboxId: e.mailboxId,
     fromAlias: e.fromAlias,
-    settings: normaliseSettings(e.settings),
+    settings,
+    pendingProspects: counted.pending,
+    activeConversations: counted.active,
+    segments: live
+      .slice()
+      .sort((a, b) => a.priority - b.priority || a.id.localeCompare(b.id))
+      .map((seg) => ({
+        id: seg.id,
+        name: seg.name,
+        priority: seg.priority,
+        pinnedShare: seg.pinnedShare,
+        pending: counted.pendingBySegment.get(seg.id) ?? 0,
+        share: shares.get(seg.id)?.share ?? 0,
+      })),
     objective: objectiveText(spec),
     unit: isRevenue ? "GBP" : "COUNT",
     targetValue: target,

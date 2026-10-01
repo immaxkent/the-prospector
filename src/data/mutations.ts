@@ -17,6 +17,7 @@ import {
   setEndeavourStatusFn,
   suppressProspectFn,
   updateEndeavourSettingsFn,
+  pinSegmentShareFn,
   updateMailboxLimitsFn,
   updateSettingsFn,
   purgeEndeavourFn,
@@ -75,6 +76,10 @@ export const useCreateMailboxAlias = () =>
         `${out.alias.address} exists — Gmail needs you to add it as a send-as. See Walkthroughs.`,
   );
 export const useUpdateEndeavourSettings = () => useAction(updateEndeavourSettingsFn, "Configuration saved");
+export const usePinSegmentShare = () =>
+  useAction(pinSegmentShareFn, (input) =>
+    input.share === null ? "Back to the equal split" : `Pinned at ${input.share}`,
+  );
 export const useUpdateSettings = () =>
   useAction(updateSettingsFn, (input) => `Model ${input.model} · £${(input.monthlyBudgetPence / 100).toFixed(2)} a month`);
 export const usePurgeEndeavour = () =>

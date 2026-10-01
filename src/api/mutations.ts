@@ -265,6 +265,14 @@ export const updateStatTilesFn = createServerFn({ method: "POST" })
     return updateStatTiles(await live(), data.tiles);
   });
 
+export const pinSegmentShareFn = createServerFn({ method: "POST" })
+  .middleware([requireSession])
+  .validator(z.object({ segmentId: id, share: z.number().nullable() }))
+  .handler(async ({ data }) => {
+    const { pinSegmentShare } = await import("../server/commands/segment-share");
+    return pinSegmentShare(await live(), data);
+  });
+
 export const updateEndeavourSettingsFn = createServerFn({ method: "POST" })
   .middleware([requireSession])
   .validator(

@@ -44,6 +44,11 @@ export interface Endeavour {
     /** How much unanswered work may sit in front of the operator, and when to stop looking. */
     prospecting: { maximumPending: number; activeGoal: number; paused: boolean };
   };
+  /** Live and unanswered, and conversations in progress. Counted, never stored. */
+  pendingProspects: number;
+  activeConversations: number;
+  /** Active segments with how the pending buffer is split between them. */
+  segments: { id: string; name: string; priority: number; pinnedShare: number | null; pending: number; share: number }[];
   objective: string;
   unit: "GBP" | "COUNT";
   targetValue: number;

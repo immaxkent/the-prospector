@@ -177,6 +177,11 @@ export const segments = pgTable("segments", {
   signals: jsonb("signals").$type<string[]>().notNull(),
   painHypothesis: text("pain_hypothesis").notNull(),
   priority: integer("priority").notNull(),
+  /**
+   * A share of the pending buffer the operator fixed by hand, or null to take the equal
+   * split. Pinned shares come off the top; what is left is divided between the rest.
+   */
+  pinnedShare: integer("pinned_share"),
   specVersion: integer("spec_version").notNull(),
   status: text("status", { enum: ["active", "retired"] }).notNull().default("active"),
   ...timestamps,

@@ -127,6 +127,7 @@ export async function loadDataset(db: Database, opts: DatasetOptions): Promise<D
         approvals: of(approvals, e.id),
         runs: of(runs, e.id),
         insights: of(insights, e.id),
+        segments: segments.filter((seg) => seg.endeavourId === e.id),
         now,
       }),
     ),

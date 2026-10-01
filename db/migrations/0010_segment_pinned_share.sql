@@ -1,0 +1,1 @@
+ALTER TABLE "segments" ADD COLUMN "pinned_share" integer;

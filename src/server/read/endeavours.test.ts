@@ -12,6 +12,7 @@ function inputs(o: Partial<EndeavourInputs> = {}): EndeavourInputs {
     approvals: [],
     runs: [],
     insights: [],
+  segments: [],
     now: T0,
     ...o,
   };

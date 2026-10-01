@@ -27,6 +27,7 @@ import { SectionRail, useSectionSpy } from "@/components/os/SectionRail";
 import { ActivityChart, FunnelChart } from "@/components/os/charts";
 import { dailyActivity, isQuiet } from "@/data/chart-series";
 import { EndeavourConfig } from "@/components/os/EndeavourConfig";
+import { SegmentShares } from "@/components/os/SegmentShares";
 import { StrategyEditor } from "@/components/os/StrategyEditor";
 import { gbp, num, pct, shortDate, stamp, daysUntil } from "@/lib/format";
 import type { PipelineStage } from "@/data/types";
@@ -329,6 +330,18 @@ function EndeavourDetail() {
           bodyClassName="p-0"
         >
           <EndeavourConfig endeavour={e} />
+        </Panel>
+
+        <Panel
+          title="SEGMENT SHARES"
+          meta={
+            <MachineLabel>
+              {e.pendingProspects}/{e.settings.prospecting.maximumPending} PENDING · {e.activeConversations} LIVE
+            </MachineLabel>
+          }
+          bodyClassName="p-0"
+        >
+          <SegmentShares endeavour={e} />
         </Panel>
 
         {/* Kept away from Pause and Archive: a destructive action beside a routine one

@@ -257,3 +257,23 @@ test("a walkthrough can be linked to directly and read on its own", async ({ pag
   await page.getByRole("button", { name: /all walkthroughs/i }).click();
   await expect(page.getByTestId("walkthrough-connect-slack")).toBeVisible();
 });
+
+test("the pending buffer shows where it went, and says the split is a default", async ({ page }) => {
+  await page.goto("/endeavours/end_solidity");
+  const shares = page.getByTestId("segment-shares");
+  await expect(shares).toBeVisible();
+
+  // Three segments, each with what it holds and what it may hold.
+  await expect(shares.locator("[data-testid^=segment-share-seg]")).toHaveCount(3);
+  await expect(shares.getByTestId("segment-share-seg_launch")).toContainText("18");
+
+  // A segment over its share says so, and says nothing is deleted to balance it.
+  await expect(shares.getByTestId("segment-share-seg_launch")).toContainText("nothing new until these resolve");
+  await expect(shares.getByTestId("segment-shares-summary")).toContainText("Divided evenly");
+});
+
+test("a pinned share is reported as a decision about all of them", async ({ page }) => {
+  await page.goto("/endeavours/end_liquidity");
+  const shares = page.getByTestId("segment-shares");
+  await expect(shares.getByTestId("segment-shares-summary")).toContainText("share what is left");
+});
