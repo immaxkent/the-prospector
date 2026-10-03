@@ -33,92 +33,80 @@ Three further things the log says plainly:
 - **The setpoints did work.** `0/50 pending · room for 50 across 3 segment(s)` — every
   segment was asked, which is the thing WP-20 set out to fix.
 
+## What can and cannot be automated
+
+This constrains everything from WP-26 onwards, so it is settled here rather than discovered
+later.
+
+| Channel | Cold outreach | Replying |
+|---|---|---|
+| **Email** | yes | yes |
+| **LinkedIn** | no API permits it; anything that does drives the web UI against their terms | manual |
+| **Discord** | bots may only DM users who share a server; unsolicited DMs are spam under their terms | yes, where they joined |
+| **Telegram** | the Bot API can only message someone who messaged the bot first | yes, once they have |
+| **Slack** | an app posts only where it is installed; Connect DMs need accepting | yes, in a shared workspace |
+
+The pattern is the same on all four: **they permit replying and none permit initiating.**
+Email is the only channel where cold outreach is both legitimate and deliverable.
+
+So the system writes the message, sends it where it legitimately can, and **hands it over
+ready to paste where it cannot** — which is what the interaction log already closes the loop
+on. That is a deliberate product decision, not a limitation to work around: automating the
+other three risks the accounts and the reputation they are worth having.
+
+Platform policies move. Re-check before building against any of them.
+
 ## Table of contents
 
-- **WP-21 — A day's money is shared between phases.** Research cannot spend what
-  qualification needs. The urgent one: without it nothing qualifies, and every work package
-  below is unverifiable.
-- **WP-22 — The endeavour page follows the work.** Sections in the order the work happens,
-  with everything not yet built marked as not yet built rather than shown half-finished.
-- **WP-23 — Research, finished.** Why two segments find nothing, what a candidate must
+Each is shippable on its own and each is finished before the next is started.
+
+- **WP-21 — A day's money is shared between phases.** *Done, merged.* Research can no longer
+  spend what qualification needs.
+- **WP-22 — The shell.** The endeavour page in the order the work happens, with everything
+  not yet built greyed and labelled. Small, and the prerequisite for the rest being legible.
+- **WP-23 — Research.** Find them. Why two segments return nothing, what a candidate must
   carry before it counts, and a research screen on the endeavour itself.
-- **WP-24 — Prospects, finished.** The list, the decision, and what has to be true before a
-  prospect is worth a person's attention.
-- **WP-25 — The prospect itself.** One screen per prospect: contacts, mailbox, LinkedIn,
-  socials, status, and everything that has happened.
-- **WP-26 — Outreach, finished.** Drafting, approving, sending, and what the operator sees
-  before it goes.
-- **WP-27 — Conversations.** Attributing a reply to the outreach that caused it, and
-  everything that follows from getting that right. Absorbs WP-19.
-- **WP-28 — Deals.** The pipeline as something that changes rather than something counted.
-- **WP-29 — The living view.** The node graph, designed with you rather than by me.
+- **WP-24 — Identify.** Decide which of them is a lead. Qualification you can read, and the
+  three states a prospect can be in.
+- **WP-25 — Reach.** Find the human and the way to them, per channel, with where it came
+  from. One page per prospect.
+- **WP-26 — Draft and cache.** Write the outreach. Email is sent; LinkedIn, Discord,
+  Telegram and Slack are prepared and handed over.
+- **WP-27 — Send and track.** The email half, automated: queue, pace, send, and know it
+  landed. The off-channel half: mark it sent when you have sent it.
+- **WP-28 — Conversations.** Attribute a reply to the outreach that caused it. Absorbs
+  WP-19.
+- **WP-29 — Deals.** The pipeline as something that changes rather than something counted.
+- **WP-30 — The living view.** The node graph, designed with you rather than by me.
   Supersedes WP-18.
 
 After the roadmap, not in it: concurrent endeavours (COMMAND across all of them) and
-intelligence (what is working, across time). Neither is worth building until one endeavour
-works end to end.
+intelligence (what works, over time). Neither is worth building until one endeavour works
+end to end.
 
 ---
 
-## WP-21 — A day's money is shared between phases
+## WP-22 — The shell
 
 ### Why
 
-A run is five phases that all cost money, and nothing stops the first one spending all of
-it. On 1 October research used $0.68 of a ~$0.61 day and qualification got nothing. The run
-then reported `stopping at 0 of 20 qualified`, which is accurate and useless: the money was
-gone before the sentence was written.
-
-This is not a budget-too-small problem. At any budget, an unsplit day lets discovery starve
-judgement — and discovery is the phase whose output is worthless without judgement.
-
-### The shape
-
-Each phase gets a share of the day, and spends only its own. Research is capped at a
-fraction of the allowance; qualification's share is reserved before research starts, because
-eighteen unqualified prospects are worth less than six qualified ones.
-
-A phase that hits its share says so against its own name, not against the day's.
-
-### Tasks
-
-| # | Task | Deliverable |
-|---|---|---|
-| T1 | Phase shares as a pure function: allowance → `{ research, qualify, draft, reply }`. Reserved, not first-come. | module + unit tests |
-| T2 | The run reads its phase's share and stops against that, naming the phase. | daily-run + integration test |
-| T3 | The brief and the digest report which phase ran out, not just that the day did. | wiring + test |
-| T4 | A test that reproduces 1 October: a day's allowance, research that would take all of it, and qualification still running. | integration test |
-
-### Done when
-
-A run on a 48p day qualifies something.
-
----
-
-## WP-22 — The endeavour page follows the work
-
-### Why
-
-The endeavour page is nine sections in an order that reflects the data model, not the work:
-overview, review, prospects, pipeline, outreach, strategy, configuration, intelligence, runs.
+The endeavour page is nine sections in an order that reflects the data model, not the work.
 Overview alone carries seven panels. There is no research section at all, so the stage that
 produced everything else is the one stage you cannot see.
 
-And most of what is on the page is half-built. Showing a half-built thing with no label is
-worse than not showing it: the reader cannot tell a broken feature from an empty one.
+Most of what is on the page is half-built, and showing a half-built thing unlabelled is
+worse than not showing it: you cannot tell a broken feature from an empty one.
 
 ### The shape
 
-Sections in the order the work happens:
-
 ```
-RESEARCH → PROSPECTS → PROSPECT → OUTREACH → CONVERSATIONS → DEALS
-                                                    then: STRATEGY · CONFIGURATION · RUNS
+RESEARCH → IDENTIFY → REACH → OUTREACH → CONVERSATIONS → DEALS
+                                    then: STRATEGY · CONFIGURATION · RUNS
 ```
 
-Everything downstream of the vertical currently being built is **greyed and labelled** —
-visible, so the shape of the whole is legible, and plainly marked as not yet finished. The
-section rail reflects the same order and shows the same state.
+Everything downstream of the vertical being built is **greyed and labelled** — visible, so
+the shape of the whole is legible, and plainly marked as not finished. The section rail
+shows the same order and the same state.
 
 Overview stops being a dashboard of everything and answers three questions: is it alive,
 what needs me, am I on track.
@@ -127,29 +115,25 @@ what needs me, am I on track.
 
 | # | Task | Deliverable |
 |---|---|---|
-| T1 | Reorder the sections and the rail; one source for the order. | route + e2e |
-| T2 | A `not-finished` treatment: dimmed, labelled, not interactive, with one line saying what it will do. | component + e2e |
+| T1 | Reorder the sections and the rail from one source. | route + e2e |
+| T2 | A `not-finished` treatment: dimmed, labelled, not interactive, one line on what it will do. | component + e2e |
 | T3 | Cut overview to the three questions; move the rest into the stage it belongs to. | route + e2e |
-| T4 | A RESEARCH section on the endeavour, which does not exist today. | route + e2e |
+| T4 | A RESEARCH section, which does not exist today. | route + e2e |
 
 ### Done when
 
-You can read the endeavour page top to bottom and know what has happened, what is next, and
-what is not built yet.
+You can read the page top to bottom and know what has happened, what is next, and what is
+not built.
 
 ---
 
-## WP-23 — Research, finished
+## WP-23 — Research
 
 ### Why
 
-This is the vertical to get completely right first, because everything downstream inherits
-its output. Right now:
-
-- Two of three segments return nothing, repeatedly, and still cost money.
-- A candidate can be stored with no contact and no company, which makes it unactionable
-  before anyone looks at it.
-- The run log is on a different page from the endeavour that produced it.
+Everything downstream inherits this. Right now two of three segments return nothing,
+repeatedly, and still cost money; a candidate can be stored with no contact and no company;
+and the run log is on a different page from the endeavour that produced it.
 
 ### The shape
 
@@ -157,20 +141,20 @@ Research answers one question per candidate: **is there a specific, dated, check
 to write to this company now.** A candidate without one is not a thin candidate, it is not a
 candidate.
 
-The dry-segment problem is diagnosed before it is fixed. Two possibilities and they need
-different answers: the definition describes something the web cannot show, or the search
-strategy is not looking where the evidence lives.
+The dry-segment problem is diagnosed before it is fixed. Two causes need different answers:
+the definition describes something the web cannot show, or the search is not looking where
+the evidence lives.
 
 ### Tasks
 
 | # | Task | Deliverable |
 |---|---|---|
 | T1 | Instrument a dry segment: record the queries issued and what came back, so "0 proposed" becomes answerable. | wiring + integration test |
-| T2 | Diagnose segments 2 and 3 against real searches, and write up which of the two causes it is. | a finding, in this doc |
-| T3 | A candidate floor: no candidate is stored without a dated trigger and a source that can be opened. | command + tests |
-| T4 | Stop paying twice for nothing: a segment that returns zero twice is reported and rested, not escalated again. | daily-run + test |
-| T5 | The RESEARCH section on the endeavour — what ran, what it searched, what it found, what it cost. | route + e2e |
-| T6 | The discovery queue readable at a glance: trigger, evidence, and what is missing before it can be judged. | component + e2e |
+| T2 | Diagnose segments 2 and 3 against real searches; write up which cause it is. | a finding, in this doc |
+| T3 | A candidate floor: nothing stored without a dated trigger and a source that opens. | command + tests |
+| T4 | A segment returning zero twice is rested and reported, not escalated again. | daily-run + test |
+| T5 | The RESEARCH section: what ran, what it searched, what it found, what it cost. | route + e2e |
+| T6 | The discovery queue readable at a glance, including what is missing before it can be judged. | component + e2e |
 
 ### Done when
 
@@ -179,105 +163,143 @@ carries something a person could act on.
 
 ---
 
-## WP-24 — Prospects, finished
+## WP-24 — Identify
 
 ### Why
 
-The prospects list is where a person decides, and deciding needs less than the list
-currently shows and more than it currently says. A score with no explanation, a company with
-no contact, and a row that cannot be acted on all look the same.
+Qualification is the step that turns a candidate into a lead, and at the moment you cannot
+see it work: a score with no explanation, a company with no contact, and a row that cannot
+be acted on all look alike.
 
 ### The shape
 
 Three states, visibly different: **not yet judged**, **judged and waiting on you**, **judged
-and not worth it**. The list sorts by what needs you, not by score.
+and not worth it**. The list sorts by what needs you, not by score. Every score shows what it
+was made of.
 
 ### Tasks
 
 | # | Task | Deliverable |
 |---|---|---|
-| T1 | The three states as one derivation, used by every screen that shows a prospect. | module + unit tests |
+| T1 | The three states as one derivation, used by every screen showing a prospect. | module + unit tests |
 | T2 | The list ordered by what needs a decision, with the reason beside each row. | route + e2e |
-| T3 | Release, reject and dequeue reachable from the list in bulk — already built in WP-20, now surfaced here. | route + e2e |
-| T4 | A prospect that cannot be contacted says so before you open it. | component + e2e |
+| T3 | The score opened up: the factors, their weights, and the evidence each rests on. | component + e2e |
+| T4 | Release, reject and dequeue in bulk from the list — built in WP-20, surfaced here. | route + e2e |
 
 ### Done when
 
-You can clear a day's prospects without opening one you did not need to.
+You can clear a day's leads without opening one you did not need to.
 
 ---
 
-## WP-25 — The prospect itself
+## WP-25 — Reach
 
 ### Why
 
-Everything known about a company is currently spread across the prospects inspector, the
-mailbox, the interaction log and the evidence table. Deciding whether to write to someone
-means holding four screens in your head.
+A lead you cannot contact is not a lead. Contacts are currently spread across the inspector,
+the mailbox and the interaction log, and a prospect with no address looks the same as one
+with three.
 
 ### The shape
 
-One screen per prospect. Who they are, how they can be reached — email, LinkedIn, Discord,
-X, the company site — what has happened with them, and what the agent believes and why.
+One page per prospect. Who they are, every way to reach them — email, LinkedIn, Discord, X,
+Slack, the company site — **and where each came from**: found by research, added by you,
+seen in a reply. Provenance matters because an address the agent guessed is not the same as
+one you confirmed.
 
-Contacts are first-class: the operator adds them, the agent finds them, and both are shown
-with where they came from.
+Reachability is a first-class state, visible before you open the prospect.
 
 ### Tasks
 
 | # | Task | Deliverable |
 |---|---|---|
-| T1 | The prospect read model: identity, contacts with provenance, evidence, history, status. | module + unit tests |
-| T2 | The screen itself, reachable from the list and from the review. | route + e2e |
-| T3 | Contacts you can add, edit and mark preferred, with the channel shown. | command + e2e |
+| T1 | The prospect read model: identity, contacts with provenance and channel, evidence, history. | module + unit tests |
+| T2 | The page itself, reachable from the list and from the review. | route + e2e |
+| T3 | Contacts you can add, edit and mark preferred, with the channel and source shown. | command + e2e |
 | T4 | The full history on one timeline: research, qualification, outreach, replies, interactions logged by hand. | component + e2e |
+| T5 | Reachability shown on the list, so an unreachable lead is obvious before you open it. | component + e2e |
 
 ### Done when
 
-You can decide about a prospect without leaving its page.
+You can decide about a lead, and know how to reach it, without leaving its page.
 
 ---
 
-## WP-26 — Outreach, finished
+## WP-26 — Draft and cache
 
 ### Why
 
-Drafting works and sending works, but the operator's view of what is about to go out is
-thin, and nothing is drafted until a prospect is released — which makes release the real
-decision and the draft an afterthought. It should be the other way round.
+Email can be sent. The other four channels cannot, and pretending otherwise would either
+break their terms or quietly do nothing. So the system's job on those channels is to make
+the message ready and get out of the way.
+
+### The shape
+
+Every outreach is drafted the same way, from the same evidence, whatever channel it is for —
+and then **either queued for sending or cached for you to paste**, depending on what the
+channel allows.
+
+A cached message is not a lesser thing. It carries the channel, the handle, the message, and
+a one-press copy; marking it sent is one action, and that writes the interaction log entry
+that keeps the counters honest.
+
+Length and register follow the channel: a LinkedIn note is not an email, and a Discord
+message is neither.
 
 ### Tasks
 
 | # | Task | Deliverable |
 |---|---|---|
-| T1 | The draft shown beside the evidence it was written from. | component + e2e |
-| T2 | Edit before approving, not only approve or reject. | command + e2e |
-| T3 | What is queued, when it will go, and from which address — on the endeavour. | route + e2e |
-| T4 | A send that failed says so where the prospect is, not only in the digest. | wiring + test |
+| T1 | The draft carries its channel, and the prompt writes for that channel. | prompt + tests |
+| T2 | Drafts shown beside the evidence they were written from. | component + e2e |
+| T3 | Edit before approving, not only approve or reject. | command + e2e |
+| T4 | Cached outreach: channel, handle, message, copy, and one press to say it was sent. | route + e2e |
+| T5 | Marking a cached message sent writes the interaction log entry, so the counters stay right. | command + integration test |
 
 ### Done when
 
-You can read, change and approve a day's outreach in one pass.
+Every lead has a message ready, and sending it is one action whichever channel it is on.
 
 ---
 
-## WP-27 — Conversations
+## WP-27 — Send and track
 
 ### Why
 
-Twenty-five replies arrived and none was attributed to a prospect. Until that works, every
-reply is manual, the conversion rates are wrong, and follow-ups cannot know whether to stop.
-
-Absorbs WP-19, which specified the matching and was never built.
+The email half already mostly works and is under-reported: a send that failed appears in the
+digest and nowhere near the prospect it failed for.
 
 ### Tasks
 
 | # | Task | Deliverable |
 |---|---|---|
-| T1 | Attribute by mailbox, then by thread, then by address, and record which it was. | module + integration tests |
+| T1 | What is queued, when it will go, and from which address — on the endeavour. | route + e2e |
+| T2 | A failed send shown on the prospect, not only in the digest. | wiring + test |
+| T3 | Follow-ups visible as a sequence with its next date, and stoppable. | component + e2e |
+| T4 | Off-channel sends counted alongside email, and kept out of the email rates. | read model + tests |
+
+### Done when
+
+You can see everything that has gone out and everything about to.
+
+---
+
+## WP-28 — Conversations
+
+### Why
+
+Twenty-five replies arrived on 1 October and none was attributed to a prospect. Until that
+works every reply is manual, the conversion rates are wrong, and follow-ups cannot know to
+stop. Absorbs WP-19, which specified this and was never built.
+
+### Tasks
+
+| # | Task | Deliverable |
+|---|---|---|
+| T1 | Attribute by mailbox, then thread, then address, recording which it was. | module + integration tests |
 | T2 | What cannot be attributed is shown as such rather than silently dropped. | route + e2e |
 | T3 | A reply stops the follow-up sequence for that prospect. | command + test |
-| T4 | The conversation on the prospect's own page, in order, whichever channel it came through. | component + e2e |
+| T4 | The conversation on the prospect's page, in order, whichever channel it came through. | component + e2e |
 
 ### Done when
 
@@ -285,20 +307,19 @@ A reply lands against the right prospect without anyone touching it.
 
 ---
 
-## WP-28 — Deals
+## WP-29 — Deals
 
 ### Why
 
-The pipeline is currently a count. A deal has a value, a probability, a next action and a
-date, and those change — the screen should be where they change, not where they are
-displayed.
+The pipeline is a count. A deal has a value, a probability, a next action and a date, and
+those change — the screen should be where they change.
 
 ### Tasks
 
 | # | Task | Deliverable |
 |---|---|---|
-| T1 | Stage moves, value and probability edited where the deal is. | command + e2e |
-| T2 | Won and lost with a reason, feeding the deal value the objective arithmetic uses. | command + test |
+| T1 | Stage, value and probability edited where the deal is. | command + e2e |
+| T2 | Won and lost with a reason, feeding the deal value the objective uses. | command + test |
 | T3 | The objective read against real deals rather than assumed rates, once there are any. | wiring + test |
 
 ### Done when
@@ -307,25 +328,25 @@ Closing a deal takes one action and the objective moves.
 
 ---
 
-## WP-29 — The living view
+## WP-30 — The living view
 
 ### Why
 
 Deliberately last, and deliberately unspecified.
 
-I drew a version of this — six stage columns, a dot per prospect, movement animated along
-the edges — and you have said that is not what you have in mind. Rather than build mine and
-have it be wrong twice, this work package starts with your description.
+I drew a version — six stage columns, a dot per prospect, movement animated along the edges
+— and you have said that is not what you have in mind. Rather than build mine and have it be
+wrong twice, this starts with your description.
 
-**Supersedes WP-18**, whose only built part is `src/data/pipeline-field.ts` — a pure
-derivation from the dataset to stages and nodes. That is reusable whatever the view turns
-out to be; everything else in WP-18 should be read as a proposal that was not taken up.
+**Supersedes WP-18**, whose only built part is `src/data/pipeline-field.ts`: a pure
+derivation from the dataset to stages and nodes. That is reusable whatever the view turns out
+to be; the rest of WP-18 was a proposal that was not taken up.
 
 ### What I need before this can be scoped
 
-- What the thing is showing: the agent working, the prospects moving, or the money.
-- Whether it is a live view you watch, or a picture of the current state you glance at.
-- What you want to be able to tell at a glance that you cannot tell today.
+- What it is showing: the agent working, the leads moving, or the money.
+- Whether you watch it live, or glance at a picture of the current state.
+- What you want to tell at a glance that you cannot tell today.
 - Whether anything in it is clickable, and what happens when it is.
 
 ### Done when
@@ -336,9 +357,10 @@ It is scoped. The tasks cannot be written before the shape is agreed.
 
 ## Not in this roadmap
 
-- **Concurrent endeavours.** COMMAND as a view across all of them. Nothing to compare until
-  one works.
-- **Intelligence.** What is working, by segment, offer and message, over time. Needs volume
-  this does not have, and would currently be a screen of noise with a sample size of one.
-- **Automatic segment reallocation.** Built and off by default; its preconditions are in
+- **Concurrent endeavours.** COMMAND across all of them. Nothing to compare until one works.
+- **Intelligence.** What works, by segment, offer and message, over time. Needs volume this
+  does not have; today it would be a screen of noise with a sample size of one.
+- **Automatic segment reallocation.** Built and off by default; preconditions in
   `docs/prospecting-setpoints.md`.
+- **Automating cold outreach on LinkedIn, Discord, Telegram or Slack.** Not a sequencing
+  decision — see the table above.
