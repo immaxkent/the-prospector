@@ -347,6 +347,9 @@ test("research is on the endeavour at last, and says what is waiting to be judge
   const research = page.locator("#research");
   await expect(research).toBeAttached();
   await expect(research).toContainText("AWAITING QUALIFICATION");
+  // What the last look cost and kept, which is the question research has to answer.
+  await expect(research).toContainText("SEARCHES PAID FOR");
+  await expect(research).toContainText("BUFFER");
   // The fixture carries one researched-but-unscored prospect.
   await expect(research).toContainText("Halden Rollup");
 });

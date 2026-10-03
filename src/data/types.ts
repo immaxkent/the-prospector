@@ -265,6 +265,11 @@ export interface AgentRun {
   qualified: number;
   drafted: number;
   sent: number;
+  /** Web searches the run paid for. The largest single cost in one. */
+  searches: number;
+  /** Where the pending buffer stood when the run ended, and the cap it was held to. */
+  pending: number;
+  pendingCap: number;
 }
 
 export interface InterfaceEvent {

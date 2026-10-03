@@ -100,6 +100,9 @@ function EndeavourDetail() {
    * same prospects. Nothing here is moved — the list is the question, and the operator is
    * the only one who answers it.
    */
+  /** The newest finished run, which is what RESEARCH reports on. */
+  const lastRun = [...mine.runs].sort((a, b) => b.startedAt.localeCompare(a.startedAt)).find((r) => r.state !== "RUNNING");
+
   /** Found by research and not yet scored: the queue the RESEARCH section is about. */
   const found = mine.prospects.filter((p) => p.score === null && !["won", "lost", "nurture"].includes(p.stage));
 
@@ -186,6 +189,31 @@ function EndeavourDetail() {
       </Section>
 
       <Section id="research" label="RESEARCH">
+        <Panel title="THE LAST LOOK" bodyClassName="grid grid-cols-2 gap-3 px-4 py-4 md:grid-cols-4">
+          {lastRun ? (
+            <>
+              <MetricCell label="FOUND" value={num(lastRun.discovered)} />
+              <MetricCell label="QUALIFIED" value={num(lastRun.qualified)} tone={lastRun.qualified === 0 ? "warn" : "signal"} />
+              <MetricCell label="SEARCHES PAID FOR" value={num(lastRun.searches)} />
+              <MetricCell label="BUFFER" value={`${lastRun.pending}/${lastRun.pendingCap}`} />
+            </>
+          ) : (
+            <p className="col-span-full text-[13px] text-muted-foreground">
+              Nothing has run yet. The agent looks once a day, or press RUN NOW above.
+            </p>
+          )}
+        </Panel>
+
+        {lastRun && lastRun.discovered > 0 && lastRun.qualified === 0 && (
+          <Panel title="FOUND, BUT NONE KEPT" bodyClassName="px-4 py-4">
+            <p className="text-[13px] text-muted-foreground">
+              The last look found {lastRun.discovered} and qualified none of them. That is either the
+              segments matching the wrong companies, or qualification never getting paid for — the run
+              log says which, and it is on the research screen.
+            </p>
+          </Panel>
+        )}
+
         <Panel
           title="WHAT THE LAST RUN FOUND"
           meta={<MachineLabel>{found.length} AWAITING QUALIFICATION</MachineLabel>}

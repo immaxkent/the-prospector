@@ -14,6 +14,11 @@ export function buildRun(r: RunRow, now: Date): AgentRun {
     qualified: metric("qualified"),
     drafted: metric("drafted"),
     sent: metric("sent"),
+    /** What the looking cost, in web searches. The largest single cost in a run. */
+    searches: metric("searches"),
+    /** Prospects waiting on the operator when the run ended, and the cap they were held to. */
+    pending: metric("pending"),
+    pendingCap: metric("pendingCap"),
   };
 }
 
