@@ -5,6 +5,8 @@ import { cn } from "@/lib/utils";
 export interface Section {
   id: string;
   label: string;
+  /** False while the stage is planned but not written; the rail dims it and says so. */
+  built?: boolean;
 }
 
 /** Where the sticky header ends, and so where "the top of the page" is for a reader. */
@@ -109,6 +111,10 @@ export function SectionRail({ sections, active }: { sections: readonly Section[]
             <a
               key={section.id}
               href={`#${section.id}`}
+              data-testid={`rail-${section.id}`}
+              // The rail says the same thing the page does. A reader who jumps to a stage
+              // and finds nothing should have known before they jumped.
+              {...(section.built === false ? { "data-unbuilt": "true", title: "Not built yet" } : {})}
               aria-current={on ? "true" : undefined}
               className={cn(
                 "flex items-center gap-3 overflow-hidden rounded-2xl px-3 py-2.5 transition-colors duration-300",
@@ -126,7 +132,7 @@ export function SectionRail({ sections, active }: { sections: readonly Section[]
               <span
                 className={cn(
                   "machine whitespace-nowrap",
-                  on ? "text-foreground" : "text-ink-foreground",
+                  section.built === false ? "text-ink-foreground/45" : on ? "text-foreground" : "text-ink-foreground",
                 )}
               >
                 {section.label}
