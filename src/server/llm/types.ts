@@ -6,6 +6,13 @@ export type Effort = "low" | "medium" | "high" | "xhigh" | "max";
 export type Depth = "light" | "standard" | "deep";
 
 export interface LlmRequest {
+  /**
+   * Which prompt role asked for this, e.g. "research.discover".
+   *
+   * Carried so the budget gate can tell one phase of a run from another. Optional because
+   * not everything that calls the model is part of a run.
+   */
+  role?: string | undefined;
   model: string;
   system: string;
   user: string;

@@ -24,7 +24,7 @@ export async function createAgentDeps(config: AppConfig, db: Database): Promise<
   if (config.plannerFixture) return { llm: new FixtureAgentLlm(), model: config.model, record };
   if (!config.anthropicApiKey) return null;
 
-  const [{ AnthropicLlm }, Anthropic, { budgetedLlm }, { loadBudgetState, loadSettings }] = await Promise.all([
+  const [{ AnthropicLlm }, Anthropic, { budgetedLlm }, { loadBudgetState, loadPhaseSpend, loadSettings }] = await Promise.all([
     import("../llm/anthropic"),
     import("@anthropic-ai/sdk"),
     import("../llm/budgeted"),
@@ -38,7 +38,11 @@ export async function createAgentDeps(config: AppConfig, db: Database): Promise<
     // An organisation-level key is refused without this; a workspace-scoped key ignores it.
     ...(config.anthropicWorkspaceId ? { defaultHeaders: { "anthropic-workspace-id": config.anthropicWorkspaceId } } : {}),
   });
-  const llm = budgetedLlm(new AnthropicLlm(client), () => loadBudgetState(db, config.usdPerGbp));
+  const llm = budgetedLlm(
+    new AnthropicLlm(client),
+    () => loadBudgetState(db, config.usdPerGbp),
+    () => loadPhaseSpend(db, config.usdPerGbp),
+  );
 
   // The same credentials, used two ways: one call at a time, or a day's work at once.
   return { llm, model: settings.model, record, batch: new AnthropicBatchLlm(client) };

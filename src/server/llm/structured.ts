@@ -149,6 +149,7 @@ export async function runStructured<S extends z.ZodType>(call: StructuredCall<S>
     let response: LlmResponse;
     try {
       response = await call.llm.complete({
+        role: call.prompt.role,
         model: call.model,
         system: call.prompt.system,
         user,
@@ -248,6 +249,7 @@ export async function runStructuredMany<S extends z.ZodType>(
   const jsonSchema = toApiSchema(call.schema);
 
   const ask = (user: string): LlmRequest => ({
+    role: call.prompt.role,
     model: call.model,
     system: call.prompt.system,
     user,

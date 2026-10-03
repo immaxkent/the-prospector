@@ -9,11 +9,13 @@ import {
   budgetState,
   DEFAULT_BUDGET,
   isSelectableModel,
+  usdToPence,
   type BudgetSettings,
   type BudgetState,
 } from "../domain/budget";
 import { STAT_TILE_COUNT, STAT_TILE_IDS } from "@/data/stat-tiles";
 import { localDate, OPERATOR_TIMEZONE } from "../read/rows";
+import { phaseOf, type RunPhase } from "../domain/phase-budget";
 import { invalid } from "./errors";
 import { recordEvent } from "./events";
 
@@ -51,6 +53,36 @@ export async function updateStatTiles(db: Database, tiles: readonly string[]) {
     .values({ id: SINGLETON, ...DEFAULT_BUDGET, ...values })
     .onConflictDoUpdate({ target: appSettings.id, set: { ...values, updatedAt: new Date() } });
   return values.statTiles;
+}
+
+/**
+ * Today's spend in pence, by the phase of the run that caused it.
+ *
+ * Derived from the prompt role each call recorded, so no column had to be added and every
+ * call already made is counted correctly.
+ */
+export async function loadPhaseSpend(db: Database, usdPerGbp: number, now = new Date(), timeZone = OPERATOR_TIMEZONE) {
+  const today = localDate(now, timeZone);
+  const rows = await db
+    .select({
+      day: sql<string>`(${llmCalls.createdAt} at time zone ${sql.raw(`'${timeZone}'`)})::date::text`,
+      role: llmCalls.role,
+      cost: llmCalls.costUsd,
+    })
+    .from(llmCalls)
+    .where(gte(llmCalls.createdAt, sql`${today}::date`));
+
+  const usdByPhase: Partial<Record<RunPhase, number>> = {};
+  for (const row of rows) {
+    if (row.day !== today) continue;
+    const phase = phaseOf(row.role);
+    if (!phase) continue;
+    usdByPhase[phase] = (usdByPhase[phase] ?? 0) + row.cost;
+  }
+  // Converted once at the end: rounding every call to the penny would lose most of them.
+  return Object.fromEntries(
+    Object.entries(usdByPhase).map(([phase, usd]) => [phase, usdToPence(usd, usdPerGbp)]),
+  ) as Partial<Record<RunPhase, number>>;
 }
 
 /** A month of spend costs one round trip: the model is the same for all of it. */
