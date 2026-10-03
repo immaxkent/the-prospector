@@ -53,3 +53,68 @@ describe("budgetedLlm", () => {
     expect(inner.complete).toHaveBeenCalledTimes(2);
   });
 });
+
+describe("phase budgets", () => {
+  const state = {
+    spentTodayPence: 20,
+    spentMonthPence: 20,
+    spentAllTimePence: 20,
+    dailyAllowancePence: 100,
+    monthlyBudgetPence: 1500,
+    remainingTodayPence: 80,
+    allowed: true,
+    reason: "ok" as const,
+  };
+
+  const ask = (role: string | undefined) => ({
+    role,
+    model: "claude-opus-5",
+    system: "s",
+    user: "u",
+    jsonSchema: {},
+    maxTokens: 100,
+  });
+
+  it("stops a phase at its own share even though the day has money left", async () => {
+    // The whole fix. Research exhausting itself must not end qualification's day.
+    const calls: string[] = [];
+    const inner = { complete: async () => { calls.push("called"); return {} as never; } };
+    const llm = budgetedLlm(inner, async () => state, async () => ({ reply: 10, research: 45 }));
+
+    await expect(llm.complete(ask("research.discover"))).rejects.toBeInstanceOf(BudgetExceededError);
+    expect(calls).toEqual([]);
+    await llm.complete(ask("research.qualify"));
+    expect(calls).toEqual(["called"]);
+  });
+
+  it("names the phase, not the day", async () => {
+    // "The budget is spent" sent the operator to their billing page while the day still had
+    // plenty left for everything else.
+    // reply spent its own share, so research inherits no surplus and stops at 45.
+    const llm = budgetedLlm(
+      { complete: async () => ({}) as never },
+      async () => state,
+      async () => ({ reply: 10, research: 45 }),
+    );
+    await expect(llm.complete(ask("research.discover"))).rejects.toThrow(/research has spent its share of today/);
+  });
+
+  it("lets work that is not part of a run answer to the day alone", async () => {
+    // A person is waiting on intake; it does not belong to a phase and must not be refused
+    // because research was greedy this morning.
+    const llm = budgetedLlm({ complete: async () => ({}) as never }, async () => state, async () => ({ research: 999 }));
+    await expect(llm.complete(ask("intake.planner"))).resolves.toBeDefined();
+    await expect(llm.complete(ask(undefined))).resolves.toBeDefined();
+  });
+
+  it("still refuses everything once the day itself is gone", async () => {
+    const spent = { ...state, allowed: false, reason: "daily_budget_spent" as const };
+    const llm = budgetedLlm({ complete: async () => ({}) as never }, async () => spent, async () => ({}));
+    await expect(llm.complete(ask("research.qualify"))).rejects.toThrow(/share of the model budget is spent/);
+  });
+
+  it("behaves exactly as before when nothing can read the per-phase spend", async () => {
+    const llm = budgetedLlm({ complete: async () => ({}) as never }, async () => state);
+    await expect(llm.complete(ask("research.discover"))).resolves.toBeDefined();
+  });
+});

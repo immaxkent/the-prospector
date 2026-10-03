@@ -969,6 +969,23 @@ export async function runDailyLoop(db: Database, input: DailyRunInput) {
     try {
       await step.run(ctx);
     } catch (err) {
+      /*
+       * One phase running out is not the day running out.
+       *
+       * Research can exhaust its own share and the run should carry straight on to
+       * qualification, which still has its own money — that is the whole point of dividing
+       * the day. Stopping here would reproduce the failure the division was built to
+       * prevent, one layer further out.
+       */
+      if (err instanceof BudgetExceededError && err.phase) {
+        await ctx.log("warn", `${step.name} stopped: ${err.message}`);
+        ctx.gaps.push(`${step.name} stopped early: ${err.message}`);
+        // A count here; the gap above carries which phase, and that is what the operator
+        // reads. Metrics are numbers by schema and a name squeezed into one helps nobody.
+        ctx.metrics["phasesOutOfBudget"] = (ctx.metrics["phasesOutOfBudget"] ?? 0) + 1;
+        continue;
+      }
+
       // Running out of budget is a decision the operator made, not a fault. The run keeps
       // what it has done, records why it stopped, and picks up when there is budget again.
       if (err instanceof BudgetExceededError) {
