@@ -25,6 +25,8 @@ import { DeleteEndeavour } from "@/components/os/DeleteEndeavour";
 import { AgentOrb } from "@/components/os/AgentOrb";
 import { RunNowControl } from "@/components/os/RunNowControl";
 import { SectionRail, useSectionSpy } from "@/components/os/SectionRail";
+import { Unbuilt } from "@/components/os/Unbuilt";
+import { ENDEAVOUR_SECTIONS, SECTION_IDS } from "@/data/endeavour-sections";
 import { ActivityChart, FunnelChart } from "@/components/os/charts";
 import { dailyActivity, isQuiet } from "@/data/chart-series";
 import { EndeavourConfig } from "@/components/os/EndeavourConfig";
@@ -55,20 +57,6 @@ export const Route = createFileRoute("/endeavours/$id")({
  * click, which is why approvals and runs were hard to find — you had to already know they
  * were there to go looking.
  */
-const SECTIONS = [
-  { id: "overview", label: "OVERVIEW" },
-  { id: "review", label: "REVIEW" },
-  { id: "prospects", label: "PROSPECTS" },
-  { id: "pipeline", label: "PIPELINE" },
-  { id: "outreach", label: "OUTREACH" },
-  { id: "strategy", label: "STRATEGY" },
-  { id: "configuration", label: "CONFIGURATION" },
-  { id: "intelligence", label: "INTELLIGENCE" },
-  { id: "runs", label: "RUNS" },
-] as const;
-
-const SECTION_IDS = SECTIONS.map((s) => s.id);
-
 const STAGES: PipelineStage[] = ["researched", "qualified", "contacted", "replied", "meeting", "proposal", "won"];
 
 function EndeavourDetail() {
@@ -112,6 +100,9 @@ function EndeavourDetail() {
    * same prospects. Nothing here is moved — the list is the question, and the operator is
    * the only one who answers it.
    */
+  /** Found by research and not yet scored: the queue the RESEARCH section is about. */
+  const found = mine.prospects.filter((p) => p.score === null && !["won", "lost", "nurture"].includes(p.stage));
+
   const quiet = mine.prospects.filter((p) => {
     if (["won", "lost", "nurture"].includes(p.stage)) return false;
     if (!p.lastTouch) return false;
@@ -168,45 +159,6 @@ function EndeavourDetail() {
               </div>
             </Panel>
 
-            <Panel title="FUNNEL" meta={<MachineLabel>WHERE IT LEAKS</MachineLabel>} bodyClassName="px-4 py-4">
-              <FunnelChart stages={STAGES.map((s) => ({ label: s, value: e.funnel[s] }))} />
-            </Panel>
-
-            <Panel
-              title="ACTIVITY"
-              meta={<MachineLabel>LAST 14 DAYS</MachineLabel>}
-              bodyClassName="px-4 py-4"
-            >
-              {isQuiet(activity) ? (
-                <p className="py-6 text-center text-[13px] text-muted-foreground">
-                  Nothing has gone out in the last fortnight.
-                </p>
-              ) : (
-                <ActivityChart days={activity} />
-              )}
-            </Panel>
-
-            <Panel title="CURRENT STRATEGY" bodyClassName="divide-y divide-border">
-              <Row label="ACTIVE ICP" value={e.strategy.icp} />
-              <Row label="OFFER" value={e.strategy.offer} />
-              <Row label="MESSAGE HYPOTHESIS" value={e.strategy.hypothesis} />
-            </Panel>
-
-            <Panel title="RECENT LEARNING" bodyClassName="divide-y divide-border">
-              {mine.insights.length === 0 ? (
-                <div className="px-4 py-8 text-center">
-                  <MachineLabel>NO LEARNING RECORDED</MachineLabel>
-                </div>
-              ) : (
-                mine.insights.map((i) => (
-                  <div key={i.id} className="px-4 py-3">
-                    <Tag tone={i.type === "RECOMMENDATION" ? "signal" : "neutral"}>{i.type}</Tag>
-                    <p className="mt-1.5 text-[14px]">{i.statement}</p>
-                    <p className="machine mt-1">EVIDENCE: {i.evidence}</p>
-                  </div>
-                ))
-              )}
-            </Panel>
           </div>
 
           <div className="space-y-5">
@@ -233,7 +185,35 @@ function EndeavourDetail() {
         </div>
       </Section>
 
-      <Section id="review" label="REVIEW">
+      <Section id="research" label="RESEARCH">
+        <Panel
+          title="WHAT THE LAST RUN FOUND"
+          meta={<MachineLabel>{found.length} AWAITING QUALIFICATION</MachineLabel>}
+          bodyClassName="px-4 py-4"
+        >
+          {found.length === 0 ? (
+            <p className="text-[13px] text-muted-foreground">
+              Nothing is waiting to be qualified. Either the last run found nobody, or everything it
+              found has already been scored — the run log on RESEARCH says which.
+            </p>
+          ) : (
+            <ul className="space-y-1.5">
+              {found.slice(0, 10).map((p: (typeof found)[number]) => (
+                <li key={p.id} className="flex flex-wrap items-baseline gap-2 text-[13px]">
+                  <span className="font-medium">{p.company}</span>
+                  <span className="machine text-muted-foreground">{p.segment}</span>
+                  <span className="text-muted-foreground">{p.trigger}</span>
+                </li>
+              ))}
+              {found.length > 10 && (
+                <li className="machine text-muted-foreground">AND {found.length - 10} MORE</li>
+              )}
+            </ul>
+          )}
+        </Panel>
+      </Section>
+
+      <Section id="identify" label="IDENTIFY">
         <Panel
           title="WAITING ON YOU"
           meta={<MachineLabel>NOTHING IS DRAFTED UNTIL YOU RELEASE IT</MachineLabel>}
@@ -255,9 +235,7 @@ function EndeavourDetail() {
             emptyNote="Nothing has gone quiet. Anything silent for a fortnight will appear here and in the weekly review."
           />
         </Panel>
-      </Section>
 
-      <Section id="prospects" label="PROSPECTS">
         <Panel title={`PROSPECTS · ${mine.prospects.length}`}>
           <LedgerTable>
             <thead>
@@ -288,7 +266,55 @@ function EndeavourDetail() {
         </Panel>
       </Section>
 
-      <Section id="pipeline" label="PIPELINE">
+      <Section id="reach" label="REACH">
+        <Unbuilt what="Who the human is and every way to reach them — email, LinkedIn, Discord, Slack — with where each came from." />
+      </Section>
+
+      <Section id="outreach" label="OUTREACH">
+        <Panel
+        title="ACTIVITY"
+        meta={<MachineLabel>LAST 14 DAYS</MachineLabel>}
+        bodyClassName="px-4 py-4"
+        >
+        {isQuiet(activity) ? (
+        <p className="py-6 text-center text-[13px] text-muted-foreground">
+        Nothing has gone out in the last fortnight.
+        </p>
+        ) : (
+        <ActivityChart days={activity} />
+        )}
+        </Panel>
+
+        <Panel title="THREADS" bodyClassName="divide-y divide-border">
+          {mine.threads.length === 0 ? (
+            <div className="px-4 py-8 text-center">
+              <MachineLabel>NO OUTREACH SENT</MachineLabel>
+            </div>
+          ) : (
+            mine.threads.map((t) => (
+              <div key={t.id} className="px-4 py-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-[13px]">{t.subject}</span>
+                  <MachineLabel>
+                    {t.channel} · {stamp(t.lastActivityAt)}
+                  </MachineLabel>
+                </div>
+                <p className="mt-1 text-[13px] text-muted-foreground">INTENT: {t.intent}</p>
+              </div>
+            ))
+          )}
+        </Panel>
+      </Section>
+
+      <Section id="conversations" label="CONVERSATIONS">
+        <Unbuilt what="Replies attributed to the outreach that caused them, in one thread per prospect, whichever channel they arrived on." />
+      </Section>
+
+      <Section id="deals" label="DEALS">
+        <Panel title="FUNNEL" meta={<MachineLabel>WHERE IT LEAKS</MachineLabel>} bodyClassName="px-4 py-4">
+        <FunnelChart stages={STAGES.map((s) => ({ label: s, value: e.funnel[s] }))} />
+        </Panel>
+
         <Panel title="OPPORTUNITY LEDGER">
           <LedgerTable>
             <thead>
@@ -324,29 +350,29 @@ function EndeavourDetail() {
         </Panel>
       </Section>
 
-      <Section id="outreach" label="OUTREACH">
-        <Panel title="THREADS" bodyClassName="divide-y divide-border">
-          {mine.threads.length === 0 ? (
-            <div className="px-4 py-8 text-center">
-              <MachineLabel>NO OUTREACH SENT</MachineLabel>
-            </div>
-          ) : (
-            mine.threads.map((t) => (
-              <div key={t.id} className="px-4 py-3">
-                <div className="flex items-center justify-between">
-                  <span className="text-[13px]">{t.subject}</span>
-                  <MachineLabel>
-                    {t.channel} · {stamp(t.lastActivityAt)}
-                  </MachineLabel>
-                </div>
-                <p className="mt-1 text-[13px] text-muted-foreground">INTENT: {t.intent}</p>
-              </div>
-            ))
-          )}
-        </Panel>
-      </Section>
-
       <Section id="strategy" label="STRATEGY">
+        <Panel title="CURRENT STRATEGY" bodyClassName="divide-y divide-border">
+        <Row label="ACTIVE ICP" value={e.strategy.icp} />
+        <Row label="OFFER" value={e.strategy.offer} />
+        <Row label="MESSAGE HYPOTHESIS" value={e.strategy.hypothesis} />
+        </Panel>
+
+        <Panel title="RECENT LEARNING" bodyClassName="divide-y divide-border">
+        {mine.insights.length === 0 ? (
+        <div className="px-4 py-8 text-center">
+        <MachineLabel>NO LEARNING RECORDED</MachineLabel>
+        </div>
+        ) : (
+        mine.insights.map((i) => (
+        <div key={i.id} className="px-4 py-3">
+        <Tag tone={i.type === "RECOMMENDATION" ? "signal" : "neutral"}>{i.type}</Tag>
+        <p className="mt-1.5 text-[14px]">{i.statement}</p>
+        <p className="machine mt-1">EVIDENCE: {i.evidence}</p>
+        </div>
+        ))
+        )}
+        </Panel>
+
         <Panel title="STRATEGY" meta={<MachineLabel>EVERY CHANGE IS A NEW VERSION WITH A REASON</MachineLabel>} bodyClassName="p-0">
           <StrategyEditor endeavourId={e.id} />
         </Panel>
@@ -377,20 +403,6 @@ function EndeavourDetail() {
             gets pressed by accident eventually. */}
         <Panel title="DANGER" bodyClassName="px-4 py-4">
           <DeleteEndeavour endeavour={e} />
-        </Panel>
-      </Section>
-
-      <Section id="intelligence" label="INTELLIGENCE">
-        <Panel bodyClassName="divide-y divide-border">
-          {mine.insights.map((i) => (
-            <div key={i.id} className="px-4 py-3">
-              <Tag tone={i.type === "RECOMMENDATION" ? "signal" : "neutral"}>{i.type}</Tag>
-              <p className="mt-1.5 text-[14px]">{i.statement}</p>
-              <p className="machine mt-1">
-                EVIDENCE: {i.evidence} · CONFIDENCE {pct(i.confidence)}
-              </p>
-            </div>
-          ))}
         </Panel>
       </Section>
 
@@ -437,7 +449,7 @@ function EndeavourDetail() {
           </LedgerTable>
         </Panel>
       </Section>
-      <SectionRail sections={SECTIONS} active={active} />
+      <SectionRail sections={ENDEAVOUR_SECTIONS} active={active} />
     </div>
   );
 }

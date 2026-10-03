@@ -84,7 +84,8 @@ test("the endeavour is one page, with a rail saying where in it you are", async 
   await page.goto("/endeavours/end_solidity");
 
   // Every section is on the page at once — nothing is a click away behind a tab.
-  for (const id of ["overview", "prospects", "pipeline", "outreach", "strategy", "runs"]) {
+  // The order is the work: find, decide, reach, write, talk, close — then the settings.
+  for (const id of ["overview", "research", "identify", "reach", "outreach", "conversations", "deals", "strategy", "runs"]) {
     await expect(page.locator(`#${id}`)).toBeAttached();
   }
 
@@ -308,7 +309,7 @@ test("the section rail is on screen, labelled, and beside the content rather tha
   expect(box.x + box.width).toBeGreaterThan(1240);
 
   // Labelled without hovering: nine unlabelled glyphs do not read as a list of sections.
-  await expect(rail.getByText("PROSPECTS")).toBeVisible();
+  await expect(rail.getByText("RESEARCH")).toBeVisible();
   await expect(rail.getByText("CONFIGURATION")).toBeVisible();
 
   // And it does not sit on top of what it helps you move around.
@@ -320,4 +321,46 @@ test("the rail is still there on a laptop, not only on a wide monitor", async ({
   await page.setViewportSize({ width: 1024, height: 860 });
   await page.goto("/endeavours/end_solidity");
   await expect(page.getByTestId("section-rail")).toBeVisible();
+});
+
+test("a stage that is planned but not written says so, in the page and in the rail", async ({ page }) => {
+  // Shown rather than hidden, because the order of the stages is information: seeing that
+  // REACH sits between IDENTIFY and OUTREACH tells you the shape of the work before that
+  // stage does anything. Shown marked, because a half-built panel with no label is worse
+  // than none — nothing separates a broken feature from one nobody has written.
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto("/endeavours/end_solidity");
+
+  const reach = page.locator("#reach");
+  await expect(reach).toBeAttached();
+  await expect(reach.getByTestId("unbuilt")).toContainText("NOT BUILT YET");
+  await expect(reach.getByTestId("unbuilt")).toContainText("every way to reach them");
+
+  // And the rail says it too, so nobody jumps there expecting something.
+  await expect(page.getByTestId("rail-reach")).toHaveAttribute("data-unbuilt", "true");
+  await expect(page.getByTestId("rail-research")).not.toHaveAttribute("data-unbuilt", "true");
+});
+
+test("research is on the endeavour at last, and says what is waiting to be judged", async ({ page }) => {
+  // The stage that produced everything else was the one stage not on the page.
+  await page.goto("/endeavours/end_solidity");
+  const research = page.locator("#research");
+  await expect(research).toBeAttached();
+  await expect(research).toContainText("AWAITING QUALIFICATION");
+  // The fixture carries one researched-but-unscored prospect.
+  await expect(research).toContainText("Halden Rollup");
+});
+
+test("overview answers what needs you and whether you are on track, and stops there", async ({ page }) => {
+  await page.goto("/endeavours/end_solidity");
+  const overview = page.locator("#overview");
+  await expect(overview).toContainText("OBJECTIVE PROGRESS");
+  await expect(overview).toContainText("NEXT ACTIONS & APPROVALS");
+
+  // The funnel explains where deals leak, so it moved to the deals it explains; activity is
+  // what went out, so it moved to outreach. Overview was seven panels before you scrolled.
+  await expect(overview).not.toContainText("WHERE IT LEAKS");
+  await expect(page.locator("#deals")).toContainText("WHERE IT LEAKS");
+  await expect(page.locator("#outreach")).toContainText("LAST 14 DAYS");
+  await expect(page.locator("#strategy")).toContainText("CURRENT STRATEGY");
 });
