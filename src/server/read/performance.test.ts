@@ -6,6 +6,7 @@ import { T0, messageRow, offerRow, opportunityRow, prospectRow, segmentRow } fro
 const trigger = (prospectId: string, type: string): TriggerRow => ({
   id: `trg_${prospectId}`,
   prospectId,
+  occurredOn: "2026-09-01",
   type,
   description: type,
   evidenceId: null,

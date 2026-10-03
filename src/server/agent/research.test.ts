@@ -2,20 +2,12 @@ import { describe, expect, it } from "vitest";
 import { FakeLlm } from "../llm/fake";
 import type { LlmCallRecord } from "../llm/structured";
 import { RESEARCH_PROMPT } from "./research-prompt";
-import {
-  SEARCH_NOTES_LIMIT,
-  SEARCH_NOTES_MAX,
-  renderResearchInput,
-  researchCandidates,
-  researchOutputSchema,
-  verifyAgainstSources,
-  type Candidate,
-} from "./research";
+import { SEARCH_NOTES_LIMIT, SEARCH_NOTES_MAX, candidateSchema, renderResearchInput, researchCandidates, researchOutputSchema, type Candidate, verifyAgainstSources } from "./research";
 
 const candidate = (over: Partial<Candidate> = {}): Candidate => ({
   company: { name: "Northbridge Protocol", domain: "northbridge.example" },
   person: { name: "Ilse Vermeer", role: "CTO" },
-  trigger: { type: "mainnet_date", description: "Mainnet announced for 30 October" },
+  trigger: { type: "mainnet_date", description: "Mainnet announced for 30 October", occurredOn: "2026-09-20" },
   evidence: [
     { claim: "Mainnet launches 30 October", sourceRef: "https://northbridge.example/blog/mainnet", excerpt: "…30 October…", confidence: 0.9 },
   ],
@@ -110,5 +102,36 @@ describe("researchCandidates", () => {
     const result = await researchCandidates(d, request);
     expect(result.candidates).toEqual([]);
     expect(result.droppedCandidates).toBe(1);
+  });
+});
+
+describe("the candidate floor", () => {
+  it("refuses a trigger with no date", () => {
+    // "Recently funded" is not checkable without one, and a reason nobody dated cannot be
+    // aged out when it stops being a reason to write.
+    const base = candidate();
+    const { occurredOn: _dropped, ...undated } = base.trigger;
+    expect(candidateSchema.safeParse({ ...base, trigger: undated }).success).toBe(false);
+  });
+
+  it("refuses a date written any other way, because the API schema cannot enforce the format", () => {
+    for (const bad of ["30 October 2026", "2026/09/20", "September 2026", ""]) {
+      const base = candidate();
+      expect(
+        candidateSchema.safeParse({ ...base, trigger: { ...base.trigger, occurredOn: bad } }).success,
+        `${bad} was accepted`,
+      ).toBe(false);
+    }
+  });
+
+  it("still requires evidence that cites something openable", () => {
+    const base = candidate();
+    expect(candidateSchema.safeParse({ ...base, evidence: [] }).success).toBe(false);
+    expect(
+      candidateSchema.safeParse({
+        ...base,
+        evidence: [{ ...base.evidence[0]!, sourceRef: "a blog post somewhere" }],
+      }).success,
+    ).toBe(false);
   });
 });

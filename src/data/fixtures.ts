@@ -892,6 +892,9 @@ export const fixtureRuns: AgentRun[] = [
     qualified: 14,
     drafted: 6,
     sent: 0,
+    searches: 7,
+    pending: 31,
+    pendingCap: 50,
   },
   {
     id: "run_013",
@@ -904,6 +907,9 @@ export const fixtureRuns: AgentRun[] = [
     qualified: 5,
     drafted: 4,
     sent: 0,
+    searches: 3,
+    pending: 31,
+    pendingCap: 50,
   },
   {
     id: "run_012",
@@ -916,6 +922,9 @@ export const fixtureRuns: AgentRun[] = [
     qualified: 0,
     drafted: 0,
     sent: 0,
+    searches: 2,
+    pending: 31,
+    pendingCap: 50,
   },
 ];
 

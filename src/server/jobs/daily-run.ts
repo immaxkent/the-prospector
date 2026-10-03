@@ -76,6 +76,14 @@ export interface RunContext {
   now: Date;
   metrics: Record<string, number>;
   gaps: string[];
+  /**
+   * Segments that returned nobody earlier in this run.
+   *
+   * Top-up re-runs research when too little qualified, and without this a segment that
+   * found nothing is asked again at full price in every round. Escalation within a round is
+   * already blocked; this is the same rule across rounds.
+   */
+  drySegments: Set<string>;
   log: (level: "info" | "warn" | "error", text: string) => Promise<void>;
 }
 
@@ -134,6 +142,17 @@ async function prospectingState(ctx: RunContext): Promise<{ settings: Prospectin
     .from(prospects)
     .where(eq(prospects.endeavourId, ctx.endeavourId));
   return { settings: normaliseSettings(endeavour?.settings).prospecting, count: countProspecting(rows) };
+}
+
+/** The host of a source url, which is what identifies it to a reader. */
+function hostOf(source: { url?: string | null } | string) {
+  const url = typeof source === "string" ? source : (source.url ?? "");
+  try {
+    return new URL(url).host;
+  } catch {
+    // An unparseable url is itself worth seeing: it is a clue about what came back.
+    return url || "an unnamed source";
+  }
 }
 
 /** A segment's name from its id, for a log line nobody should have to decode. */
@@ -316,6 +335,10 @@ export const DAILY_RUN_STEPS: RunStep[] = [
       let searchesUsed = 0;
       for (const allocation of allocations) {
         const segment = byId.get(allocation.segmentId)!;
+        if (ctx.drySegments.has(segment.id)) {
+          await ctx.log("info", `${segment.name}: skipped, it found nobody earlier in this run`);
+          continue;
+        }
         if (allocation.room === 0) {
           await ctx.log("info", `${segment.name}: holding ${allocation.share} already, nothing to add`);
           continue;
@@ -363,6 +386,29 @@ export const DAILY_RUN_STEPS: RunStep[] = [
           );
           if (result.droppedClaims > 0) {
             await ctx.log("warn", `${result.droppedClaims} claim(s) cited a page search never returned and were dropped`);
+          }
+
+          /*
+           * A segment that returns nothing has to say what it looked at.
+           *
+           * "0 proposed" is unanswerable on its own: it cannot distinguish a definition the
+           * web cannot show from a search that looked in the wrong place, and those need
+           * opposite fixes. The model's own notes say what it searched for; the sources say
+           * what it actually read. Both are already in hand and were being discarded.
+           */
+          if (result.proposed === 0) {
+            const read = result.sources.length
+              ? result.sources.slice(0, 6).map((source) => hostOf(source)).join(", ")
+              : "nothing it could cite";
+            await ctx.log(
+              "warn",
+              `${segment.name} found nobody. It read: ${read}${result.sources.length > 6 ? ` and ${result.sources.length - 6} more` : ""}`,
+            );
+            if (result.searchNotes) {
+              await ctx.log("info", `${segment.name} searched: ${result.searchNotes.slice(0, 600)}`);
+            }
+            // Rested for the rest of the run, including the top-up rounds.
+            if (addedForSegment === 0) ctx.drySegments.add(segment.id);
           }
 
           const harder = escalatedSearches(cap, addedForSegment, need, result.searches ?? 0);
@@ -957,6 +1003,7 @@ export async function runDailyLoop(db: Database, input: DailyRunInput) {
     now,
     metrics: { ...run.metrics },
     gaps: [],
+    drySegments: new Set<string>(),
     log: async (level, text) => {
       await db.insert(runLog).values({ id: newId("runLog"), runId: run.id, level, text });
     },

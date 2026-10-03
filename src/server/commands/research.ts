@@ -150,6 +150,7 @@ export async function storeCandidates(db: Database, input: StoreInput): Promise<
         prospectId,
         type: candidate.trigger.type,
         description: candidate.trigger.description,
+        occurredOn: candidate.trigger.occurredOn,
         evidenceId: evidenceIds[0] ?? null,
       });
       await recordEvent(tx, {

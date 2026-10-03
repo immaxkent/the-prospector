@@ -13,7 +13,7 @@ export function fixtureResearchOutput() {
       {
         company: { name: "Havsledd Labs", domain: "havsledd.example", description: "Vault protocol preparing for mainnet" },
         person: { name: "Tomas Lindqvist", role: "Lead engineer" },
-        trigger: { type: "incident", description: "Published a testnet incident postmortem" },
+        trigger: { type: "incident", description: "Published a testnet incident postmortem", occurredOn: "2026-09-12" },
         evidence: [
           {
             claim: "Postmortem cites missing invariant tests",

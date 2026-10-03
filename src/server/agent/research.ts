@@ -43,7 +43,14 @@ export const candidateSchema = z.object({
   person: z
     .object({ name: nonEmpty.max(120), role: z.string().max(120).optional(), email: z.email().optional(), linkedinUrl: z.url().optional() })
     .optional(),
-  trigger: z.object({ type: nonEmpty.max(60), description: nonEmpty.max(300) }),
+  /**
+   * Why to write to them now, and when it happened.
+   *
+   * The date is required because "recently funded" is not checkable without one, and a
+   * candidate whose reason has no date cannot be aged out when the reason stops being true.
+   * It is the date the source gives, not the date we read it.
+   */
+  trigger: z.object({ type: nonEmpty.max(60), description: nonEmpty.max(300), occurredOn: z.iso.date() }),
   evidence: z.array(evidenceClaimSchema).min(1),
 });
 

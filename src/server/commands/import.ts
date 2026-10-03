@@ -45,7 +45,13 @@ export function rowToCandidate(row: ImportRow): Candidate {
           },
         }
       : {}),
-    trigger: { type: "import", description: row.trigger ?? "Added by import" },
+    // Dated the day it was imported. The operator may know when the thing happened; the
+    // file does not carry it, and inventing a date would be worse than a true but dull one.
+    trigger: {
+      type: "import",
+      description: row.trigger ?? "Added by import",
+      occurredOn: new Date().toISOString().slice(0, 10),
+    },
     evidence: [{ claim, sourceRef: row.source ?? "operator import", excerpt: claim, confidence: 0.5 }],
   };
 }
