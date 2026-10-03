@@ -685,3 +685,62 @@ describe("weighting the buffer by reply rate", () => {
     expect(await logText()).not.toContain("weighting");
   });
 });
+
+describe("a segment that finds nobody", () => {
+  /** The fixture finds somebody for every segment, so a dry one has to be made dry. */
+  const dryFor = (name: string) => {
+    const inner = new FixtureAgentLlm();
+    return {
+      llm: {
+        complete: async (request: Parameters<typeof inner.complete>[0]) => {
+          const response = await inner.complete(request);
+          if (request.user.includes(`name: ${name}`)) {
+            return { ...response, text: JSON.stringify({ candidates: [], searchNotes: "looked for recent launches, found none" }) };
+          }
+          return response;
+        },
+      },
+      model: "claude-opus-5",
+      record: dbRecorder(db),
+    };
+  };
+
+  const addSegment = (id: string, name: string, priority: number) =>
+    db.insert(t.segments).values({
+      id,
+      endeavourId: FIXTURE_IDS.endeavour,
+      name,
+      definition: "Nothing matches this",
+      signals: ["a signal"],
+      painHypothesis: "a pain",
+      priority,
+      specVersion: 1,
+    });
+
+  it("says what it read and what it searched for, so the zero can be diagnosed", async () => {
+    // "0 proposed" cannot distinguish a definition the web cannot show from a search that
+    // looked in the wrong place, and those need opposite fixes. Both facts were already in
+    // hand and were being thrown away.
+    await addSegment("seg_dry", "Dry segment", 2);
+    await run({ agent: dryFor("Dry segment") });
+
+    const text = await logText();
+    expect(text).toContain("Dry segment found nobody");
+    expect(text).toContain("It read:");
+    expect(text).toContain("Dry segment searched: looked for recent launches, found none");
+  });
+
+  it("is not asked again at a bigger budget", async () => {
+    // The old behaviour: "came back thin, so the next look is allowed 8 searches", then a
+    // second paid attempt returning the same nothing. Four such attempts on 1 October.
+    await addSegment("seg_dry2", "Another dry segment", 3);
+    await run({ agent: dryFor("Another dry segment") });
+
+    const text = await logText();
+    expect(text).toContain("Another dry segment found nobody");
+    expect(text).not.toContain("Another dry segment came back thin");
+    // One paid attempt for the whole run, including the top-up rounds that re-run research.
+    expect(text.match(/Another dry segment: 0 proposed/g) ?? []).toHaveLength(1);
+    expect(text).toContain("Another dry segment: skipped, it found nobody earlier in this run");
+  });
+});
