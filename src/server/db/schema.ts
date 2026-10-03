@@ -341,6 +341,14 @@ export const triggers = pgTable("triggers", {
   type: text("type").notNull(),
   description: text("description").notNull(),
   evidenceId: text("evidence_id").references(() => evidence.id, { onDelete: "set null" }),
+  /**
+   * When the thing happened, as the source says — not when we noticed it.
+   *
+   * "Recently funded" is not checkable without a date, and a trigger whose date nobody
+   * recorded cannot be aged out when it stops being a reason to write. Nullable because
+   * rows written before this existed have no honest answer.
+   */
+  occurredOn: date("occurred_on"),
   detectedAt: timestamp("detected_at", { withTimezone: true }).notNull().defaultNow(),
 });
 

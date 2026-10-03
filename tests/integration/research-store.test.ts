@@ -18,7 +18,7 @@ beforeEach(async () => {
 const candidate = (over: Partial<Candidate> = {}): Candidate => ({
   company: { name: "Havsledd Labs", domain: "havsledd.example", description: "Vault protocol" },
   person: { name: "Tomas Lindqvist", role: "Lead engineer", email: "tomas@havsledd.example" },
-  trigger: { type: "incident", description: "Testnet incident postmortem published" },
+  trigger: { occurredOn: "2026-09-01", type: "incident", description: "Testnet incident postmortem published" },
   evidence: [
     { claim: "Postmortem cites missing invariant tests", sourceRef: "https://havsledd.example/post", excerpt: "…", confidence: 0.8 },
     { claim: "Mainnet planned for November", sourceRef: "https://havsledd.example/roadmap", excerpt: "…", confidence: 0.6 },
