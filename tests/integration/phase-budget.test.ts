@@ -131,3 +131,61 @@ describe("a whole run under a phase budget", () => {
     expect(scored.some((p) => p.qualificationScore !== null)).toBe(true);
   });
 });
+
+describe("a phase running out is not the day running out", () => {
+  it("carries on to the next phase instead of ending the run", async () => {
+    // Stopping here would reproduce the exact failure the division was built to prevent,
+    // one layer further out: research exhausts itself and nothing is ever scored.
+    const inner = new FixtureAgentLlm();
+    let calls = 0;
+    const llm = {
+      complete: async (request: Parameters<typeof inner.complete>[0]) => {
+        // Research is refused from its second call, as an exhausted share would refuse it.
+        if (request.role === "research.discover" && ++calls > 1) {
+          throw new BudgetExceededError(await loadBudgetState(db, USD_PER_GBP, NOW), "research", "research has spent its share of today");
+        }
+        return inner.complete(request);
+      },
+    };
+
+    const result = await runDailyLoop(db, {
+      endeavourId: FIXTURE_IDS.endeavour,
+      trigger: "manual",
+      now: NOW,
+      agent: { llm, model: "claude-haiku-4-5", record: dbRecorder(db) },
+    });
+
+    expect(result.status).toBe("succeeded");
+    expect(result).not.toMatchObject({ stoppedOnBudget: true });
+
+    // The run went past research and qualified what research had already found.
+    const roles = (await db.select().from(t.llmCalls)).map((c) => c.role);
+    expect(roles).toContain("research.qualify");
+
+    const [runRow] = await db.select().from(t.dailyRuns);
+    expect((runRow!.metrics as Record<string, number>)["phasesOutOfBudget"]).toBeGreaterThan(0);
+    // And the operator is told which phase, in the risks they actually read.
+    expect(((runRow!.brief?.["risks"] ?? []) as string[]).join("\n")).toContain("stopped early");
+  });
+
+  it("still ends the run when the day itself is gone", async () => {
+    const inner = new FixtureAgentLlm();
+    const llm = {
+      complete: async (request: Parameters<typeof inner.complete>[0]) => {
+        if (request.role === "research.discover") {
+          const state = await loadBudgetState(db, USD_PER_GBP, NOW);
+          throw new BudgetExceededError({ ...state, allowed: false, reason: "daily_budget_spent" });
+        }
+        return inner.complete(request);
+      },
+    };
+
+    const result = await runDailyLoop(db, {
+      endeavourId: FIXTURE_IDS.endeavour,
+      trigger: "manual",
+      now: NOW,
+      agent: { llm, model: "claude-haiku-4-5", record: dbRecorder(db) },
+    });
+    expect(result).toMatchObject({ stoppedOnBudget: true });
+  });
+});
