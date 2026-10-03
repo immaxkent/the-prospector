@@ -91,7 +91,8 @@ export interface EvidenceItem {
 export interface Prospect {
   id: string;
   endeavourId: string;
-  score: number; // 0-100
+  /** 0-100, or null when qualification has not run. Never zero for unscored. */
+  score: number | null;
   scoreFactors: { label: string; weight: number; note: string; evidenceIds: string[] }[];
   person: string;
   role: string;

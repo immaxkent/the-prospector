@@ -78,7 +78,14 @@ export function buildProspect(p: ProspectRow, lookups: ProspectLookups): Prospec
   return {
     id: p.id,
     endeavourId: p.endeavourId,
-    score: p.qualificationScore ?? 0,
+    /*
+     * Null when qualification has not run, and deliberately not zero.
+     *
+     * On a nought-to-a-hundred scale a zero means "the worst prospect we have seen", which
+     * is the opposite of "we have not looked at this yet" — and every freshly researched
+     * prospect sat at nought until it was scored, which read as a page full of rubbish.
+     */
+    score: p.qualificationScore,
     scoreFactors: p.scoreFactors.map((f) => ({
       label: FACTOR_LABELS[f.factor] ?? f.factor,
       weight: Math.round(f.score * f.weight * 10),

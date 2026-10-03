@@ -277,3 +277,47 @@ test("a pinned share is reported as a decision about all of them", async ({ page
   const shares = page.getByTestId("segment-shares");
   await expect(shares.getByTestId("segment-shares-summary")).toContainText("share what is left");
 });
+
+test("a prospect nobody has scored says so, rather than showing nought out of a hundred", async ({ page }) => {
+  // Nought on a nought-to-a-hundred scale reads as the worst prospect in the list. Every
+  // freshly researched prospect looked like that until the read model stopped inventing it.
+  await page.goto("/prospects");
+  const row = page.getByRole("row").filter({ hasText: "Halden Rollup" });
+  await expect(row).toContainText("—");
+  await expect(row).not.toContainText("0");
+
+  await row.click();
+  await expect(page.getByText("NOT SCORED YET").first()).toBeVisible();
+});
+
+test("the section rail is on screen, labelled, and beside the content rather than on it", async ({ page }) => {
+  // It was behind `xl`, and worse: `position: fixed` resolves against the nearest
+  // transformed ancestor, and the page wrapper's entrance animation leaves an identity
+  // transform on it forever. The rail was anchoring to a wrapper thousands of pixels tall,
+  // so top-1/2 parked it halfway down the document — present, "visible", and unreachable.
+  await page.setViewportSize({ width: 1280, height: 860 });
+  await page.goto("/endeavours/end_solidity");
+
+  const rail = page.getByTestId("section-rail");
+  const box = (await rail.boundingBox())!;
+  expect(box).toBeTruthy();
+  // Vertically centred in the viewport, not in the document.
+  expect(box.y + box.height / 2).toBeGreaterThan(300);
+  expect(box.y + box.height / 2).toBeLessThan(560);
+  // Against the right edge.
+  expect(box.x + box.width).toBeGreaterThan(1240);
+
+  // Labelled without hovering: nine unlabelled glyphs do not read as a list of sections.
+  await expect(rail.getByText("PROSPECTS")).toBeVisible();
+  await expect(rail.getByText("CONFIGURATION")).toBeVisible();
+
+  // And it does not sit on top of what it helps you move around.
+  const content = (await page.getByTestId("stat-tiles").boundingBox())!;
+  expect(content.x + content.width).toBeLessThanOrEqual(box.x);
+});
+
+test("the rail is still there on a laptop, not only on a wide monitor", async ({ page }) => {
+  await page.setViewportSize({ width: 1024, height: 860 });
+  await page.goto("/endeavours/end_solidity");
+  await expect(page.getByTestId("section-rail")).toBeVisible();
+});

@@ -1,3 +1,4 @@
+import { createPortal } from "react-dom";
 import { useEffect, useState } from "react";
 import { cn } from "@/lib/utils";
 
@@ -67,14 +68,41 @@ export function useSectionSpy(ids: readonly string[]) {
  * where you are in the system, the other where you are in the page, and a reader who has
  * learnt the first gets the second for free.
  */
+/**
+ * Rendered into the body rather than in place.
+ *
+ * `position: fixed` resolves against the nearest ancestor with a transform, not the
+ * viewport — and the page wrapper carries `animation: cbo-rise ... both`, whose fill mode
+ * leaves an identity transform on it forever. That is enough. The rail was anchoring to a
+ * wrapper thousands of pixels tall and `top-1/2` parked it halfway down the document, out
+ * of sight, while every test that asked whether it was visible said yes.
+ *
+ * A portal to the body cannot be captured that way, by this wrapper or by whatever
+ * animation someone adds next.
+ */
 export function SectionRail({ sections, active }: { sections: readonly Section[]; active: string }) {
-  return (
+  // The server has no document, and the first client render has to match what it sent.
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
+  if (!mounted) return null;
+
+  return createPortal(
     <nav
       aria-label="Sections"
       data-testid="section-rail"
-      className="group/sections fixed right-4 top-1/2 z-40 hidden -translate-y-1/2 xl:block"
+      /*
+       * Visible from 1024px, not 1280px. It was behind `xl`, which meant a laptop or a
+       * split window got no rail at all — and it is navigation, so being absent on the
+       * commonest width is the same as not existing.
+       */
+      className="fixed right-4 top-1/2 z-40 hidden -translate-y-1/2 lg:block"
     >
-      <div className="island-ink flex w-[58px] flex-col gap-1 rounded-3xl p-2 transition-[width] duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] group-hover/sections:w-[190px]">
+      {/*
+        Labels always shown rather than revealed on hover. A column of nine unlabelled
+        glyphs does not read as a list of sections — you have to already know what it is to
+        bother hovering it, which is the thing it exists to fix.
+      */}
+      <div className="island-ink flex w-[190px] flex-col gap-1 rounded-3xl p-2">
         {sections.map((section) => {
           const on = section.id === active;
           return (
@@ -97,7 +125,7 @@ export function SectionRail({ sections, active }: { sections: readonly Section[]
               />
               <span
                 className={cn(
-                  "machine whitespace-nowrap opacity-0 transition-opacity duration-300 group-hover/sections:opacity-100",
+                  "machine whitespace-nowrap",
                   on ? "text-foreground" : "text-ink-foreground",
                 )}
               >
@@ -107,6 +135,7 @@ export function SectionRail({ sections, active }: { sections: readonly Section[]
           );
         })}
       </div>
-    </nav>
+    </nav>,
+    document.body,
   );
 }

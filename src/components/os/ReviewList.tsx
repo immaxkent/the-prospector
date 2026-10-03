@@ -175,7 +175,9 @@ function ReviewRow({
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
             <span className="text-[13px] font-medium">{prospect.company}</span>
-            <span className="machine text-foreground/45">{prospect.score}/100</span>
+            <span className="machine text-foreground/45">
+              {prospect.score === null ? "NOT SCORED YET" : `${prospect.score}/100`}
+            </span>
             {prospect.status === "NEEDS_REVIEW" && <Tag tone="warn">NEEDS REVIEW</Tag>}
             {!reachable && <Tag tone="neutral">NO CONTACT</Tag>}
           </div>
@@ -212,7 +214,9 @@ function RowDetail({ prospect }: { prospect: Prospect }) {
   return (
     <div className="ml-7 mt-3 space-y-3 border-l border-border pl-3">
       <div>
-        <MachineLabel>WHY IT SCORED {prospect.score}</MachineLabel>
+        <MachineLabel>
+          {prospect.score === null ? "NOT SCORED YET" : `WHY IT SCORED ${prospect.score}`}
+        </MachineLabel>
         <ul className="mt-1 space-y-0.5">
           {prospect.scoreFactors.map((f) => (
             <li key={f.label} className="flex gap-2 text-[12px]">

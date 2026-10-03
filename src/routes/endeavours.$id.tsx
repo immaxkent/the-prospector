@@ -30,7 +30,7 @@ import { dailyActivity, isQuiet } from "@/data/chart-series";
 import { EndeavourConfig } from "@/components/os/EndeavourConfig";
 import { SegmentShares } from "@/components/os/SegmentShares";
 import { StrategyEditor } from "@/components/os/StrategyEditor";
-import { gbp, num, pct, shortDate, stamp, daysUntil } from "@/lib/format";
+import { daysUntil, gbp, num, pct, scoreText, shortDate, stamp } from "@/lib/format";
 import type { PipelineStage } from "@/data/types";
 import { cn } from "@/lib/utils";
 
@@ -119,7 +119,9 @@ function EndeavourDetail() {
   });
 
   return (
-    <div className="space-y-5">
+    // Room for the section rail, which is fixed to the right edge from 1024px up. Without
+    // this the rail sits on top of the content it is meant to help you move around.
+    <div className="space-y-5 lg:pr-[214px]">
       <div className="border-b border-border pb-4">
         <div className="flex flex-wrap items-end justify-between gap-4">
           <div>
@@ -271,7 +273,7 @@ function EndeavourDetail() {
               {mine.prospects.map((p) => (
                 <Tr key={p.id}>
                   <Td align="right" mono>
-                    {p.score}
+                    {scoreText(p.score)}
                   </Td>
                   <Td>{p.person}</Td>
                   <Td>{p.company}</Td>
