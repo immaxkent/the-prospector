@@ -38,6 +38,15 @@ export function searchesFor(remaining: number) {
 export function escalatedSearches(previousCap: number, found: number, asked: number, searchesUsed: number) {
   if (previousCap >= MAX_SEARCHES) return null;
   if (asked <= 0) return null;
+  /*
+   * Nothing at all is not a thin result, it is a different result.
+   *
+   * A call that found some and not enough was looking in the right place and ran short.
+   * A call that found *none* searched and came back with nothing matching, and doubling its
+   * budget buys more of the same nothing. On 1 October two segments did exactly this, twice
+   * each: four paid attempts, zero candidates.
+   */
+  if (found === 0) return null;
   if (found / asked >= THIN_YIELD) return null;
   if (searchesUsed < previousCap) return null;
   return Math.min(MAX_SEARCHES, Math.max(previousCap + 2, previousCap * 2));
