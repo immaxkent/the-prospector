@@ -13,7 +13,19 @@
  * operator, who can open the conversation themselves and hand the thread back.
  */
 
-export const CONTACT_CHANNELS = ["email", "form", "discord", "telegram", "x", "linkedin", "other"] as const;
+/** Shared with the client, which also has to say whether an address is a real person. */
+export { isGenericInbox } from "@/lib/inbox";
+import { isGenericInbox } from "@/lib/inbox";
+
+export const CONTACT_CHANNELS = [
+  "email",
+  "form",
+  "discord",
+  "telegram",
+  "x",
+  "linkedin",
+  "other",
+] as const;
 export type ContactChannel = (typeof CONTACT_CHANNELS)[number];
 
 export interface CompanyContact {
@@ -29,30 +41,6 @@ export const SENDABLE_CHANNELS: readonly ContactChannel[] = ["email"];
 
 export const isSendable = (c: CompanyContact) => SENDABLE_CHANNELS.includes(c.channel);
 
-/** Generic inboxes: usable, but worth far less than a named person. */
-const GENERIC_LOCAL_PARTS = new Set([
-  "hello",
-  "info",
-  "contact",
-  "team",
-  "support",
-  "enquiries",
-  "inquiries",
-  "sales",
-  "partnerships",
-  "bd",
-  "hi",
-  "admin",
-  "office",
-]);
-
-export function isGenericInbox(address: string): boolean {
-  const local = address.trim().toLowerCase().split("@")[0] ?? "";
-  // "hello+bd@" and "info.uk@" are the same inbox wearing a tag.
-  const base = local.split(/[+.]/)[0] ?? "";
-  return GENERIC_LOCAL_PARTS.has(base);
-}
-
 /**
  * How reachable a company is, on the scale `contactability` is scored on.
  *
@@ -60,7 +48,10 @@ export function isGenericInbox(address: string): boolean {
  * converts worse; a handle is a route the operator can open by hand. None of them is
  * nothing, which is the point — the old schema could only say "named email or bust".
  */
-export function contactabilityScore(input: { personEmail?: string | null; contacts: readonly CompanyContact[] }): number {
+export function contactabilityScore(input: {
+  personEmail?: string | null;
+  contacts: readonly CompanyContact[];
+}): number {
   if (input.personEmail && !isGenericInbox(input.personEmail)) return 10;
   const emails = input.contacts.filter((c) => c.channel === "email");
   if (emails.some((c) => !isGenericInbox(c.value))) return 9;
@@ -76,7 +67,11 @@ export function preferredContact(input: {
   contacts: readonly CompanyContact[];
 }): { channel: ContactChannel; value: string; named: boolean } | null {
   if (input.personEmail) {
-    return { channel: "email", value: input.personEmail, named: !isGenericInbox(input.personEmail) };
+    return {
+      channel: "email",
+      value: input.personEmail,
+      named: !isGenericInbox(input.personEmail),
+    };
   }
   const emails = input.contacts.filter((c) => c.channel === "email");
   const named = emails.find((c) => !isGenericInbox(c.value));
