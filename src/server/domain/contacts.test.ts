@@ -6,6 +6,7 @@ import {
   isSendable,
   preferredContact,
   type CompanyContact,
+  contactFoundBy,
 } from "./contacts";
 
 const email = (value: string): CompanyContact => ({ channel: "email", value });
@@ -13,7 +14,13 @@ const discord = (value = "discord.gg/team"): CompanyContact => ({ channel: "disc
 
 describe("isGenericInbox", () => {
   it("knows the usual shared inboxes", () => {
-    for (const a of ["hello@x.com", "info@x.com", "team@x.com", "partnerships@x.com", "sales@x.com"]) {
+    for (const a of [
+      "hello@x.com",
+      "info@x.com",
+      "team@x.com",
+      "partnerships@x.com",
+      "sales@x.com",
+    ]) {
       expect(isGenericInbox(a)).toBe(true);
     }
   });
@@ -54,7 +61,9 @@ describe("contactabilityScore", () => {
   });
 
   it("still counts something over nothing", () => {
-    expect(contactabilityScore({ contacts: [{ channel: "form", value: "https://x.com/contact" }] })).toBe(3);
+    expect(
+      contactabilityScore({ contacts: [{ channel: "form", value: "https://x.com/contact" }] }),
+    ).toBe(3);
   });
 
   it("scores nothing only when there is genuinely nothing", () => {
@@ -72,7 +81,9 @@ describe("contactabilityScore", () => {
 
 describe("preferredContact", () => {
   it("prefers the known person over anything on the company", () => {
-    expect(preferredContact({ personEmail: "ilse@x.com", contacts: [email("hello@x.com")] })).toEqual({
+    expect(
+      preferredContact({ personEmail: "ilse@x.com", contacts: [email("hello@x.com")] }),
+    ).toEqual({
       channel: "email",
       value: "ilse@x.com",
       named: true,
@@ -80,7 +91,9 @@ describe("preferredContact", () => {
   });
 
   it("prefers a named company address over a generic one", () => {
-    expect(preferredContact({ contacts: [email("hello@x.com"), email("ilse.vermeer@x.com")] })).toMatchObject({
+    expect(
+      preferredContact({ contacts: [email("hello@x.com"), email("ilse.vermeer@x.com")] }),
+    ).toMatchObject({
       value: "ilse.vermeer@x.com",
       named: true,
     });
@@ -95,7 +108,10 @@ describe("preferredContact", () => {
   });
 
   it("offers a handle when there is no address at all", () => {
-    expect(preferredContact({ contacts: [discord()] })).toMatchObject({ channel: "discord", named: false });
+    expect(preferredContact({ contacts: [discord()] })).toMatchObject({
+      channel: "discord",
+      named: false,
+    });
   });
 
   it("returns nothing when there is nothing", () => {
@@ -118,11 +134,47 @@ describe("dedupeContacts", () => {
   });
 
   it("keeps the same value on two different channels", () => {
-    const out = dedupeContacts([{ channel: "x", value: "@team" }, { channel: "telegram", value: "@team" }]);
+    const out = dedupeContacts([
+      { channel: "x", value: "@team" },
+      { channel: "telegram", value: "@team" },
+    ]);
     expect(out).toHaveLength(2);
   });
 
   it("drops blanks and trims what it keeps", () => {
-    expect(dedupeContacts([email("  "), email(" hello@x.com ")])).toEqual([{ channel: "email", value: "hello@x.com" }]);
+    expect(dedupeContacts([email("  "), email(" hello@x.com ")])).toEqual([
+      { channel: "email", value: "hello@x.com" },
+    ]);
+  });
+});
+
+describe("contactFoundBy", () => {
+  it("takes the stamp when there is one", () => {
+    expect(contactFoundBy({ channel: "email", value: "a@b.com", addedBy: "operator" })).toBe(
+      "operator",
+    );
+    expect(contactFoundBy({ channel: "email", value: "a@b.com", addedBy: "agent" })).toBe("agent");
+  });
+
+  it("guesses from the source for rows written before the stamp existed", () => {
+    // Research always cites the page it read; a person typing an address rarely does.
+    expect(
+      contactFoundBy({ channel: "email", value: "a@b.com", sourceRef: "https://b.com/contact" }),
+    ).toBe("agent");
+    expect(contactFoundBy({ channel: "email", value: "a@b.com" })).toBe("operator");
+    expect(
+      contactFoundBy({ channel: "email", value: "a@b.com", sourceRef: "a friend told me" }),
+    ).toBe("operator");
+  });
+
+  it("prefers the stamp over the guess when they disagree", () => {
+    expect(
+      contactFoundBy({
+        channel: "email",
+        value: "a@b.com",
+        sourceRef: "https://b.com",
+        addedBy: "operator",
+      }),
+    ).toBe("operator");
   });
 });

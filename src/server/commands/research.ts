@@ -39,7 +39,9 @@ async function upsertCompany(tx: Executor, candidate: Candidate) {
   // A timezone we can trust is worth filling in on a company we already knew; a name the
   // runtime does not recognise is dropped rather than stored, so a send is never mis-aimed.
   const timezone = isKnownTimezone(candidate.company.timezone) ? candidate.company.timezone : null;
-  const found = dedupeContacts(candidate.company.contacts ?? []);
+  // Stamped here rather than inferred later: the prospect screen shows the operator which
+  // routes it found for itself and which they supplied.
+  const found = dedupeContacts((candidate.company.contacts ?? []).map((c) => ({ ...c, addedBy: "agent" as const })));
   if (byName) {
     const patch: { timezone?: string; contacts?: CompanyContact[] } = {};
     if (timezone && !byName.timezone) patch.timezone = timezone;

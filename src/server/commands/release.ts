@@ -118,7 +118,7 @@ export async function addCompanyContact(
     const [company] = await tx.select().from(companies).where(eq(companies.id, input.companyId));
     if (!company) throw notFound("company");
 
-    const contact: CompanyContact = { channel: input.channel, value };
+    const contact: CompanyContact = { channel: input.channel, value, addedBy: "operator" };
     if (input.sourceRef?.trim()) contact.sourceRef = input.sourceRef.trim();
 
     const merged = dedupeContacts([...company.contacts, contact]);

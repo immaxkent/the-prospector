@@ -34,6 +34,26 @@ export interface CompanyContact {
   value: string;
   /** Where it was read. Contacts are evidence like anything else. */
   sourceRef?: string | undefined;
+  /**
+   * Who put it there. Stamped on write by both paths that write one.
+   *
+   * Optional because rows written before this existed have no honest answer; read them
+   * through `contactFoundBy`, which falls back to a guess and says it is one.
+   */
+  addedBy?: "agent" | "operator" | undefined;
+}
+
+/**
+ * Who found a contact.
+ *
+ * Stamped on write since this field existed. For rows older than it the only evidence is
+ * the source: research always cites a page it read, and the operator typing an address it
+ * found elsewhere usually cites nothing. That is a guess, which is why it is in one place
+ * rather than repeated at each call site.
+ */
+export function contactFoundBy(contact: CompanyContact): "agent" | "operator" {
+  if (contact.addedBy) return contact.addedBy;
+  return contact.sourceRef?.startsWith("http") ? "agent" : "operator";
 }
 
 /** Channels this app can actually send through today. Everything else is for the operator. */
