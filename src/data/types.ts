@@ -373,3 +373,51 @@ export interface DailyBrief {
   today: string[];
   risks: string[];
 }
+
+/** One route to a company or person, and where it came from. */
+export interface ContactRoute {
+  channel: string;
+  value: string;
+  /** Who found it. Research cites a URL; the operator cites themselves. */
+  foundBy: "agent" | "operator";
+  /** Where it was read, when there is somewhere to point at. */
+  sourceRef: string | null;
+  /** The one this app would try first. Exactly one route is preferred, unless there are none. */
+  preferred: boolean;
+  /** Whether this app can send to it. Only email, today. */
+  sendable: boolean;
+  /** A person rather than a generic inbox. Only meaningful for email. */
+  named: boolean;
+}
+
+export type TimelineKind =
+  | "research"
+  | "trigger"
+  | "qualified"
+  | "released"
+  | "sent"
+  | "received"
+  | "elsewhere"
+  | "decision";
+
+/** One thing that happened to a prospect, from whichever table recorded it. */
+export interface TimelineEntry {
+  id: string;
+  kind: TimelineKind;
+  at: string;
+  title: string;
+  detail: string;
+  /** Where to read it for yourself, when the source is a page. */
+  url?: string | undefined;
+}
+
+/** Everything known about one prospect, on one screen. */
+export interface ProspectDetail extends Prospect {
+  personEmail: string | null;
+  linkedinUrl: string | null;
+  companyName: string;
+  companyDomain: string | null;
+  companyTimezone: string | null;
+  routes: ContactRoute[];
+  timeline: TimelineEntry[];
+}
