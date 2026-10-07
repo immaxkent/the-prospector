@@ -12,7 +12,7 @@ test.describe("prospect inspector", () => {
 
   async function openNorthbridge(page: import("@playwright/test").Page) {
     await signIn(page, "/prospects");
-    await page.getByRole("cell", { name: "Northbridge Protocol" }).click();
+    await page.getByRole("cell", { name: "Northbridge Protocol", exact: true }).click();
     return page.getByTestId("prospect-actions");
   }
 
@@ -61,7 +61,7 @@ test.describe("contact that did not go through the mailbox", () => {
 
   test("records a conversation happening elsewhere, and says it is kept out of the rates", async ({ page }) => {
     await signIn(page, "/prospects");
-    await page.getByRole("cell", { name: "Northbridge Protocol" }).click();
+    await page.getByRole("cell", { name: "Northbridge Protocol", exact: true }).click();
     await page.getByTestId("log-contact").click();
 
     const form = page.getByTestId("log-interaction");
@@ -81,7 +81,7 @@ test.describe("contact that did not go through the mailbox", () => {
 
   test("refuses a date that has not happened", async ({ page }) => {
     await signIn(page, "/prospects");
-    await page.getByRole("cell", { name: "Northbridge Protocol" }).click();
+    await page.getByRole("cell", { name: "Northbridge Protocol", exact: true }).click();
     await page.getByTestId("log-contact").click();
 
     const form = page.getByTestId("log-interaction");

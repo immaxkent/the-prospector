@@ -283,6 +283,8 @@ test("a prospect nobody has scored says so, rather than showing nought out of a 
   // Nought on a nought-to-a-hundred scale reads as the worst prospect in the list. Every
   // freshly researched prospect looked like that until the read model stopped inventing it.
   await page.goto("/prospects");
+  // The list opens on what is waiting on a decision; an unscored prospect is not that yet.
+  await page.getByRole("button", { name: /NOT JUDGED/ }).click();
   const row = page.getByRole("row").filter({ hasText: "Halden Rollup" });
   await expect(row).toContainText("—");
   await expect(row).not.toContainText("0");

@@ -1,0 +1,176 @@
+/**
+ * What state a prospect is in, and whether it is waiting on a person.
+ *
+ * Every screen that shows a prospect was deciding this for itself off `stage`, `status`,
+ * `score` and `releasedAt` — four fields that overlap — so the same prospect could read as
+ * qualified on one screen and as waiting on another. This is the one derivation they all use.
+ *
+ * The roadmap names three states: not yet judged, judged and waiting on you, judged and not
+ * worth it. There is a fourth here because a released prospect is none of those: the decision
+ * has been made and the agent has it, so it is off the operator's desk without being refused.
+ */
+import { isGenericInbox } from "@/lib/inbox";
+import type { Prospect } from "./types";
+
+export type ProspectState = "unjudged" | "undecided" | "accepted" | "declined";
+
+/** How reachable they are, worst to best: nothing, a handle a person can open, an inbox, a named address. */
+export type Reach = "none" | "handle" | "inbox" | "named";
+
+export interface ProspectDecision {
+  state: ProspectState;
+  /** Why it is in that state, short enough to sit beside a row. */
+  reason: string;
+  /** Whether the operator has something to do here. */
+  needsDecision: boolean;
+  reach: Reach;
+  /** What they can be reached on, said plainly. */
+  reachNote: string;
+}
+
+/** The order the operator should meet these in: what needs them, then what is coming, then what is done. */
+const STATE_RANK: Record<ProspectState, number> = {
+  undecided: 0,
+  unjudged: 1,
+  accepted: 2,
+  declined: 3,
+};
+
+const HANDLE_CHANNELS = new Set(["discord", "telegram", "x", "linkedin", "form", "other"]);
+
+export function reachOf(contacts: readonly { channel: string; value: string }[]): Reach {
+  const emails = contacts.filter((c) => c.channel === "email" && c.value.trim() !== "");
+  if (emails.some((c) => !isGenericInbox(c.value))) return "named";
+  if (emails.length > 0) return "inbox";
+  if (contacts.some((c) => HANDLE_CHANNELS.has(c.channel) && c.value.trim() !== ""))
+    return "handle";
+  return "none";
+}
+
+const REACH_NOTE: Record<Reach, string> = {
+  named: "named address",
+  inbox: "generic inbox",
+  handle: "handle only — you open it",
+  none: "no route found",
+};
+
+/** True when there is nothing this app can send to, whatever a person might manage by hand. */
+export const cannotBeContacted = (reach: Reach) => reach === "none";
+
+export function prospectDecision(p: Prospect): ProspectDecision {
+  const reach = reachOf(p.contacts);
+  const reachNote = REACH_NOTE[reach];
+  const decided = (state: ProspectState, reason: string): ProspectDecision => ({
+    state,
+    reason,
+    needsDecision: state === "undecided",
+    reach,
+    reachNote,
+  });
+
+  if (p.status === "REJECTED") {
+    return decided("declined", p.scoreReason ? `rejected — ${p.scoreReason}` : "rejected");
+  }
+  if (p.releasedAt) return decided("accepted", "released — the agent has it");
+  if (p.status === "DISCOVERED") return decided("unjudged", "found, not looked at yet");
+  if (p.status === "RESEARCHING") return decided("unjudged", "being researched");
+  if (p.score === null) return decided("unjudged", "researched, not scored yet");
+  if (p.status === "NEEDS_REVIEW") return decided("undecided", "flagged for review");
+  if (reach === "none")
+    return decided("undecided", `scored ${p.score}, but no route to reach them`);
+  return decided("undecided", `scored ${p.score}, waiting on you`);
+}
+
+const REACH_RANK: Record<Reach, number> = { named: 0, inbox: 1, handle: 2, none: 3 };
+
+/**
+ * The list in the order a person should work it.
+ *
+ * What needs a decision comes first, and within that the ones that can actually be reached —
+ * a high score with no route to the company is not the first thing to spend attention on.
+ * Sorting is stable, so rows that tie keep whatever order they arrived in.
+ */
+export function orderByDecision<T extends Prospect>(
+  prospects: readonly T[],
+): (T & { decision: ProspectDecision })[] {
+  return prospects
+    .map((p) => ({ ...p, decision: prospectDecision(p) }))
+    .sort((a, b) => {
+      const byState = STATE_RANK[a.decision.state] - STATE_RANK[b.decision.state];
+      if (byState !== 0) return byState;
+      if (a.decision.state === "undecided") {
+        // Flagged for review is the most explicit ask there is, so it goes above score.
+        const flagged = Number(b.status === "NEEDS_REVIEW") - Number(a.status === "NEEDS_REVIEW");
+        if (flagged !== 0) return flagged;
+        const byReach = REACH_RANK[a.decision.reach] - REACH_RANK[b.decision.reach];
+        if (byReach !== 0) return byReach;
+        return (b.score ?? 0) - (a.score ?? 0);
+      }
+      if (a.decision.state === "accepted")
+        return (b.releasedAt ?? "").localeCompare(a.releasedAt ?? "");
+      return 0;
+    });
+}
+
+export interface DecisionCount {
+  needsDecision: number;
+  unjudged: number;
+  accepted: number;
+  declined: number;
+  /** Of the ones needing a decision, how many have no route to the company. */
+  unreachable: number;
+}
+
+export function countDecisions(prospects: readonly Prospect[]): DecisionCount {
+  const count: DecisionCount = {
+    needsDecision: 0,
+    unjudged: 0,
+    accepted: 0,
+    declined: 0,
+    unreachable: 0,
+  };
+  for (const p of prospects) {
+    const d = prospectDecision(p);
+    if (d.state === "undecided") {
+      count.needsDecision += 1;
+      if (cannotBeContacted(d.reach)) count.unreachable += 1;
+    } else if (d.state === "unjudged") count.unjudged += 1;
+    else if (d.state === "accepted") count.accepted += 1;
+    else count.declined += 1;
+  }
+  return count;
+}
+
+export interface BulkTarget {
+  /** The endeavour the actions would be recorded against. Null when they cannot be. */
+  endeavourId: string | null;
+  /** Why the selection cannot be acted on, said to the operator. Null when it can. */
+  problem: string | null;
+  /** How many of the selection a release would actually move. */
+  releasable: number;
+}
+
+/** The server takes at most this many ids at once; saying so beats a rejected request. */
+export const BULK_LIMIT = 200;
+
+/**
+ * What a bulk action would do to the current selection.
+ *
+ * Release, reject and dequeue are all recorded against one endeavour, so a selection
+ * spanning two of them is not a smaller problem to be split up silently — it is refused,
+ * with the reason, because splitting it would record half the operator's decision.
+ */
+export function bulkTarget(selected: readonly Prospect[]): BulkTarget {
+  const refuse = (problem: string): BulkTarget => ({ endeavourId: null, problem, releasable: 0 });
+  if (selected.length === 0) return refuse("Tick a row to act on it.");
+  if (selected.length > BULK_LIMIT) return refuse(`${BULK_LIMIT} at a time is the most that can be sent at once.`);
+  const endeavours = new Set(selected.map((p) => p.endeavourId));
+  if (endeavours.size > 1) {
+    return refuse("These are recorded against one endeavour. Filter to one before acting.");
+  }
+  return {
+    endeavourId: selected[0]!.endeavourId,
+    problem: null,
+    releasable: selected.filter((p) => prospectDecision(p).state === "undecided").length,
+  };
+}
