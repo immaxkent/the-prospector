@@ -43,6 +43,14 @@ export interface CompanyContact {
    * through `contactFoundBy`, which falls back to a guess and says it is one.
    */
   addedBy?: "agent" | "operator" | undefined;
+  /**
+   * The operator said to use this one.
+   *
+   * Research can only rank addresses by what they look like, and it is often wrong about
+   * which inbox a company reads. At most one contact carries this, and when one does the
+   * ranking defers to it.
+   */
+  preferred?: boolean | undefined;
 }
 
 /** Channels this app can actually send through today. Everything else is for the operator. */
@@ -70,11 +78,26 @@ export function contactabilityScore(input: {
   return 0;
 }
 
-/** What to try first. Named address, then generic inbox, then whatever a human can open. */
+/**
+ * What to try first. The operator's choice, then a named address, then a generic inbox, then
+ * whatever a human can open.
+ *
+ * The operator's choice wins over a named address because research only ranks addresses by
+ * what they look like, and the person who has written to this company before knows which
+ * inbox is actually read.
+ */
 export function preferredContact(input: {
   personEmail?: string | null;
   contacts: readonly CompanyContact[];
 }): { channel: ContactChannel; value: string; named: boolean } | null {
+  const chosen = input.contacts.find((c) => c.preferred);
+  if (chosen) {
+    return {
+      channel: chosen.channel,
+      value: chosen.value,
+      named: chosen.channel === "email" ? !isGenericInbox(chosen.value) : false,
+    };
+  }
   if (input.personEmail) {
     return {
       channel: "email",

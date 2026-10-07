@@ -146,3 +146,35 @@ describe("dedupeContacts", () => {
     ]);
   });
 });
+
+describe("preferredContact with a choice the operator made", () => {
+  it("uses the chosen contact over a named address", () => {
+    // Research ranks addresses by what they look like; the person who has written to this
+    // company before knows which inbox is read.
+    const chosen = preferredContact({
+      personEmail: "ada@co.com",
+      contacts: [{ channel: "email", value: "mira@co.com", preferred: true }],
+    });
+    expect(chosen).toEqual({ channel: "email", value: "mira@co.com", named: true });
+  });
+
+  it("will choose a generic inbox, and still says it is generic", () => {
+    expect(
+      preferredContact({ personEmail: "ada@co.com", contacts: [{ channel: "email", value: "hello@co.com", preferred: true }] }),
+    ).toEqual({ channel: "email", value: "hello@co.com", named: false });
+  });
+
+  it("will choose a channel this app cannot send on, and the caller decides what to do", () => {
+    expect(
+      preferredContact({ personEmail: "ada@co.com", contacts: [{ channel: "discord", value: "co#1", preferred: true }] }),
+    ).toEqual({ channel: "discord", value: "co#1", named: false });
+  });
+
+  it("falls back to the ranking when nothing is chosen", () => {
+    expect(preferredContact({ personEmail: "ada@co.com", contacts: [{ channel: "email", value: "mira@co.com" }] })).toEqual({
+      channel: "email",
+      value: "ada@co.com",
+      named: true,
+    });
+  });
+});
