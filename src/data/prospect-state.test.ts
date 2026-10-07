@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import type { Prospect } from "./types";
 import {
+  BULK_LIMIT,
+  bulkTarget,
   cannotBeContacted,
   countDecisions,
   orderByDecision,
@@ -169,5 +171,32 @@ describe("countDecisions", () => {
 
   it("counts nothing from nothing", () => {
     expect(countDecisions([])).toEqual({ needsDecision: 0, unjudged: 0, accepted: 0, declined: 0, unreachable: 0 });
+  });
+});
+
+describe("bulkTarget", () => {
+  it("refuses an empty selection rather than sending nothing", () => {
+    expect(bulkTarget([])).toMatchObject({ endeavourId: null, problem: "Tick a row to act on it." });
+  });
+
+  it("refuses a selection spanning two endeavours, because the decision is recorded against one", () => {
+    const t = bulkTarget([prospect({ id: "a", endeavourId: "e1" }), prospect({ id: "b", endeavourId: "e2" })]);
+    expect(t.endeavourId).toBeNull();
+    expect(t.problem).toContain("one endeavour");
+  });
+
+  it("refuses more than the server will take, instead of letting it come back a 400", () => {
+    const many = Array.from({ length: BULK_LIMIT + 1 }, (_, i) => prospect({ id: `p${i}` }));
+    expect(bulkTarget(many).problem).toContain("200 at a time");
+  });
+
+  it("names the endeavour and counts what a release would actually move", () => {
+    expect(
+      bulkTarget([
+        prospect({ id: "a", score: 80 }),
+        prospect({ id: "b", score: null }),
+        prospect({ id: "c", status: "REJECTED" }),
+      ]),
+    ).toEqual({ endeavourId: "e1", problem: null, releasable: 1 });
   });
 });

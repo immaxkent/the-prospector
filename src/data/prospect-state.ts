@@ -9,7 +9,7 @@
  * worth it. There is a fourth here because a released prospect is none of those: the decision
  * has been made and the agent has it, so it is off the operator's desk without being refused.
  */
-import { isGenericInbox } from "@/server/domain/contacts";
+import { isGenericInbox } from "@/lib/inbox";
 import type { Prospect } from "./types";
 
 export type ProspectState = "unjudged" | "undecided" | "accepted" | "declined";
@@ -29,7 +29,12 @@ export interface ProspectDecision {
 }
 
 /** The order the operator should meet these in: what needs them, then what is coming, then what is done. */
-const STATE_RANK: Record<ProspectState, number> = { undecided: 0, unjudged: 1, accepted: 2, declined: 3 };
+const STATE_RANK: Record<ProspectState, number> = {
+  undecided: 0,
+  unjudged: 1,
+  accepted: 2,
+  declined: 3,
+};
 
 const HANDLE_CHANNELS = new Set(["discord", "telegram", "x", "linkedin", "form", "other"]);
 
@@ -37,7 +42,8 @@ export function reachOf(contacts: readonly { channel: string; value: string }[])
   const emails = contacts.filter((c) => c.channel === "email" && c.value.trim() !== "");
   if (emails.some((c) => !isGenericInbox(c.value))) return "named";
   if (emails.length > 0) return "inbox";
-  if (contacts.some((c) => HANDLE_CHANNELS.has(c.channel) && c.value.trim() !== "")) return "handle";
+  if (contacts.some((c) => HANDLE_CHANNELS.has(c.channel) && c.value.trim() !== ""))
+    return "handle";
   return "none";
 }
 
@@ -70,7 +76,8 @@ export function prospectDecision(p: Prospect): ProspectDecision {
   if (p.status === "RESEARCHING") return decided("unjudged", "being researched");
   if (p.score === null) return decided("unjudged", "researched, not scored yet");
   if (p.status === "NEEDS_REVIEW") return decided("undecided", "flagged for review");
-  if (reach === "none") return decided("undecided", `scored ${p.score}, but no route to reach them`);
+  if (reach === "none")
+    return decided("undecided", `scored ${p.score}, but no route to reach them`);
   return decided("undecided", `scored ${p.score}, waiting on you`);
 }
 
@@ -83,7 +90,9 @@ const REACH_RANK: Record<Reach, number> = { named: 0, inbox: 1, handle: 2, none:
  * a high score with no route to the company is not the first thing to spend attention on.
  * Sorting is stable, so rows that tie keep whatever order they arrived in.
  */
-export function orderByDecision<T extends Prospect>(prospects: readonly T[]): (T & { decision: ProspectDecision })[] {
+export function orderByDecision<T extends Prospect>(
+  prospects: readonly T[],
+): (T & { decision: ProspectDecision })[] {
   return prospects
     .map((p) => ({ ...p, decision: prospectDecision(p) }))
     .sort((a, b) => {
@@ -97,7 +106,8 @@ export function orderByDecision<T extends Prospect>(prospects: readonly T[]): (T
         if (byReach !== 0) return byReach;
         return (b.score ?? 0) - (a.score ?? 0);
       }
-      if (a.decision.state === "accepted") return (b.releasedAt ?? "").localeCompare(a.releasedAt ?? "");
+      if (a.decision.state === "accepted")
+        return (b.releasedAt ?? "").localeCompare(a.releasedAt ?? "");
       return 0;
     });
 }
@@ -112,7 +122,13 @@ export interface DecisionCount {
 }
 
 export function countDecisions(prospects: readonly Prospect[]): DecisionCount {
-  const count: DecisionCount = { needsDecision: 0, unjudged: 0, accepted: 0, declined: 0, unreachable: 0 };
+  const count: DecisionCount = {
+    needsDecision: 0,
+    unjudged: 0,
+    accepted: 0,
+    declined: 0,
+    unreachable: 0,
+  };
   for (const p of prospects) {
     const d = prospectDecision(p);
     if (d.state === "undecided") {
@@ -123,4 +139,38 @@ export function countDecisions(prospects: readonly Prospect[]): DecisionCount {
     else count.declined += 1;
   }
   return count;
+}
+
+export interface BulkTarget {
+  /** The endeavour the actions would be recorded against. Null when they cannot be. */
+  endeavourId: string | null;
+  /** Why the selection cannot be acted on, said to the operator. Null when it can. */
+  problem: string | null;
+  /** How many of the selection a release would actually move. */
+  releasable: number;
+}
+
+/** The server takes at most this many ids at once; saying so beats a rejected request. */
+export const BULK_LIMIT = 200;
+
+/**
+ * What a bulk action would do to the current selection.
+ *
+ * Release, reject and dequeue are all recorded against one endeavour, so a selection
+ * spanning two of them is not a smaller problem to be split up silently — it is refused,
+ * with the reason, because splitting it would record half the operator's decision.
+ */
+export function bulkTarget(selected: readonly Prospect[]): BulkTarget {
+  const refuse = (problem: string): BulkTarget => ({ endeavourId: null, problem, releasable: 0 });
+  if (selected.length === 0) return refuse("Tick a row to act on it.");
+  if (selected.length > BULK_LIMIT) return refuse(`${BULK_LIMIT} at a time is the most that can be sent at once.`);
+  const endeavours = new Set(selected.map((p) => p.endeavourId));
+  if (endeavours.size > 1) {
+    return refuse("These are recorded against one endeavour. Filter to one before acting.");
+  }
+  return {
+    endeavourId: selected[0]!.endeavourId,
+    problem: null,
+    releasable: selected.filter((p) => prospectDecision(p).state === "undecided").length,
+  };
 }
