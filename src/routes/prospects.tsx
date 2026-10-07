@@ -21,6 +21,7 @@ import { cn } from "@/lib/utils";
 import { ProspectActions } from "@/components/os/ProspectActions";
 import { countDecisions, orderByDecision, type ProspectState } from "@/data/prospect-state";
 import { BulkDecide } from "@/components/os/BulkDecide";
+import { ReachTag } from "@/components/os/ReachTag";
 import { LogInteraction } from "@/components/os/LogInteraction";
 
 export const Route = createFileRoute("/prospects")({
@@ -246,6 +247,9 @@ function ProspectsScreen() {
                         {p.decision.reason}
                       </Td>
                       <Td className="whitespace-nowrap">
+                        <ReachTag contacts={p.contacts} />
+                      </Td>
+                      <Td className="whitespace-nowrap">
                         <Tag>{p.segment}</Tag>
                       </Td>
                       <Td className="max-w-[220px] truncate text-muted-foreground">{p.trigger}</Td>
@@ -287,11 +291,14 @@ function ProspectsScreen() {
         title={selected ? `${selected.person} · ${selected.company}` : ""}
         meta={
           selected && (
-            <MachineLabel>
-              {selected.role} · {selected.segment} ·{" "}
-              {selected.score === null ? "NOT SCORED YET" : `SCORE ${selected.score}`} ·{" "}
-              {selected.status}
-            </MachineLabel>
+            <div className="flex flex-wrap items-center gap-2">
+              <MachineLabel>
+                {selected.role} · {selected.segment} ·{" "}
+                {selected.score === null ? "NOT SCORED YET" : `SCORE ${selected.score}`} ·{" "}
+                {selected.status}
+              </MachineLabel>
+              <ReachTag contacts={selected.contacts} />
+            </div>
           )
         }
         footer={selected ? <ProspectActions prospect={selected} /> : null}

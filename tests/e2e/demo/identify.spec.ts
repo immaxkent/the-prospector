@@ -106,3 +106,38 @@ test.describe("deciding on several rows at once", () => {
     await expect(page.getByTestId("bulk-help")).toContainText("nothing to release");
   });
 });
+
+/**
+ * T4: a prospect that cannot be contacted says so before it is opened. A row with no route
+ * to the company looked exactly like one with a named CTO's address, so the highest-scoring
+ * rows on the list were sometimes the ones there was nothing to be done about.
+ */
+test.describe("whether there is anyone to send to", () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto("/prospects");
+    await expect(page.getByRole("heading", { level: 1, name: /prospects/i })).toBeVisible();
+  });
+
+  const row = (page: import("@playwright/test").Page, company: string) =>
+    page.locator("tbody tr").filter({ hasText: company });
+
+  test("says on the row which kind of route there is, or that there is none", async ({ page }) => {
+    await expect(row(page, "Northbridge Protocol").getByTestId("reach-tag")).toHaveAttribute("data-reach", "named");
+    // A generic inbox is usable, and a different thing from a named person.
+    await expect(row(page, "Meridian Settlements").getByTestId("reach-tag")).toHaveAttribute("data-reach", "inbox");
+    await expect(row(page, "Kestrel Trading").getByTestId("reach-tag")).toHaveText("NO ROUTE");
+  });
+
+  test("does not imply the agent will open a channel it cannot send on", async ({ page }) => {
+    await expect(row(page, "Meridian Settlements").getByTestId("reach-tag")).toBeVisible();
+    await page.getByRole("button", { name: /^ALL/ }).click();
+    const tag = row(page, "Kestrel Trading").getByTestId("reach-tag");
+    await expect(tag).toHaveAttribute("title", /Nothing can be sent/);
+  });
+
+  test("the inspector says it too, so it is not lost on opening the row", async ({ page }) => {
+    await row(page, "Kestrel Trading").getByRole("cell", { name: "Kestrel Trading", exact: true }).click();
+    const inspector = page.getByTestId("inspector");
+    await expect(inspector.getByTestId("reach-tag")).toHaveText("NO ROUTE");
+  });
+});
