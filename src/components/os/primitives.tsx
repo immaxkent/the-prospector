@@ -186,14 +186,18 @@ export function Td({
   align = "left",
   mono,
   className,
+  title,
 }: {
   children?: ReactNode | undefined;
   align?: "left" | "right" | "center" | undefined;
   mono?: boolean | undefined;
   className?: string | undefined;
+  /** The full text when the cell is truncated, so nothing is lost to a narrow column. */
+  title?: string | undefined;
 }) {
   return (
     <td
+      title={title}
       className={cn(
         "border-b border-border px-3 py-2.5 align-middle",
         mono && "numeral text-[13px]",
