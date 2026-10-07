@@ -19,6 +19,7 @@ import {
 import { gbp, relative, scoreText, stamp } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { ProspectActions } from "@/components/os/ProspectActions";
+import { countDecisions, orderByDecision, type ProspectState } from "@/data/prospect-state";
 import { LogInteraction } from "@/components/os/LogInteraction";
 
 export const Route = createFileRoute("/prospects")({
@@ -27,37 +28,60 @@ export const Route = createFileRoute("/prospects")({
       { title: "Prospects — CBO OS" },
       {
         name: "description",
-        content: "Research blotter of scored prospects with trigger, evidence, stage, last touch and next action.",
+        content:
+          "Research blotter of scored prospects with trigger, evidence, stage, last touch and next action.",
       },
       { property: "og:title", content: "Prospects — CBO OS" },
-      { property: "og:description", content: "A research terminal crossed with a financial blotter." },
+      {
+        property: "og:description",
+        content: "A research terminal crossed with a financial blotter.",
+      },
     ],
   }),
   component: ProspectsScreen,
 });
 
-const STAGE_FILTERS = ["ALL", "researched", "qualified", "contacted", "replied", "meeting", "proposal", "won", "rejected"];
+/**
+ * The list is filtered by what a prospect needs, not by what stage it reached.
+ *
+ * Stage is a fact about the pipeline; state is a question about the operator. A person
+ * clearing a day's prospects wants the second, so NEEDS YOU is where the page opens.
+ */
+const STATE_FILTERS: { key: string; label: string; states: readonly ProspectState[] }[] = [
+  { key: "needs", label: "NEEDS YOU", states: ["undecided"] },
+  { key: "coming", label: "NOT JUDGED", states: ["unjudged"] },
+  { key: "released", label: "RELEASED", states: ["accepted"] },
+  { key: "rejected", label: "REJECTED", states: ["declined"] },
+  { key: "ALL", label: "ALL", states: ["undecided", "unjudged", "accepted", "declined"] },
+];
 
 function ProspectsScreen() {
   const { prospects, endeavours, threads, isEmpty } = useDataset();
-  const [stage, setStage] = useState("ALL");
+  const [filter, setFilter] = useState("needs");
   const [endeavour, setEndeavour] = useState("ALL");
   const [q, setQ] = useState("");
   const [selectedId, setSelectedId] = useState<string | null>(null);
   // Derived from the dataset so the inspector reflects changes after an action.
   const selected = prospects.find((p) => p.id === selectedId) ?? null;
 
-  const rows = useMemo(
+  const inScope = useMemo(
     () =>
       prospects.filter(
         (p) =>
-          (stage === "ALL" || p.stage === stage) &&
           (endeavour === "ALL" || p.endeavourId === endeavour) &&
           (q === "" ||
-            `${p.person} ${p.company} ${p.segment} ${p.trigger}`.toLowerCase().includes(q.toLowerCase())),
+            `${p.person} ${p.company} ${p.segment} ${p.trigger}`
+              .toLowerCase()
+              .includes(q.toLowerCase())),
       ),
-    [prospects, stage, endeavour, q],
+    [prospects, endeavour, q],
   );
+  // Counted before the state filter, so the tabs say what is behind them rather than what is shown.
+  const counts = useMemo(() => countDecisions(inScope), [inScope]);
+  const rows = useMemo(() => {
+    const wanted = STATE_FILTERS.find((f) => f.key === filter)?.states ?? [];
+    return orderByDecision(inScope).filter((p) => wanted.includes(p.decision.state));
+  }, [inScope, filter]);
 
   const thread = selected ? threads.find((t) => t.prospectId === selected.id) : undefined;
 
@@ -65,7 +89,7 @@ function ProspectsScreen() {
     <div className="space-y-5">
       <PageHeader
         title="PROSPECTS"
-        summary={`${rows.length} of ${prospects.length} records · scored from trigger recency, fit factors and role authority`}
+        summary={`${counts.needsDecision} waiting on you · ${counts.unjudged} not judged yet · ${counts.accepted} released · ${counts.declined} rejected`}
       />
 
       {isEmpty ? (
@@ -95,83 +119,118 @@ function ProspectsScreen() {
               ))}
             </select>
             <div className="flex flex-wrap gap-1">
-              {STAGE_FILTERS.map((s) => (
+              {STATE_FILTERS.map((f) => (
                 <button
-                  key={s}
-                  onClick={() => setStage(s)}
+                  key={f.key}
+                  onClick={() => setFilter(f.key)}
                   className={cn(
                     "machine rounded-[3px] border px-2 py-1.5",
-                    stage === s ? "border-signal bg-signal-soft text-primary" : "border-border hover:bg-accent",
+                    filter === f.key
+                      ? "border-signal bg-signal-soft text-primary"
+                      : "border-border hover:bg-accent",
                   )}
                 >
-                  {s}
+                  {f.label} {countFor(f.key, counts)}
                 </button>
               ))}
             </div>
           </div>
 
-          <Panel bodyClassName="max-h-[70vh] overflow-auto">
-            <LedgerTable>
-              <thead>
-                <tr>
-                  <Th align="right">Score</Th>
-                  <Th>Person</Th>
-                  <Th>Company</Th>
-                  <Th>Role</Th>
-                  <Th>Segment</Th>
-                  <Th>Trigger</Th>
-                  <Th>Evidence</Th>
-                  <Th>Stage</Th>
-                  <Th align="right">Last touch</Th>
-                  <Th>Next action</Th>
-                </tr>
-              </thead>
-              <tbody>
-                {rows.map((p) => (
-                  <Tr key={p.id} onClick={() => setSelectedId(p.id)} active={selected?.id === p.id}>
-                    <Td align="right" mono className="w-[70px]">
-                      <span
+          {rows.length === 0 ? (
+            <Panel>
+              <p className="text-[14px]" data-testid="bucket-empty">
+                Nothing here.{" "}
+                {filter === "needs"
+                  ? "Every prospect that has been judged has had its decision."
+                  : "Try another filter."}
+              </p>
+              <p className="machine mt-2">
+                {counts.needsDecision} WAITING · {counts.unjudged} NOT JUDGED · {counts.accepted}{" "}
+                RELEASED · {counts.declined} REJECTED
+              </p>
+            </Panel>
+          ) : (
+            <Panel bodyClassName="max-h-[70vh] overflow-auto">
+              <LedgerTable>
+                <thead>
+                  <tr>
+                    <Th align="right">Score</Th>
+                    <Th>Person</Th>
+                    <Th>Company</Th>
+                    <Th>Why it is here</Th>
+                    <Th>Segment</Th>
+                    <Th>Trigger</Th>
+                    <Th>Evidence</Th>
+                    <Th>Stage</Th>
+                    <Th align="right">Last touch</Th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {rows.map((p) => (
+                    <Tr
+                      key={p.id}
+                      onClick={() => setSelectedId(p.id)}
+                      active={selected?.id === p.id}
+                    >
+                      <Td align="right" mono className="w-[70px]">
+                        <span
+                          className={cn(
+                            p.score === null
+                              ? "text-muted-foreground"
+                              : p.score >= 80
+                                ? "text-signal"
+                                : p.score < 55
+                                  ? "text-muted-foreground"
+                                  : undefined,
+                          )}
+                        >
+                          {scoreText(p.score)}
+                        </span>
+                      </Td>
+                      <Td className="whitespace-nowrap font-medium">{p.person}</Td>
+                      <Td className="whitespace-nowrap">{p.company}</Td>
+                      <Td
                         className={cn(
-                          p.score === null
-                            ? "text-muted-foreground"
-                            : p.score >= 80
-                              ? "text-signal"
-                              : p.score < 55
-                                ? "text-muted-foreground"
-                                : undefined,
+                          "max-w-[230px] truncate",
+                          p.decision.needsDecision ? "text-foreground" : "text-muted-foreground",
                         )}
+                        title={p.decision.reason}
                       >
-                        {scoreText(p.score)}
-                      </span>
-                    </Td>
-                    <Td className="whitespace-nowrap font-medium">{p.person}</Td>
-                    <Td className="whitespace-nowrap">{p.company}</Td>
-                    <Td className="whitespace-nowrap text-muted-foreground">{p.role}</Td>
-                    <Td className="whitespace-nowrap">
-                      <Tag>{p.segment}</Tag>
-                    </Td>
-                    <Td className="max-w-[220px] truncate text-muted-foreground">{p.trigger}</Td>
-                    <Td className="max-w-[200px]">
-                      {p.evidence[0] ? (
-                        <EvidenceChip label={p.evidence[0].source} title={p.evidence[0].claim} />
-                      ) : (
-                        <MachineLabel>NONE</MachineLabel>
-                      )}
-                    </Td>
-                    <Td>
-                      <Tag tone={p.stage === "rejected" ? "danger" : p.stage === "won" ? "signal" : "neutral"}>
-                        {p.stage}
-                      </Tag>
-                    </Td>
-                    <Td align="right" mono className="text-muted-foreground">
-                      {relative(p.lastTouch)}
-                    </Td>
-                    <Td className="max-w-[220px] truncate text-muted-foreground">{p.nextAction}</Td>
-                  </Tr>
-                ))}
-              </tbody>
-            </LedgerTable>
-          </Panel>
+                        {p.decision.reason}
+                      </Td>
+                      <Td className="whitespace-nowrap">
+                        <Tag>{p.segment}</Tag>
+                      </Td>
+                      <Td className="max-w-[220px] truncate text-muted-foreground">{p.trigger}</Td>
+                      <Td className="max-w-[200px]">
+                        {p.evidence[0] ? (
+                          <EvidenceChip label={p.evidence[0].source} title={p.evidence[0].claim} />
+                        ) : (
+                          <MachineLabel>NONE</MachineLabel>
+                        )}
+                      </Td>
+                      <Td>
+                        <Tag
+                          tone={
+                            p.stage === "rejected"
+                              ? "danger"
+                              : p.stage === "won"
+                                ? "signal"
+                                : "neutral"
+                          }
+                        >
+                          {p.stage}
+                        </Tag>
+                      </Td>
+                      <Td align="right" mono className="text-muted-foreground">
+                        {relative(p.lastTouch)}
+                      </Td>
+                    </Tr>
+                  ))}
+                </tbody>
+              </LedgerTable>
+            </Panel>
+          )}
         </>
       )}
 
@@ -182,7 +241,9 @@ function ProspectsScreen() {
         meta={
           selected && (
             <MachineLabel>
-              {selected.role} · {selected.segment} · {selected.score === null ? "NOT SCORED YET" : `SCORE ${selected.score}`} · {selected.status}
+              {selected.role} · {selected.segment} ·{" "}
+              {selected.score === null ? "NOT SCORED YET" : `SCORE ${selected.score}`} ·{" "}
+              {selected.status}
             </MachineLabel>
           )
         }
@@ -239,7 +300,9 @@ function ProspectsScreen() {
                       key={m.id}
                       className={cn(
                         "pl-3 text-[13px] leading-relaxed",
-                        m.author === "AGENT" ? "border-l-2 border-signal bg-surface-2 py-2 pr-2" : "border-l-2 border-border",
+                        m.author === "AGENT"
+                          ? "border-l-2 border-signal bg-surface-2 py-2 pr-2"
+                          : "border-l-2 border-border",
                       )}
                     >
                       <MachineLabel tone={m.author === "AGENT" ? "signal" : "muted"}>
@@ -261,7 +324,9 @@ function ProspectsScreen() {
             <Section title="NEXT ACTION">
               <p className="text-[14px]">{selected.nextAction}</p>
               {selected.opportunityValue !== null && (
-                <p className="machine mt-1">ESTIMATED OPPORTUNITY {gbp(selected.opportunityValue)}</p>
+                <p className="machine mt-1">
+                  ESTIMATED OPPORTUNITY {gbp(selected.opportunityValue)}
+                </p>
               )}
             </Section>
           </div>
@@ -269,6 +334,15 @@ function ProspectsScreen() {
       </InspectorPanel>
     </div>
   );
+}
+
+/** The number behind each tab. ALL is the sum, so the tabs always account for the whole list. */
+function countFor(key: string, c: ReturnType<typeof countDecisions>): number {
+  if (key === "needs") return c.needsDecision;
+  if (key === "coming") return c.unjudged;
+  if (key === "released") return c.accepted;
+  if (key === "rejected") return c.declined;
+  return c.needsDecision + c.unjudged + c.accepted + c.declined;
 }
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
