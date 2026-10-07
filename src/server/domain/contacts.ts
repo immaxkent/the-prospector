@@ -15,6 +15,8 @@
 
 /** Shared with the client, which also has to say whether an address is a real person. */
 export { isGenericInbox } from "@/lib/inbox";
+/** Who found a contact. Defined with the routes, which is where it is read. */
+export { foundBy as contactFoundBy } from "@/data/contact-routes";
 import { isGenericInbox } from "@/lib/inbox";
 
 export const CONTACT_CHANNELS = [
@@ -41,19 +43,6 @@ export interface CompanyContact {
    * through `contactFoundBy`, which falls back to a guess and says it is one.
    */
   addedBy?: "agent" | "operator" | undefined;
-}
-
-/**
- * Who found a contact.
- *
- * Stamped on write since this field existed. For rows older than it the only evidence is
- * the source: research always cites a page it read, and the operator typing an address it
- * found elsewhere usually cites nothing. That is a guess, which is why it is in one place
- * rather than repeated at each call site.
- */
-export function contactFoundBy(contact: CompanyContact): "agent" | "operator" {
-  if (contact.addedBy) return contact.addedBy;
-  return contact.sourceRef?.startsWith("http") ? "agent" : "operator";
 }
 
 /** Channels this app can actually send through today. Everything else is for the operator. */

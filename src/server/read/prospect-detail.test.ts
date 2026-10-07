@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildProspectDetail, contactRoutes, prospectTimeline } from "./prospect-detail";
+import { buildProspectDetail, prospectTimeline } from "./prospect-detail";
 import type { ProspectLookups } from "./prospects";
 import {
   T0,
@@ -26,66 +26,6 @@ const lookups = (o: Partial<ProspectLookups> = {}): ProspectLookups => ({
 });
 
 const at = (iso: string) => new Date(iso);
-
-describe("contactRoutes", () => {
-  it("puts a named address first and marks it as the one that would be used", () => {
-    const routes = contactRoutes({
-      personEmail: "ilse@northbridge.example",
-      linkedinUrl: null,
-      contacts: [{ channel: "discord", value: "discord.gg/nb" }, { channel: "email", value: "hello@northbridge.example" }],
-    });
-    expect(routes.map((r) => r.value)).toEqual([
-      "ilse@northbridge.example",
-      "hello@northbridge.example",
-      "discord.gg/nb",
-    ]);
-    expect(routes.filter((r) => r.preferred)).toHaveLength(1);
-    expect(routes[0]).toMatchObject({ preferred: true, sendable: true, named: true });
-  });
-
-  it("falls to a generic inbox when nobody is named, and says it is generic", () => {
-    const routes = contactRoutes({
-      personEmail: null,
-      linkedinUrl: null,
-      contacts: [{ channel: "email", value: "hello@northbridge.example" }],
-    });
-    expect(routes[0]).toMatchObject({ preferred: true, named: false, sendable: true });
-  });
-
-  it("prefers nothing when nothing can be sent to, rather than pointing at a handle", () => {
-    const routes = contactRoutes({
-      personEmail: null,
-      linkedinUrl: null,
-      contacts: [{ channel: "telegram", value: "t.me/nb" }],
-    });
-    expect(routes.some((r) => r.preferred)).toBe(false);
-    expect(routes[0]).toMatchObject({ sendable: false });
-  });
-
-  it("carries where each route came from, and who found it", () => {
-    const routes = contactRoutes({
-      personEmail: null,
-      linkedinUrl: null,
-      contacts: [
-        { channel: "email", value: "hello@a.com", sourceRef: "https://a.com/contact", addedBy: "agent" },
-        { channel: "email", value: "bd@a.com", addedBy: "operator" },
-      ],
-    });
-    expect(routes.map((r) => [r.value, r.foundBy, r.sourceRef])).toEqual([
-      ["hello@a.com", "agent", "https://a.com/contact"],
-      ["bd@a.com", "operator", null],
-    ]);
-  });
-
-  it("includes a LinkedIn profile as a route the operator opens, not one to send to", () => {
-    const routes = contactRoutes({ personEmail: null, linkedinUrl: "https://linkedin.com/in/ilse", contacts: [] });
-    expect(routes[0]).toMatchObject({ channel: "linkedin", sendable: false, preferred: false });
-  });
-
-  it("returns nothing at all when there is nothing at all", () => {
-    expect(contactRoutes({ personEmail: null, linkedinUrl: null, contacts: [] })).toEqual([]);
-  });
-});
 
 describe("prospectTimeline", () => {
   const entries = (o: Parameters<typeof prospectTimeline>[0]) => prospectTimeline(o);
@@ -115,18 +55,31 @@ describe("prospectTimeline", () => {
       ...base,
       lookups: { evidence: [], triggers: [triggerRow({ occurredOn: "2026-09-10" })], messages: [] },
     });
-    expect(tape[0]).toMatchObject({ kind: "trigger", title: "Seed round announced", detail: "Happened 2026-09-10" });
+    expect(tape[0]).toMatchObject({
+      kind: "trigger",
+      title: "Seed round announced",
+      detail: "Happened 2026-09-10",
+    });
   });
 
   it("says plainly when a trigger has no date, rather than leaving the field empty", () => {
-    const tape = entries({ ...base, lookups: { evidence: [], triggers: [triggerRow({ occurredOn: null })], messages: [] } });
+    const tape = entries({
+      ...base,
+      lookups: { evidence: [], triggers: [triggerRow({ occurredOn: null })], messages: [] },
+    });
     expect(tape[0]?.detail).toBe("No date recorded");
   });
 
   it("only shows the score once there is one", () => {
     expect(entries(base).some((e) => e.kind === "qualified")).toBe(false);
-    const scored = entries({ ...base, prospect: prospectRow({ qualificationScore: 82, scoreReason: "Named CTO" }) });
-    expect(scored.find((e) => e.kind === "qualified")).toMatchObject({ title: "Scored 82", detail: "Named CTO" });
+    const scored = entries({
+      ...base,
+      prospect: prospectRow({ qualificationScore: 82, scoreReason: "Named CTO" }),
+    });
+    expect(scored.find((e) => e.kind === "qualified")).toMatchObject({
+      title: "Scored 82",
+      detail: "Named CTO",
+    });
   });
 
   it("records the release as its own moment, because nothing is drafted before it", () => {
@@ -145,7 +98,12 @@ describe("prospectTimeline", () => {
         triggers: [],
         messages: [
           messageRow({ id: "out", direction: "outbound", sentAt: at("2026-09-01T00:00:00Z") }),
-          messageRow({ id: "in", direction: "inbound", sentAt: null, receivedAt: at("2026-09-02T00:00:00Z") }),
+          messageRow({
+            id: "in",
+            direction: "inbound",
+            sentAt: null,
+            receivedAt: at("2026-09-02T00:00:00Z"),
+          }),
         ],
       },
     });
@@ -157,7 +115,11 @@ describe("prospectTimeline", () => {
     // claim something happened.
     const tape = entries({
       ...base,
-      lookups: { evidence: [], triggers: [], messages: [messageRow({ sentAt: null, receivedAt: null })] },
+      lookups: {
+        evidence: [],
+        triggers: [],
+        messages: [messageRow({ sentAt: null, receivedAt: null })],
+      },
     });
     expect(tape).toEqual([]);
   });
@@ -165,17 +127,33 @@ describe("prospectTimeline", () => {
   it("says which way round a conversation elsewhere went", () => {
     const tape = entries({
       ...base,
-      interactions: [interactionRow({ direction: "inbound", channel: "discord", note: "Answered in their server" })],
+      interactions: [
+        interactionRow({
+          direction: "inbound",
+          channel: "discord",
+          note: "Answered in their server",
+        }),
+      ],
     });
-    expect(tape[0]).toMatchObject({ kind: "elsewhere", title: "They answered on discord", detail: "Answered in their server" });
+    expect(tape[0]).toMatchObject({
+      kind: "elsewhere",
+      title: "They answered on discord",
+      detail: "Answered in their server",
+    });
   });
 
   it("names the decisions from the event log, with the reason when one was given", () => {
     const tape = entries({
       ...base,
-      events: [eventRow({ eventType: "prospect.rejected", payload: { reason: "Already audited" } })],
+      events: [
+        eventRow({ eventType: "prospect.rejected", payload: { reason: "Already audited" } }),
+      ],
     });
-    expect(tape[0]).toMatchObject({ kind: "decision", title: "Rejected", detail: "Already audited" });
+    expect(tape[0]).toMatchObject({
+      kind: "decision",
+      title: "Rejected",
+      detail: "Already audited",
+    });
   });
 
   it("ignores events that are not about this prospect's history", () => {
@@ -203,7 +181,10 @@ describe("prospectTimeline", () => {
       entries({
         ...base,
         lookups: {
-          evidence: [evidenceRow({ id: "ev_b", capturedAt: T0 }), evidenceRow({ id: "ev_a", capturedAt: T0 })],
+          evidence: [
+            evidenceRow({ id: "ev_b", capturedAt: T0 }),
+            evidenceRow({ id: "ev_a", capturedAt: T0 }),
+          ],
           triggers: [],
           messages: [],
         },
@@ -219,7 +200,13 @@ describe("buildProspectDetail", () => {
       prospectRow({ qualificationScore: 92 }),
       lookups({
         companies: new Map([
-          ["com_1", companyRow({ timezone: "Europe/Amsterdam", contacts: [{ channel: "discord", value: "discord.gg/nb" }] })],
+          [
+            "com_1",
+            companyRow({
+              timezone: "Europe/Amsterdam",
+              contacts: [{ channel: "discord", value: "discord.gg/nb" }],
+            }),
+          ],
         ]),
       }),
       { interactions: [], events: [] },
@@ -242,7 +229,11 @@ describe("buildProspectDetail", () => {
       lookups(),
       { interactions: [], events: [] },
     );
-    expect(detail).toMatchObject({ companyName: "Unknown company", personEmail: null, companyDomain: null });
+    expect(detail).toMatchObject({
+      companyName: "Unknown company",
+      personEmail: null,
+      companyDomain: null,
+    });
     expect(detail.routes).toEqual([]);
   });
 });

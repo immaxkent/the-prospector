@@ -9,66 +9,12 @@
  * The assembling is pure — rows in, one object out — so what it decides can be tested
  * without a database, and the queries stay where the queries are.
  */
-import type { ContactRoute, ProspectDetail, TimelineEntry } from "@/data/types";
-import { contactFoundBy, isGenericInbox, isSendable, type CompanyContact } from "../domain/contacts";
+import type { ProspectDetail, TimelineEntry } from "@/data/types";
+import { contactRoutes } from "@/data/contact-routes";
 import { buildProspect, type ProspectLookups } from "./prospects";
+
+export { contactRoutes };
 import { iso, type EventRow, type InteractionRow, type ProspectRow } from "./rows";
-
-/**
- * Every route to this prospect, best first, each saying where it came from.
- *
- * Exactly one is marked preferred — the one an email would go to — and it is marked rather
- * than merely sorted first, because "this is what would be used" is the question an operator
- * is actually asking when they look at a list of four addresses.
- */
-export function contactRoutes(input: {
-  personEmail: string | null;
-  linkedinUrl: string | null;
-  contacts: readonly CompanyContact[];
-}): ContactRoute[] {
-  const routes: ContactRoute[] = [];
-  if (input.personEmail) {
-    routes.push({
-      channel: "email",
-      value: input.personEmail,
-      foundBy: "agent",
-      sourceRef: null,
-      preferred: false,
-      sendable: true,
-      named: !isGenericInbox(input.personEmail),
-    });
-  }
-  if (input.linkedinUrl) {
-    routes.push({
-      channel: "linkedin",
-      value: input.linkedinUrl,
-      foundBy: "agent",
-      sourceRef: null,
-      preferred: false,
-      sendable: false,
-      named: true,
-    });
-  }
-  for (const c of input.contacts) {
-    routes.push({
-      channel: c.channel,
-      value: c.value,
-      foundBy: contactFoundBy(c),
-      sourceRef: c.sourceRef ?? null,
-      preferred: false,
-      sendable: isSendable(c),
-      named: c.channel === "email" ? !isGenericInbox(c.value) : false,
-    });
-  }
-
-  // Named address, then any address, then whatever a person can open. Same order of
-  // preference the sender uses, so the screen cannot disagree with what would happen.
-  const rank = (r: ContactRoute) => (r.sendable && r.named ? 0 : r.sendable ? 1 : 2);
-  routes.sort((a, b) => rank(a) - rank(b));
-  const first = routes.find((r) => r.sendable);
-  if (first) first.preferred = true;
-  return routes;
-}
 
 const DECISION_TITLE: Record<string, string> = {
   "prospect.released": "Released for outreach",
@@ -166,7 +112,10 @@ export function prospectTimeline(input: {
       id: i.id,
       kind: "elsewhere",
       at: iso(i.occurredAt),
-      title: i.direction === "inbound" ? `They answered on ${i.channel}` : `You reached out on ${i.channel}`,
+      title:
+        i.direction === "inbound"
+          ? `They answered on ${i.channel}`
+          : `You reached out on ${i.channel}`,
       detail: i.note ?? "",
     });
   }

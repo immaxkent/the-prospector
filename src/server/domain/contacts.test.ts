@@ -6,7 +6,6 @@ import {
   isSendable,
   preferredContact,
   type CompanyContact,
-  contactFoundBy,
 } from "./contacts";
 
 const email = (value: string): CompanyContact => ({ channel: "email", value });
@@ -145,36 +144,5 @@ describe("dedupeContacts", () => {
     expect(dedupeContacts([email("  "), email(" hello@x.com ")])).toEqual([
       { channel: "email", value: "hello@x.com" },
     ]);
-  });
-});
-
-describe("contactFoundBy", () => {
-  it("takes the stamp when there is one", () => {
-    expect(contactFoundBy({ channel: "email", value: "a@b.com", addedBy: "operator" })).toBe(
-      "operator",
-    );
-    expect(contactFoundBy({ channel: "email", value: "a@b.com", addedBy: "agent" })).toBe("agent");
-  });
-
-  it("guesses from the source for rows written before the stamp existed", () => {
-    // Research always cites the page it read; a person typing an address rarely does.
-    expect(
-      contactFoundBy({ channel: "email", value: "a@b.com", sourceRef: "https://b.com/contact" }),
-    ).toBe("agent");
-    expect(contactFoundBy({ channel: "email", value: "a@b.com" })).toBe("operator");
-    expect(
-      contactFoundBy({ channel: "email", value: "a@b.com", sourceRef: "a friend told me" }),
-    ).toBe("operator");
-  });
-
-  it("prefers the stamp over the guess when they disagree", () => {
-    expect(
-      contactFoundBy({
-        channel: "email",
-        value: "a@b.com",
-        sourceRef: "https://b.com",
-        addedBy: "operator",
-      }),
-    ).toBe("operator");
   });
 });
