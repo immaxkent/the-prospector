@@ -4,8 +4,9 @@
  */
 import { and, desc, eq, inArray } from "drizzle-orm";
 import type { Database } from "../db/client";
-import { approvals, endeavours, messages, offers, people, prospects, threads } from "../db/schema";
+import { approvals, companies, endeavours, messages, offers, people, prospects, threads } from "../db/schema";
 import { routeDraft, type MessageClass } from "../domain/outbound";
+import { isSendable, preferredContact } from "../domain/contacts";
 import { newId } from "../ids";
 import { conflict, notFound } from "./errors";
 import { recordEvent, type Executor } from "./events";
@@ -45,7 +46,21 @@ export async function createOutreachDraft(db: Database, input: CreateDraftInput,
     if (!endeavour.mailboxId) throw conflict("the endeavour has no sending mailbox");
 
     const [person] = prospect.personId ? await tx.select().from(people).where(eq(people.id, prospect.personId)) : [];
-    if (!person?.email) throw conflict("this prospect has no email address");
+    const [company] = prospect.companyId
+      ? await tx.select().from(companies).where(eq(companies.id, prospect.companyId))
+      : [];
+    /*
+     * The company's own routes count, not only a named person's address.
+     *
+     * This refused any prospect without a named email, which is the one contact detail the
+     * public web almost never carries — so the generic inboxes research was told to collect
+     * in WP-23 were stored, scored, shown on the screen as the route that would be used, and
+     * then never used, because the drafter could not see them. Found while building the
+     * prospect screen: it claimed an inbox would be used and this would have refused.
+     */
+    const route = preferredContact({ personEmail: person?.email ?? null, contacts: company?.contacts ?? [] });
+    if (!route || !isSendable(route)) throw conflict("this prospect has no address to send to");
+    const recipientName = person?.name ?? company?.name ?? "there";
 
     const open = await tx
       .select({ id: messages.id })
@@ -53,13 +68,13 @@ export async function createOutreachDraft(db: Database, input: CreateDraftInput,
       .where(and(eq(messages.prospectId, prospect.id), inArray(messages.sendState, ["drafted", "pending_approval", "approved", "queued", "sending"])));
     if (open.length > 0) throw conflict("a message for this prospect is already waiting");
 
-    const route = routeDraft({
+    const approvalRoute = routeDraft({
       autonomyLevel: endeavour.autonomyLevel,
       messageClass: input.messageClass,
       novelCopy: true,
       sensitive: false,
     });
-    if (route === "discard") {
+    if (approvalRoute === "discard") {
       await recordEvent(tx, {
         eventType: "message.discarded",
         entityType: "prospect",
@@ -88,11 +103,11 @@ export async function createOutreachDraft(db: Database, input: CreateDraftInput,
       templateVersion: input.templateVersion,
       offerId: offer?.id ?? null,
       evidenceIds: input.evidenceIds,
-      sendState: route === "approved" ? "approved" : "pending_approval",
-      ...(route === "approved" ? { approvedAt: now } : {}),
+      sendState: approvalRoute === "approved" ? "approved" : "pending_approval",
+      ...(approvalRoute === "approved" ? { approvedAt: now } : {}),
     });
 
-    if (route === "pending_approval") {
+    if (approvalRoute === "pending_approval") {
       await tx.insert(approvals).values({
         id: newId("approval"),
         endeavourId: endeavour.id,
@@ -102,7 +117,7 @@ export async function createOutreachDraft(db: Database, input: CreateDraftInput,
         payload: {
           why: input.why ?? "",
           evidenceIds: input.evidenceIds,
-          recipient: `${person.name} <${person.email}>`,
+          recipient: `${recipientName} <${route.value}>`,
         },
       });
     }
@@ -112,9 +127,9 @@ export async function createOutreachDraft(db: Database, input: CreateDraftInput,
       entityId: messageId,
       endeavourId: endeavour.id,
       subject: input.subject,
-      detail: `${input.messageClass} for ${person.name}`,
+      detail: `${input.messageClass} for ${recipientName}`,
       data: { runId: input.runId ?? null },
     });
-    return { created: true as const, messageId, threadId, needsApproval: route === "pending_approval" };
+    return { created: true as const, messageId, threadId, needsApproval: approvalRoute === "pending_approval" };
   });
 }
