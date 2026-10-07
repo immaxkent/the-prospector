@@ -20,6 +20,7 @@ import { gbp, relative, scoreText, stamp } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { ProspectActions } from "@/components/os/ProspectActions";
 import { countDecisions, orderByDecision, type ProspectState } from "@/data/prospect-state";
+import { BulkDecide } from "@/components/os/BulkDecide";
 import { LogInteraction } from "@/components/os/LogInteraction";
 
 export const Route = createFileRoute("/prospects")({
@@ -61,6 +62,7 @@ function ProspectsScreen() {
   const [endeavour, setEndeavour] = useState("ALL");
   const [q, setQ] = useState("");
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [ticked, setTicked] = useState<Set<string>>(new Set());
   // Derived from the dataset so the inspector reflects changes after an action.
   const selected = prospects.find((p) => p.id === selectedId) ?? null;
 
@@ -82,6 +84,21 @@ function ProspectsScreen() {
     const wanted = STATE_FILTERS.find((f) => f.key === filter)?.states ?? [];
     return orderByDecision(inScope).filter((p) => wanted.includes(p.decision.state));
   }, [inScope, filter]);
+
+  // Off the whole list, not off the visible rows: a tick must survive changing filter,
+  // or a selection quietly shrinks while the operator is still making it.
+  const tickedProspects = useMemo(
+    () => prospects.filter((p) => ticked.has(p.id)),
+    [prospects, ticked],
+  );
+  const allShown = rows.length > 0 && rows.every((r) => ticked.has(r.id));
+  const toggle = (id: string) =>
+    setTicked((was) => {
+      const next = new Set(was);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
 
   const thread = selected ? threads.find((t) => t.prospectId === selected.id) : undefined;
 
@@ -136,6 +153,10 @@ function ProspectsScreen() {
             </div>
           </div>
 
+          {tickedProspects.length > 0 && (
+            <BulkDecide selected={tickedProspects} onDone={() => setTicked(new Set())} />
+          )}
+
           {rows.length === 0 ? (
             <Panel>
               <p className="text-[14px]" data-testid="bucket-empty">
@@ -154,6 +175,23 @@ function ProspectsScreen() {
               <LedgerTable>
                 <thead>
                   <tr>
+                    <Th>
+                      <input
+                        aria-label={allShown ? "Clear all shown" : "Select all shown"}
+                        type="checkbox"
+                        checked={allShown}
+                        onChange={() =>
+                          setTicked((was) => {
+                            const next = new Set(was);
+                            for (const r of rows) {
+                              if (allShown) next.delete(r.id);
+                              else next.add(r.id);
+                            }
+                            return next;
+                          })
+                        }
+                      />
+                    </Th>
                     <Th align="right">Score</Th>
                     <Th>Person</Th>
                     <Th>Company</Th>
@@ -172,6 +210,15 @@ function ProspectsScreen() {
                       onClick={() => setSelectedId(p.id)}
                       active={selected?.id === p.id}
                     >
+                      <Td className="w-[32px]">
+                        <input
+                          aria-label={`Select ${p.company}`}
+                          type="checkbox"
+                          checked={ticked.has(p.id)}
+                          onChange={() => toggle(p.id)}
+                          onClick={(e) => e.stopPropagation()}
+                        />
+                      </Td>
                       <Td align="right" mono className="w-[70px]">
                         <span
                           className={cn(

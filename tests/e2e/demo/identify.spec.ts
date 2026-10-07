@@ -9,7 +9,7 @@ import { expect, test } from "@playwright/test";
  * assertion rather than whatever the database happened to return.
  */
 const nameCells = (page: import("@playwright/test").Page) =>
-  page.locator("tbody tr td:nth-child(3)");
+  page.locator("tbody tr td:nth-child(4)");
 
 test.describe("the prospects list, ordered by what needs a decision", () => {
   test.beforeEach(async ({ page }) => {
@@ -64,5 +64,45 @@ test.describe("the prospects list, ordered by what needs a decision", () => {
     await page.getByPlaceholder("Filter person, company, trigger…").fill("kestrel");
     await expect(nameCells(page)).toHaveText(["Kestrel Trading"]);
     await expect(page.getByRole("button", { name: /NEEDS YOU 1/ })).toBeVisible();
+  });
+});
+
+/**
+ * What the bulk bar does with a selection of more than one. The demo fixtures carry three
+ * endeavours, which is the only place a selection can span two of them.
+ */
+test.describe("deciding on several rows at once", () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto("/prospects");
+    await expect(page.getByRole("heading", { level: 1, name: /prospects/i })).toBeVisible();
+  });
+
+  test("refuses a selection spanning two endeavours instead of recording half of it", async ({ page }) => {
+    await page.getByLabel("Select Northbridge Protocol").check();
+    await page.getByLabel("Select Kestrel Trading").check();
+
+    await expect(page.getByTestId("bulk-help")).toContainText("one endeavour");
+    await expect(page.getByTestId("bulk-decide").getByRole("button", { name: /RELEASE 2/ })).toBeDisabled();
+  });
+
+  test("a tick survives changing which bucket you are looking at", async ({ page }) => {
+    await page.getByLabel("Select Northbridge Protocol").check();
+    await page.getByRole("button", { name: /NOT JUDGED/ }).click();
+    await expect(page.getByTestId("bulk-decide")).toContainText("1 SELECTED");
+  });
+
+  test("selecting everything shown picks up the rows in that bucket only", async ({ page }) => {
+    // Narrowed to one endeavour first — select-all across the whole list spans two, which
+    // the bar refuses, and that is the test above.
+    await page.locator("select").first().selectOption({ label: "£3K Solidity Sprint" });
+    await page.getByLabel("Select all shown").check();
+    await expect(page.getByTestId("bulk-decide")).toContainText("3 SELECTED");
+    await expect(page.getByTestId("bulk-help")).toContainText("Cleared for outreach");
+  });
+
+  test("will not offer to release rows that are not waiting on a decision", async ({ page }) => {
+    await page.getByRole("button", { name: /REJECTED/ }).click();
+    await page.getByLabel("Select all shown").check();
+    await expect(page.getByTestId("bulk-help")).toContainText("nothing to release");
   });
 });
