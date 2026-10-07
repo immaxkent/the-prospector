@@ -1,6 +1,12 @@
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
 import { eq } from "drizzle-orm";
-import { addCompanyContact, holdProspect, releaseProspects } from "../../src/server/commands/release";
+import {
+  addCompanyContact,
+  holdProspect,
+  releaseProspects,
+  removeCompanyContact,
+  setPreferredContact,
+} from "../../src/server/commands/release";
 import { CommandError } from "../../src/server/commands/errors";
 import * as t from "../../src/server/db/schema";
 import { FIXTURE_IDS, seedFixtures } from "../../src/server/db/fixtures";
@@ -164,5 +170,62 @@ describe("addCompanyContact", () => {
     await expect(addCompanyContact(db, { companyId: "com_nope", channel: "email", value: "a@b.com" })).rejects.toBeInstanceOf(
       CommandError,
     );
+  });
+});
+
+describe("choosing and removing a contact", () => {
+  const company = FIXTURE_IDS.company;
+  const stored = async () =>
+    (await db.select({ contacts: t.companies.contacts }).from(t.companies).where(eq(t.companies.id, company)))[0]!.contacts;
+
+  beforeEach(async () => {
+    await db
+      .update(t.companies)
+      .set({
+        contacts: [
+          { channel: "email", value: "hello@northbridge.example", addedBy: "agent" },
+          { channel: "email", value: "mira@northbridge.example", addedBy: "operator" },
+        ],
+      })
+      .where(eq(t.companies.id, company));
+  });
+
+  it("marks the one the operator chose, and only that one", async () => {
+    await setPreferredContact(db, { companyId: company, channel: "email", value: "hello@northbridge.example" });
+    expect((await stored()).map((c) => [c.value, c.preferred ?? false])).toEqual([
+      ["hello@northbridge.example", true],
+      ["mira@northbridge.example", false],
+    ]);
+  });
+
+  it("moves the mark rather than holding two", async () => {
+    await setPreferredContact(db, { companyId: company, channel: "email", value: "hello@northbridge.example" });
+    await setPreferredContact(db, { companyId: company, channel: "email", value: "mira@northbridge.example" });
+    expect((await stored()).filter((c) => c.preferred)).toHaveLength(1);
+  });
+
+  it("choosing the chosen one hands the decision back to the ranking", async () => {
+    await setPreferredContact(db, { companyId: company, channel: "email", value: "hello@northbridge.example" });
+    const { chosen } = await setPreferredContact(db, { companyId: company, channel: "email", value: "hello@northbridge.example" });
+    expect(chosen).toBeNull();
+    expect((await stored()).some((c) => c.preferred)).toBe(false);
+  });
+
+  it("refuses to choose a contact that is not on the company", async () => {
+    await expect(
+      setPreferredContact(db, { companyId: company, channel: "email", value: "nobody@northbridge.example" }),
+    ).rejects.toBeInstanceOf(CommandError);
+  });
+
+  it("removes a contact, because research gets addresses wrong", async () => {
+    const { contacts } = await removeCompanyContact(db, { companyId: company, channel: "email", value: "hello@northbridge.example" });
+    expect(contacts.map((c) => c.value)).toEqual(["mira@northbridge.example"]);
+    expect(await stored()).toHaveLength(1);
+  });
+
+  it("refuses to remove one that is not there, rather than reporting success", async () => {
+    await expect(
+      removeCompanyContact(db, { companyId: company, channel: "discord", value: "discord.gg/nope" }),
+    ).rejects.toBeInstanceOf(CommandError);
   });
 });
