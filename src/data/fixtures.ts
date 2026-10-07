@@ -3,7 +3,8 @@
  * The entire demo dataset lives in this single file so it can be deleted.
  * Toggle it off with the DATA MODE switch in Settings (see src/data/store.ts).
  */
-import { shiftFixtureDate } from "./fixture-dates";
+import { FIXTURE_ANCHOR, shiftFixtureDate } from "./fixture-dates";
+import { contactRoutes } from "./contact-routes";
 import type {
   ActivityEvent,
   AgentRun,
@@ -22,6 +23,8 @@ import type {
   SystemInterface,
   SystemStatus,
   Thread,
+  ProspectDetail,
+  TimelineEntry,
 } from "./types";
 
 export const fixtureStatus: SystemStatus = {
@@ -59,7 +62,13 @@ export const fixtureEndeavours: Endeavour[] = [
     mailboxId: "mbx_consulting",
     fromAlias: null,
     settings: {
-      pacing: { window: { startHour: 8, endHour: 17 }, minGapMinutes: 4, maxGapMinutes: 25, useRecipientTimezone: true, minReplyDelayMinutes: 90 },
+      pacing: {
+        window: { startHour: 8, endHour: 17 },
+        minGapMinutes: 4,
+        maxGapMinutes: 25,
+        useRecipientTimezone: true,
+        minReplyDelayMinutes: 90,
+      },
       followUpDays: [3, 7, 14],
       prospecting: { maximumPending: 50, activeGoal: 20, paused: false, allocation: "automatic" },
       reporting: { digestHour: 7, reviewWeekday: 1, reviewHour: 8, timezone: "Europe/London" },
@@ -67,9 +76,30 @@ export const fixtureEndeavours: Endeavour[] = [
     pendingProspects: 31,
     activeConversations: 6,
     segments: [
-      { id: "seg_launch", name: "Launch-stage protocols", priority: 1, pinnedShare: null, pending: 18, share: 17 },
-      { id: "seg_incident", name: "Teams mid-incident", priority: 2, pinnedShare: null, pending: 9, share: 17 },
-      { id: "seg_tradfi", name: "TradFi into digital assets", priority: 3, pinnedShare: null, pending: 4, share: 16 },
+      {
+        id: "seg_launch",
+        name: "Launch-stage protocols",
+        priority: 1,
+        pinnedShare: null,
+        pending: 18,
+        share: 17,
+      },
+      {
+        id: "seg_incident",
+        name: "Teams mid-incident",
+        priority: 2,
+        pinnedShare: null,
+        pending: 9,
+        share: 17,
+      },
+      {
+        id: "seg_tradfi",
+        name: "TradFi into digital assets",
+        priority: 3,
+        pinnedShare: null,
+        pending: 4,
+        share: 16,
+      },
     ],
     period: null,
     objective: "Generate £3,000 in Solidity audit and consulting revenue",
@@ -107,7 +137,8 @@ export const fixtureEndeavours: Endeavour[] = [
     strategy: {
       icp: "Launch-stage protocol, unaudited contracts in public repo, funding announced <90 days",
       offer: "£750 fixed-scope pre-audit review delivered in 5 working days",
-      hypothesis: "Naming a specific unaudited contract in the first line outperforms generic credibility framing",
+      hypothesis:
+        "Naming a specific unaudited contract in the first line outperforms generic credibility framing",
     },
   },
   {
@@ -118,7 +149,13 @@ export const fixtureEndeavours: Endeavour[] = [
     mailboxId: "mbx_desk",
     fromAlias: null,
     settings: {
-      pacing: { window: { startHour: 8, endHour: 17 }, minGapMinutes: 4, maxGapMinutes: 25, useRecipientTimezone: true, minReplyDelayMinutes: 90 },
+      pacing: {
+        window: { startHour: 8, endHour: 17 },
+        minGapMinutes: 4,
+        maxGapMinutes: 25,
+        useRecipientTimezone: true,
+        minReplyDelayMinutes: 90,
+      },
       followUpDays: [3, 7, 14],
       prospecting: { maximumPending: 30, activeGoal: 12, paused: false, allocation: "even" },
       reporting: { digestHour: 6, reviewWeekday: 5, reviewHour: 17, timezone: "America/New_York" },
@@ -126,8 +163,22 @@ export const fixtureEndeavours: Endeavour[] = [
     pendingProspects: 12,
     activeConversations: 3,
     segments: [
-      { id: "seg_ops", name: "Operations leads", priority: 1, pinnedShare: 20, pending: 9, share: 20 },
-      { id: "seg_finance", name: "Finance teams", priority: 2, pinnedShare: null, pending: 3, share: 10 },
+      {
+        id: "seg_ops",
+        name: "Operations leads",
+        priority: 1,
+        pinnedShare: 20,
+        pending: 9,
+        share: 20,
+      },
+      {
+        id: "seg_finance",
+        name: "Finance teams",
+        priority: 2,
+        pinnedShare: null,
+        pending: 3,
+        share: 10,
+      },
     ],
     period: null,
     objective: "Acquire 10 liquidity providers for the market-making desk",
@@ -176,7 +227,13 @@ export const fixtureEndeavours: Endeavour[] = [
     mailboxId: "mbx_consulting",
     fromAlias: null,
     settings: {
-      pacing: { window: { startHour: 8, endHour: 17 }, minGapMinutes: 4, maxGapMinutes: 25, useRecipientTimezone: true, minReplyDelayMinutes: 90 },
+      pacing: {
+        window: { startHour: 8, endHour: 17 },
+        minGapMinutes: 4,
+        maxGapMinutes: 25,
+        useRecipientTimezone: true,
+        minReplyDelayMinutes: 90,
+      },
       followUpDays: [3, 7, 14],
       prospecting: { maximumPending: 50, activeGoal: 20, paused: true, allocation: "even" },
       reporting: { digestHour: 9, reviewWeekday: 1, reviewHour: 9, timezone: "Europe/London" },
@@ -184,7 +241,14 @@ export const fixtureEndeavours: Endeavour[] = [
     pendingProspects: 50,
     activeConversations: 2,
     segments: [
-      { id: "seg_partners", name: "Channel partners", priority: 1, pinnedShare: null, pending: 50, share: 50 },
+      {
+        id: "seg_partners",
+        name: "Channel partners",
+        priority: 1,
+        pinnedShare: null,
+        pending: 50,
+        share: 50,
+      },
     ],
     period: null,
     objective: "Sign five paid pilots for the compliance reporting module",
@@ -227,16 +291,36 @@ export const fixtureEndeavours: Endeavour[] = [
   },
 ];
 
-export const fixtureProspects: Prospect[] = [
+const prospectRecords: Prospect[] = [
   {
     id: "pro_001",
     endeavourId: "end_solidity",
     score: 92,
     scoreFactors: [
-      { label: "Trigger recency", weight: 30, note: "Funding announced 11 days ago", evidenceIds: [] },
-      { label: "Contract exposure", weight: 28, note: "3 unaudited contracts in public repo", evidenceIds: [] },
-      { label: "Role authority", weight: 22, note: "Technical co-founder, budget holder", evidenceIds: [] },
-      { label: "Timezone fit", weight: 12, note: "CET, overlapping working hours", evidenceIds: [] },
+      {
+        label: "Trigger recency",
+        weight: 30,
+        note: "Funding announced 11 days ago",
+        evidenceIds: [],
+      },
+      {
+        label: "Contract exposure",
+        weight: 28,
+        note: "3 unaudited contracts in public repo",
+        evidenceIds: [],
+      },
+      {
+        label: "Role authority",
+        weight: 22,
+        note: "Technical co-founder, budget holder",
+        evidenceIds: [],
+      },
+      {
+        label: "Timezone fit",
+        weight: 12,
+        note: "CET, overlapping working hours",
+        evidenceIds: [],
+      },
     ],
     person: "Ilse Vermeer",
     role: "Technical Co-founder",
@@ -273,9 +357,24 @@ export const fixtureProspects: Prospect[] = [
     endeavourId: "end_solidity",
     score: 84,
     scoreFactors: [
-      { label: "Trigger recency", weight: 26, note: "Testnet incident 6 days ago", evidenceIds: [] },
-      { label: "Contract exposure", weight: 30, note: "Vault logic unverified on explorer", evidenceIds: [] },
-      { label: "Role authority", weight: 18, note: "Lead engineer, influences spend", evidenceIds: [] },
+      {
+        label: "Trigger recency",
+        weight: 26,
+        note: "Testnet incident 6 days ago",
+        evidenceIds: [],
+      },
+      {
+        label: "Contract exposure",
+        weight: 30,
+        note: "Vault logic unverified on explorer",
+        evidenceIds: [],
+      },
+      {
+        label: "Role authority",
+        weight: 18,
+        note: "Lead engineer, influences spend",
+        evidenceIds: [],
+      },
     ],
     person: "Tomas Lindqvist",
     role: "Lead Engineer",
@@ -307,7 +406,12 @@ export const fixtureProspects: Prospect[] = [
     score: 71,
     scoreFactors: [
       { label: "Trigger recency", weight: 18, note: "Grant awarded 5 weeks ago", evidenceIds: [] },
-      { label: "Contract exposure", weight: 24, note: "Single contract, moderate surface", evidenceIds: [] },
+      {
+        label: "Contract exposure",
+        weight: 24,
+        note: "Single contract, moderate surface",
+        evidenceIds: [],
+      },
     ],
     person: "Ada Okonjo",
     role: "Head of Engineering",
@@ -375,7 +479,12 @@ export const fixtureProspects: Prospect[] = [
     endeavourId: "end_liquidity",
     score: 88,
     scoreFactors: [
-      { label: "Inventory size", weight: 34, note: "Estimated $8m on-chain inventory", evidenceIds: [] },
+      {
+        label: "Inventory size",
+        weight: 34,
+        note: "Estimated $8m on-chain inventory",
+        evidenceIds: [],
+      },
       { label: "Activity", weight: 26, note: "Active market making last 14 days", evidenceIds: [] },
     ],
     person: "Marcus Reiter",
@@ -406,7 +515,9 @@ export const fixtureProspects: Prospect[] = [
     id: "pro_005",
     endeavourId: "end_liquidity",
     score: 46,
-    scoreFactors: [{ label: "Inventory size", weight: 12, note: "Below stated floor", evidenceIds: [] }],
+    scoreFactors: [
+      { label: "Inventory size", weight: 12, note: "Below stated floor", evidenceIds: [] },
+    ],
     person: "Priya Raghavan",
     role: "Treasury Manager",
     company: "Solent Digital",
@@ -436,8 +547,18 @@ export const fixtureProspects: Prospect[] = [
     endeavourId: "end_pilots",
     score: 77,
     scoreFactors: [
-      { label: "Audit deadline", weight: 30, note: "First reporting cycle in 4 months", evidenceIds: [] },
-      { label: "Headcount fit", weight: 17, note: "No dedicated compliance engineer", evidenceIds: [] },
+      {
+        label: "Audit deadline",
+        weight: 30,
+        note: "First reporting cycle in 4 months",
+        evidenceIds: [],
+      },
+      {
+        label: "Headcount fit",
+        weight: 17,
+        note: "No dedicated compliance engineer",
+        evidenceIds: [],
+      },
     ],
     person: "Grace Mbeki",
     role: "COO",
@@ -518,7 +639,8 @@ export const fixtureThreads: Thread[] = [
     lastActivityAt: shiftFixtureDate("2026-09-15T08:20:00Z"),
     intent: "No response yet",
     objections: [],
-    suggestedResponse: "Send follow-up referencing the specific invariant gap named in their postmortem.",
+    suggestedResponse:
+      "Send follow-up referencing the specific invariant gap named in their postmortem.",
     messages: [
       {
         id: "msg_004",
@@ -564,6 +686,83 @@ export const fixtureThreads: Thread[] = [
     ],
   },
 ];
+
+/**
+ * The design fixtures as full prospect details.
+ *
+ * Demo mode has no database, so the detail the prospect screen reads has to be assembled
+ * from the fixture records themselves. It is the same shape the database read produces —
+ * ProspectDetail, checked by the compiler — built from what the fixtures happen to know:
+ * their evidence, their trigger, and whatever is on the thread.
+ *
+ * Design data, not a second implementation of anything: the ranking of routes is the shared
+ * one, and the timeline here says only what the fixtures actually record.
+ */
+function fixtureDetail(p: Prospect): ProspectDetail {
+  const thread = fixtureThreads.find((t) => t.prospectId === p.id);
+  const timeline: TimelineEntry[] = [];
+
+  for (const e of p.evidence) {
+    timeline.push({
+      id: e.id,
+      kind: "research",
+      at: e.observedAt,
+      title: e.claim,
+      detail: e.source,
+      ...(e.url ? { url: e.url } : {}),
+    });
+  }
+  if (p.trigger) {
+    timeline.push({
+      id: `${p.id}:trigger`,
+      kind: "trigger",
+      at: p.evidence[p.evidence.length - 1]?.observedAt ?? FIXTURE_ANCHOR,
+      title: p.trigger,
+      detail: "No date recorded",
+    });
+  }
+  if (p.score !== null) {
+    timeline.push({
+      id: `${p.id}:qualified`,
+      kind: "qualified",
+      at: p.evidence[0]?.observedAt ?? FIXTURE_ANCHOR,
+      title: `Scored ${p.score}`,
+      detail: p.scoreReason,
+    });
+  }
+  if (p.releasedAt) {
+    timeline.push({
+      id: `${p.id}:released`,
+      kind: "released",
+      at: p.releasedAt,
+      title: "You released this one",
+      detail: "Nothing is drafted before this.",
+    });
+  }
+  for (const m of thread?.messages ?? []) {
+    if (m.draft) continue;
+    timeline.push({
+      id: m.id,
+      kind: m.author === "PROSPECT" ? "received" : "sent",
+      at: m.sentAt,
+      title: thread?.subject ?? "",
+      detail: m.body.slice(0, 280),
+    });
+  }
+
+  return {
+    ...p,
+    personEmail: null,
+    linkedinUrl: null,
+    companyName: p.company,
+    companyDomain: null,
+    companyTimezone: null,
+    routes: contactRoutes({ personEmail: null, linkedinUrl: null, contacts: p.contacts }),
+    timeline: timeline.sort((a, b) => b.at.localeCompare(a.at) || a.id.localeCompare(b.id)),
+  };
+}
+
+export const fixtureProspects: ProspectDetail[] = prospectRecords.map(fixtureDetail);
 
 export const fixtureActivity: ActivityEvent[] = [
   {
@@ -810,8 +1009,10 @@ export const fixtureInsights: Insight[] = [
     id: "ins_002",
     endeavourId: "end_solidity",
     type: "RECOMMENDATION",
-    statement: "Restrict daily outreach to launch-stage protocols until the sample exceeds 60 sends.",
-    evidence: "Segment reply rate 22.7% vs 2.4%; sample still small but directionally consistent for 6 days.",
+    statement:
+      "Restrict daily outreach to launch-stage protocols until the sample exceeds 60 sends.",
+    evidence:
+      "Segment reply rate 22.7% vs 2.4%; sample still small but directionally consistent for 6 days.",
     confidence: 0.61,
     createdAt: shiftFixtureDate("2026-09-16T07:30:00Z"),
   },
@@ -837,19 +1038,136 @@ export const fixtureInsights: Insight[] = [
 
 /** Demo numbers, cut every way the Intelligence screen reads them. */
 export const fixturePerformance: PerformanceSlice[] = [
-  { dimension: "segment", label: "Launch-stage protocol", sent: 22, replies: 5, positiveReplies: 4, meetings: 3, wins: 1, revenue: 750 },
-  { dimension: "segment", label: "General protocol", sent: 41, replies: 1, positiveReplies: 0, meetings: 0, wins: 0, revenue: 0 },
-  { dimension: "segment", label: "Prop desk", sent: 19, replies: 5, positiveReplies: 4, meetings: 3, wins: 3, revenue: 2250 },
-  { dimension: "segment", label: "Treasury", sent: 11, replies: 0, positiveReplies: 0, meetings: 0, wins: 0, revenue: 0 },
-  { dimension: "segment", label: "Regulated fintech", sent: 8, replies: 2, positiveReplies: 1, meetings: 1, wins: 1, revenue: 750 },
-  { dimension: "offer", label: "Pre-audit review", sent: 63, replies: 11, positiveReplies: 8, meetings: 6, wins: 4, revenue: 3000 },
-  { dimension: "offer", label: "Invariant test suite", sent: 38, replies: 2, positiveReplies: 1, meetings: 1, wins: 1, revenue: 750 },
-  { dimension: "message_version", label: "outreach.draft/2026-09-12.1", sent: 44, replies: 4, positiveReplies: 2, meetings: 2, wins: 1, revenue: 750 },
-  { dimension: "message_version", label: "outreach.draft/2026-09-16.1", sent: 57, replies: 9, positiveReplies: 7, meetings: 5, wins: 4, revenue: 3000 },
-  { dimension: "trigger", label: "mainnet_date", sent: 34, replies: 8, positiveReplies: 6, meetings: 5, wins: 3, revenue: 2250 },
-  { dimension: "trigger", label: "hiring", sent: 27, replies: 2, positiveReplies: 1, meetings: 1, wins: 1, revenue: 750 },
-  { dimension: "source", label: "web_research", sent: 78, replies: 11, positiveReplies: 8, meetings: 6, wins: 4, revenue: 3000 },
-  { dimension: "source", label: "import", sent: 23, replies: 2, positiveReplies: 1, meetings: 1, wins: 1, revenue: 750 },
+  {
+    dimension: "segment",
+    label: "Launch-stage protocol",
+    sent: 22,
+    replies: 5,
+    positiveReplies: 4,
+    meetings: 3,
+    wins: 1,
+    revenue: 750,
+  },
+  {
+    dimension: "segment",
+    label: "General protocol",
+    sent: 41,
+    replies: 1,
+    positiveReplies: 0,
+    meetings: 0,
+    wins: 0,
+    revenue: 0,
+  },
+  {
+    dimension: "segment",
+    label: "Prop desk",
+    sent: 19,
+    replies: 5,
+    positiveReplies: 4,
+    meetings: 3,
+    wins: 3,
+    revenue: 2250,
+  },
+  {
+    dimension: "segment",
+    label: "Treasury",
+    sent: 11,
+    replies: 0,
+    positiveReplies: 0,
+    meetings: 0,
+    wins: 0,
+    revenue: 0,
+  },
+  {
+    dimension: "segment",
+    label: "Regulated fintech",
+    sent: 8,
+    replies: 2,
+    positiveReplies: 1,
+    meetings: 1,
+    wins: 1,
+    revenue: 750,
+  },
+  {
+    dimension: "offer",
+    label: "Pre-audit review",
+    sent: 63,
+    replies: 11,
+    positiveReplies: 8,
+    meetings: 6,
+    wins: 4,
+    revenue: 3000,
+  },
+  {
+    dimension: "offer",
+    label: "Invariant test suite",
+    sent: 38,
+    replies: 2,
+    positiveReplies: 1,
+    meetings: 1,
+    wins: 1,
+    revenue: 750,
+  },
+  {
+    dimension: "message_version",
+    label: "outreach.draft/2026-09-12.1",
+    sent: 44,
+    replies: 4,
+    positiveReplies: 2,
+    meetings: 2,
+    wins: 1,
+    revenue: 750,
+  },
+  {
+    dimension: "message_version",
+    label: "outreach.draft/2026-09-16.1",
+    sent: 57,
+    replies: 9,
+    positiveReplies: 7,
+    meetings: 5,
+    wins: 4,
+    revenue: 3000,
+  },
+  {
+    dimension: "trigger",
+    label: "mainnet_date",
+    sent: 34,
+    replies: 8,
+    positiveReplies: 6,
+    meetings: 5,
+    wins: 3,
+    revenue: 2250,
+  },
+  {
+    dimension: "trigger",
+    label: "hiring",
+    sent: 27,
+    replies: 2,
+    positiveReplies: 1,
+    meetings: 1,
+    wins: 1,
+    revenue: 750,
+  },
+  {
+    dimension: "source",
+    label: "web_research",
+    sent: 78,
+    replies: 11,
+    positiveReplies: 8,
+    meetings: 6,
+    wins: 4,
+    revenue: 3000,
+  },
+  {
+    dimension: "source",
+    label: "import",
+    sent: 23,
+    replies: 2,
+    positiveReplies: 1,
+    meetings: 1,
+    wins: 1,
+    revenue: 750,
+  },
 ];
 
 export const fixtureExperiments: Experiment[] = [
@@ -874,7 +1192,11 @@ export const fixtureExperiments: Experiment[] = [
 ];
 
 export const fixtureObjections: ObjectionCluster[] = [
-  { label: "Timing / launch pressure", count: 6, example: "We would need this before the 30 Oct launch." },
+  {
+    label: "Timing / launch pressure",
+    count: 6,
+    example: "We would need this before the 30 Oct launch.",
+  },
   { label: "Settlement cadence", count: 4, example: "Weekly is slower than we normally accept." },
   { label: "Price certainty", count: 3, example: "What exactly is covered for that number?" },
   { label: "Internal capability", count: 2, example: "We may handle this with the new hire." },
@@ -929,13 +1251,48 @@ export const fixtureRuns: AgentRun[] = [
 ];
 
 export const fixtureRunLog: RunLogLine[] = [
-  { id: "log_01", at: shiftFixtureDate("2026-09-16T07:32:18Z"), level: "INFO", text: "run_014 started · endeavour=end_solidity · sources=4" },
-  { id: "log_02", at: shiftFixtureDate("2026-09-16T07:32:41Z"), level: "INFO", text: "discovered 22 candidate organisations" },
-  { id: "log_03", at: shiftFixtureDate("2026-09-16T07:33:09Z"), level: "INFO", text: "qualified Northbridge Protocol · score=92" },
-  { id: "log_04", at: shiftFixtureDate("2026-09-16T07:33:55Z"), level: "WARN", text: "Meridian Settlements missing contact record · flagged NEEDS_REVIEW" },
-  { id: "log_05", at: shiftFixtureDate("2026-09-16T07:34:47Z"), level: "INFO", text: "drafted 6 messages · autonomy=DRAFT · held for approval" },
-  { id: "log_06", at: shiftFixtureDate("2026-09-16T07:35:22Z"), level: "INFO", text: "run_014 complete · 184s" },
-  { id: "log_07", at: shiftFixtureDate("2026-09-16T06:58:44Z"), level: "ERROR", text: "run_012 failed · source rate limited after 12 requests" },
+  {
+    id: "log_01",
+    at: shiftFixtureDate("2026-09-16T07:32:18Z"),
+    level: "INFO",
+    text: "run_014 started · endeavour=end_solidity · sources=4",
+  },
+  {
+    id: "log_02",
+    at: shiftFixtureDate("2026-09-16T07:32:41Z"),
+    level: "INFO",
+    text: "discovered 22 candidate organisations",
+  },
+  {
+    id: "log_03",
+    at: shiftFixtureDate("2026-09-16T07:33:09Z"),
+    level: "INFO",
+    text: "qualified Northbridge Protocol · score=92",
+  },
+  {
+    id: "log_04",
+    at: shiftFixtureDate("2026-09-16T07:33:55Z"),
+    level: "WARN",
+    text: "Meridian Settlements missing contact record · flagged NEEDS_REVIEW",
+  },
+  {
+    id: "log_05",
+    at: shiftFixtureDate("2026-09-16T07:34:47Z"),
+    level: "INFO",
+    text: "drafted 6 messages · autonomy=DRAFT · held for approval",
+  },
+  {
+    id: "log_06",
+    at: shiftFixtureDate("2026-09-16T07:35:22Z"),
+    level: "INFO",
+    text: "run_014 complete · 184s",
+  },
+  {
+    id: "log_07",
+    at: shiftFixtureDate("2026-09-16T06:58:44Z"),
+    level: "ERROR",
+    text: "run_012 failed · source rate limited after 12 requests",
+  },
 ];
 
 export const fixtureInterfaces: SystemInterface[] = [
@@ -986,9 +1343,27 @@ export const fixtureInterfaces: SystemInterface[] = [
     outbound: 43,
     lastEventAt: shiftFixtureDate("2026-09-16T07:35:22Z"),
     events: [
-      { id: "evt_01", at: shiftFixtureDate("2026-09-16T07:35:22Z"), direction: "OUT", type: "run.completed", payloadSummary: "run_014 · ok · 184s" },
-      { id: "evt_02", at: shiftFixtureDate("2026-09-16T07:32:18Z"), direction: "OUT", type: "approval.created", payloadSummary: "apr_001 · reply approval" },
-      { id: "evt_03", at: shiftFixtureDate("2026-09-16T06:41:00Z"), direction: "IN", type: "activity.recorded", payloadSummary: "reply received · thr_001" },
+      {
+        id: "evt_01",
+        at: shiftFixtureDate("2026-09-16T07:35:22Z"),
+        direction: "OUT",
+        type: "run.completed",
+        payloadSummary: "run_014 · ok · 184s",
+      },
+      {
+        id: "evt_02",
+        at: shiftFixtureDate("2026-09-16T07:32:18Z"),
+        direction: "OUT",
+        type: "approval.created",
+        payloadSummary: "apr_001 · reply approval",
+      },
+      {
+        id: "evt_03",
+        at: shiftFixtureDate("2026-09-16T06:41:00Z"),
+        direction: "IN",
+        type: "activity.recorded",
+        payloadSummary: "reply received · thr_001",
+      },
     ],
   },
   {
@@ -1017,7 +1392,13 @@ export const fixtureMailboxes: Mailbox[] = [
     sentToday: 9,
     warmingUp: true,
     quietHours: "20:00 – 07:00",
-    limits: { dailyCap: 30, weeklyCap: 150, warmup: { startedOn: shiftFixtureDate("2026-09-10"), startCap: 5, incrementPerDay: 2 }, quietHours: { start: 20, end: 7 }, timezone: "Europe/London" },
+    limits: {
+      dailyCap: 30,
+      weeklyCap: 150,
+      warmup: { startedOn: shiftFixtureDate("2026-09-10"), startCap: 5, incrementPerDay: 2 },
+      quietHours: { start: 20, end: 7 },
+      timezone: "Europe/London",
+    },
     endeavourIds: ["end_solidity", "end_pilots"],
     aliases: [{ address: "hello@consulting.example", displayName: "Max at Consulting" }],
     canCreateAliases: true,
@@ -1033,7 +1414,13 @@ export const fixtureMailboxes: Mailbox[] = [
     sentToday: 0,
     warmingUp: false,
     quietHours: "20:00 – 07:00",
-    limits: { dailyCap: 40, weeklyCap: 200, warmup: null, quietHours: { start: 20, end: 7 }, timezone: "Europe/London" },
+    limits: {
+      dailyCap: 40,
+      weeklyCap: 200,
+      warmup: null,
+      quietHours: { start: 20, end: 7 },
+      timezone: "Europe/London",
+    },
     endeavourIds: ["end_liquidity"],
     aliases: [],
     canCreateAliases: false,
