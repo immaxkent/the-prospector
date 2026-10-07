@@ -44,7 +44,12 @@ export function StatusDot({
 }) {
   return (
     <span
-      className={cn("inline-block h-[6px] w-[6px] rounded-full", dotTone[tone], live && "live-dot", className)}
+      className={cn(
+        "inline-block h-[6px] w-[6px] rounded-full",
+        dotTone[tone],
+        live && "live-dot",
+        className,
+      )}
     />
   );
 }
@@ -139,7 +144,8 @@ export function Button({
         size === "lg" && "h-11 px-8 text-[12px] tracking-[0.18em]",
         variant === "primary" &&
           "bg-ink text-ink-foreground shadow-[0_10px_24px_-14px_var(--ink)] hover:bg-primary",
-        variant === "secondary" && "border border-border bg-card text-foreground backdrop-blur hover:bg-accent",
+        variant === "secondary" &&
+          "border border-border bg-card text-foreground backdrop-blur hover:bg-accent",
         variant === "ghost" && "text-muted-foreground hover:text-foreground",
         variant === "destructive" && "border border-danger/40 text-danger hover:bg-danger/5",
         className,
@@ -149,7 +155,13 @@ export function Button({
 }
 
 /* ---------- LedgerTable ---------- */
-export function LedgerTable({ children, className }: { children: ReactNode; className?: string | undefined }) {
+export function LedgerTable({
+  children,
+  className,
+}: {
+  children: ReactNode;
+  className?: string | undefined;
+}) {
   return (
     <div className={cn("w-full overflow-x-auto", className)}>
       <table className="w-full border-collapse text-sm">{children}</table>
@@ -262,7 +274,13 @@ export function EvidenceChip({ label, title }: { label: string; title?: string |
 }
 
 /* ---------- Progress bar ---------- */
-export function Meter({ value, tone = "signal" }: { value: number; tone?: "signal" | "warn" | "danger" | undefined }) {
+export function Meter({
+  value,
+  tone = "signal",
+}: {
+  value: number;
+  tone?: "signal" | "warn" | "danger" | undefined;
+}) {
   return (
     <div className="h-[6px] w-full rounded-[2px] bg-muted">
       <div
@@ -353,7 +371,10 @@ export function InspectorPanel({
         className="fixed inset-0 z-40 bg-foreground/10 backdrop-blur-[2px] transition-opacity"
         onClick={onClose}
       />
-      <aside className="island rise fixed right-3 top-3 z-50 flex h-[calc(100vh-24px)] w-[calc(100%-24px)] max-w-[540px] flex-col overflow-hidden rounded-3xl">
+      <aside
+        data-testid="inspector"
+        className="island rise fixed right-3 top-3 z-50 flex h-[calc(100vh-24px)] w-[calc(100%-24px)] max-w-[540px] flex-col overflow-hidden rounded-3xl"
+      >
         <header className="flex items-start justify-between gap-4 border-b border-border px-6 py-5">
           <div>
             <h2 className="display text-[20px] font-medium">{title}</h2>
@@ -375,7 +396,9 @@ export function BriefSection({ title, children }: { title: string; children: Rea
   return (
     <div className="border-b border-border py-4 first:pt-0 last:border-b-0">
       <MachineLabel tone="signal">{title}</MachineLabel>
-      <div className="mt-2 space-y-2 text-[14px] leading-relaxed text-foreground/90">{children}</div>
+      <div className="mt-2 space-y-2 text-[14px] leading-relaxed text-foreground/90">
+        {children}
+      </div>
     </div>
   );
 }
