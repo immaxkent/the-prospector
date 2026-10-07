@@ -1,14 +1,11 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { useDataset } from "@/data/store";
 import {
-  Button,
   EmptyState,
   EvidenceChip,
-  InspectorPanel,
   LedgerTable,
   MachineLabel,
-  Meter,
   PageHeader,
   Panel,
   Tag,
@@ -16,15 +13,13 @@ import {
   Th,
   Tr,
 } from "@/components/os/primitives";
-import { gbp, relative, scoreText, stamp } from "@/lib/format";
+import { relative, scoreText } from "@/lib/format";
 import { cn } from "@/lib/utils";
-import { ProspectActions } from "@/components/os/ProspectActions";
 import { countDecisions, orderByDecision, type ProspectState } from "@/data/prospect-state";
 import { BulkDecide } from "@/components/os/BulkDecide";
 import { ReachTag } from "@/components/os/ReachTag";
-import { LogInteraction } from "@/components/os/LogInteraction";
 
-export const Route = createFileRoute("/prospects")({
+export const Route = createFileRoute("/prospects/")({
   head: () => ({
     meta: [
       { title: "Prospects — CBO OS" },
@@ -58,14 +53,12 @@ const STATE_FILTERS: { key: string; label: string; states: readonly ProspectStat
 ];
 
 function ProspectsScreen() {
-  const { prospects, endeavours, threads, isEmpty } = useDataset();
+  const { prospects, endeavours, isEmpty } = useDataset();
   const [filter, setFilter] = useState("needs");
   const [endeavour, setEndeavour] = useState("ALL");
   const [q, setQ] = useState("");
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const navigate = useNavigate();
   const [ticked, setTicked] = useState<Set<string>>(new Set());
-  // Derived from the dataset so the inspector reflects changes after an action.
-  const selected = prospects.find((p) => p.id === selectedId) ?? null;
 
   const inScope = useMemo(
     () =>
@@ -100,8 +93,6 @@ function ProspectsScreen() {
       else next.add(id);
       return next;
     });
-
-  const thread = selected ? threads.find((t) => t.prospectId === selected.id) : undefined;
 
   return (
     <div className="space-y-5">
@@ -197,6 +188,7 @@ function ProspectsScreen() {
                     <Th>Person</Th>
                     <Th>Company</Th>
                     <Th>Why it is here</Th>
+                    <Th>Reach</Th>
                     <Th>Segment</Th>
                     <Th>Trigger</Th>
                     <Th>Evidence</Th>
@@ -208,8 +200,7 @@ function ProspectsScreen() {
                   {rows.map((p) => (
                     <Tr
                       key={p.id}
-                      onClick={() => setSelectedId(p.id)}
-                      active={selected?.id === p.id}
+                      onClick={() => navigate({ to: "/prospects/$id", params: { id: p.id } })}
                     >
                       <Td className="w-[32px]">
                         <input
@@ -284,108 +275,6 @@ function ProspectsScreen() {
           )}
         </>
       )}
-
-      <InspectorPanel
-        open={!!selected}
-        onClose={() => setSelectedId(null)}
-        title={selected ? `${selected.person} · ${selected.company}` : ""}
-        meta={
-          selected && (
-            <div className="flex flex-wrap items-center gap-2">
-              <MachineLabel>
-                {selected.role} · {selected.segment} ·{" "}
-                {selected.score === null ? "NOT SCORED YET" : `SCORE ${selected.score}`} ·{" "}
-                {selected.status}
-              </MachineLabel>
-              <ReachTag contacts={selected.contacts} />
-            </div>
-          )
-        }
-        footer={selected ? <ProspectActions prospect={selected} /> : null}
-      >
-        {selected && (
-          <div className="space-y-5">
-            <Section title="WHY NOW">
-              <p className="text-[14px]">{selected.trigger}</p>
-            </Section>
-
-            <Section title="WHY FIT">
-              <div className="flex flex-wrap gap-1.5">
-                {selected.fitFactors.map((f) => (
-                  <Tag key={f} tone="signal">
-                    {f}
-                  </Tag>
-                ))}
-              </div>
-              <div className="mt-3 space-y-2">
-                {selected.scoreFactors.map((f) => (
-                  <div key={f.label} title={f.note}>
-                    <div className="flex items-center justify-between">
-                      <span className="machine">{f.label}</span>
-                      <span className="numeral text-[12px]">+{f.weight}</span>
-                    </div>
-                    <div className="mt-1">
-                      <Meter value={f.weight / 40} />
-                    </div>
-                    <p className="machine mt-1 normal-case tracking-normal">{f.note}</p>
-                  </div>
-                ))}
-              </div>
-            </Section>
-
-            <Section title="EVIDENCE">
-              <ul className="space-y-2">
-                {selected.evidence.map((e) => (
-                  <li key={e.claim} className="border-l-2 border-border pl-3">
-                    <p className="text-[13px]">{e.claim}</p>
-                    <MachineLabel>
-                      {e.source} · {stamp(e.observedAt)}
-                    </MachineLabel>
-                  </li>
-                ))}
-              </ul>
-            </Section>
-
-            <Section title="CONVERSATION">
-              {thread ? (
-                <ul className="space-y-3">
-                  {thread.messages.map((m) => (
-                    <li
-                      key={m.id}
-                      className={cn(
-                        "pl-3 text-[13px] leading-relaxed",
-                        m.author === "AGENT"
-                          ? "border-l-2 border-signal bg-surface-2 py-2 pr-2"
-                          : "border-l-2 border-border",
-                      )}
-                    >
-                      <MachineLabel tone={m.author === "AGENT" ? "signal" : "muted"}>
-                        {m.author === "AGENT" ? "AGENT DRAFT" : m.author} · {stamp(m.sentAt)}
-                      </MachineLabel>
-                      <p className="mt-1">{m.body}</p>
-                    </li>
-                  ))}
-                </ul>
-              ) : (
-                <MachineLabel>NO CONVERSATION YET</MachineLabel>
-              )}
-            </Section>
-
-            <Section title="CONTACT ELSEWHERE">
-              <LogInteraction prospectId={selected.id} />
-            </Section>
-
-            <Section title="NEXT ACTION">
-              <p className="text-[14px]">{selected.nextAction}</p>
-              {selected.opportunityValue !== null && (
-                <p className="machine mt-1">
-                  ESTIMATED OPPORTUNITY {gbp(selected.opportunityValue)}
-                </p>
-              )}
-            </Section>
-          </div>
-        )}
-      </InspectorPanel>
     </div>
   );
 }
