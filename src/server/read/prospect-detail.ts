@@ -122,7 +122,18 @@ export function prospectTimeline(input: {
       kind: m.direction === "outbound" ? "sent" : "received",
       at: iso(at),
       title: m.subject,
-      detail: m.body.slice(0, 280),
+      /*
+       * A reply says how it was attributed when that was anything short of certain.
+       *
+       * A reply matched on the company's domain is a colleague answering, which is usually
+       * right and occasionally the wrong company entirely. Reading the thread without
+       * knowing that is how a reply gets answered as though it came from the person we
+       * wrote to.
+       */
+      detail:
+        m.direction === "inbound" && m.attributedBy && m.attributedBy !== "thread"
+          ? `Matched by ${m.attributedBy} — ${m.body.slice(0, 240)}`
+          : m.body.slice(0, 280),
     });
   }
 

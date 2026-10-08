@@ -295,3 +295,47 @@ describe("a send that failed", () => {
     expect(tape.map((e) => e.kind)).toEqual(["failed"]);
   });
 });
+
+describe("how a reply says it was attributed", () => {
+  const base = {
+    prospect: prospectRow({ qualificationScore: null }),
+    lookups: { evidence: [], triggers: [], messages: [] },
+    interactions: [],
+    events: [],
+    entityIds: new Set(["pro_1", "com_1", "per_1"]),
+  };
+  const inbound = (over: Parameters<typeof messageRow>[0]) =>
+    prospectTimeline({
+      ...base,
+      lookups: {
+        evidence: [],
+        triggers: [],
+        messages: [messageRow({ direction: "inbound", sentAt: null, receivedAt: at("2026-10-07T09:00:00Z"), body: "Yes, Friday works.", ...over })],
+      },
+    });
+
+  it("says so when the match was the company's domain, not the person", () => {
+    // A colleague answering is usually right and occasionally the wrong company entirely.
+    expect(inbound({ attributedBy: "domain" })[0]?.detail).toBe("Matched by domain — Yes, Friday works.");
+  });
+
+  it("stays quiet when the match was the thread we sent on, which cannot be coincidence", () => {
+    expect(inbound({ attributedBy: "thread" })[0]?.detail).toBe("Yes, Friday works.");
+  });
+
+  it("stays quiet for rows written before any of this was recorded", () => {
+    expect(inbound({ attributedBy: null })[0]?.detail).toBe("Yes, Friday works.");
+  });
+
+  it("says nothing of the kind about what we sent", () => {
+    const tape = prospectTimeline({
+      ...base,
+      lookups: {
+        evidence: [],
+        triggers: [],
+        messages: [messageRow({ direction: "outbound", sentAt: at("2026-10-07T09:00:00Z"), body: "Hello", attributedBy: "domain" })],
+      },
+    });
+    expect(tape[0]?.detail).toBe("Hello");
+  });
+});
