@@ -23,8 +23,11 @@ import type {
   SystemInterface,
   SystemStatus,
   Thread,
+  OutboundQueue,
   ProspectDetail,
+  QueuedMessage,
   TimelineEntry,
+  UnattributedReply,
 } from "./types";
 
 export const fixtureStatus: SystemStatus = {
@@ -53,7 +56,7 @@ export const fixtureStatus: SystemStatus = {
   statTiles: ["revenue", "replies", "awaiting", "reply_rate"],
 };
 
-export const fixtureEndeavours: Endeavour[] = [
+const endeavourRecords: Omit<Endeavour, "queue">[] = [
   {
     id: "end_solidity",
     name: "£3K Solidity Sprint",
@@ -764,6 +767,50 @@ function fixtureDetail(p: Prospect): ProspectDetail {
 
 export const fixtureProspects: ProspectDetail[] = prospectRecords.map(fixtureDetail);
 
+/**
+ * The fixture queues, derived from the fixture threads.
+ *
+ * Demo mode has no mailbox and no scheduler, so what is "about to go out" can only be read
+ * off the drafts the fixtures already carry. The shape is the one the database read
+ * produces, so the panel is exercised by the same code either way.
+ */
+function fixtureQueue(endeavourId: string, mailboxAddress: string | null): OutboundQueue {
+  const messages: QueuedMessage[] = [];
+  for (const thread of fixtureThreads) {
+    if (thread.endeavourId !== endeavourId) continue;
+    const prospect = prospectRecords.find((p) => p.id === thread.prospectId);
+    for (const m of thread.messages) {
+      if (m.author === "PROSPECT") continue;
+      if (!m.sendState || m.sendState === "sent" || m.sendState === "rejected") continue;
+      messages.push({
+        id: m.id,
+        prospectId: thread.prospectId,
+        who: prospect ? `${prospect.person} · ${prospect.company}` : "Unknown recipient",
+        subject: thread.subject,
+        state: m.sendState,
+        goesAt: m.sendState === "pending_approval" ? null : m.sentAt,
+        attempts: m.sendState === "failed" ? 1 : 0,
+        lastError: m.sendState === "failed" ? "the mailbox refused the message" : null,
+      });
+    }
+  }
+  const scheduled = messages
+    .filter((m) => m.goesAt && m.state !== "failed")
+    .map((m) => m.goesAt!)
+    .sort();
+  return {
+    from: mailboxAddress,
+    messages,
+    waitingOnYou: messages.filter((m) => m.state === "pending_approval").length,
+    readyToGo: messages.filter(
+      (m) => m.state === "approved" || m.state === "queued" || m.state === "sending",
+    ).length,
+    failed: messages.filter((m) => m.state === "failed").length,
+    nextAt: scheduled[0] ?? null,
+  };
+}
+
+
 export const fixtureActivity: ActivityEvent[] = [
   {
     id: "act_001",
@@ -1432,3 +1479,38 @@ export const emptyStatus: SystemStatus = {
   agent: "WAITING",
   lastRunAt: "",
 };
+
+// Last, because the queue says which address it goes from and the mailboxes are defined below.
+export const fixtureEndeavours: Endeavour[] = endeavourRecords.map((e) => ({
+  ...e,
+  queue: fixtureQueue(e.id, fixtureMailboxes.find((m) => m.id === e.mailboxId)?.address ?? null),
+}));
+
+/**
+ * Two replies the demo cannot place, because the panel exists to be seen.
+ *
+ * One is a stranger — nothing to go on. The other is a colleague on a company we are already
+ * talking to, which is the case the attribution rules were written for: attributed to the
+ * prospect, and still asking a person, because a domain is a guess.
+ */
+export const fixtureUnattributed: UnattributedReply[] = [
+  {
+    id: "thr_unplaced_1",
+    subject: "Re: Bridge contract review before mainnet",
+    from: "tomas@northbridge.example",
+    preview:
+      "Ilse forwarded this to me — I run the contracts side. What would the five days actually cover?",
+    receivedAt: shiftFixtureDate("2026-09-16T11:20:00Z"),
+    guessedProspectId: "pro_001",
+    guessedBy: "domain",
+  },
+  {
+    id: "thr_unplaced_2",
+    subject: "quick question",
+    from: "hello@unknown.example",
+    preview: "Saw your note somewhere. Do you do audits for L2s?",
+    receivedAt: shiftFixtureDate("2026-09-15T08:05:00Z"),
+    guessedProspectId: null,
+    guessedBy: null,
+  },
+];

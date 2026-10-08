@@ -4,6 +4,7 @@ import type { EndeavourSpec, FieldState } from "../domain/endeavour-spec";
 import { PROGRESSION } from "../domain/pipeline";
 import { allocate } from "../domain/allocation";
 import { countProspecting } from "../domain/prospecting";
+import { buildOutboundQueue, type QueueLookups } from "./outbound";
 import {
   daysBetween,
   iso,
@@ -11,6 +12,7 @@ import {
   type ApprovalRow,
   type EndeavourRow,
   type InsightRow,
+  type MailboxRow,
   type MessageRow,
   type OpportunityRow,
   type ProspectRow,
@@ -27,6 +29,10 @@ export interface EndeavourInputs {
   runs: readonly RunRow[];
   insights: readonly InsightRow[];
   segments: readonly SegmentRow[];
+  /** The mailbox this endeavour sends through, so the queue can say the address. */
+  mailbox?: MailboxRow | undefined;
+  /** Enough to name who each queued message is to. */
+  queueLookups?: QueueLookups | undefined;
   now: Date;
 }
 
@@ -152,6 +158,13 @@ export function buildEndeavour(input: EndeavourInputs): Endeavour {
     status: e.status,
     mailboxId: e.mailboxId,
     fromAlias: e.fromAlias,
+    queue: buildOutboundQueue({
+      messages: input.messages,
+      endeavourId: e.id,
+      mailbox: input.mailbox,
+      fromAlias: e.fromAlias,
+      lookups: input.queueLookups ?? { prospects: new Map(), companies: new Map(), people: new Map() },
+    }),
     settings,
     pendingProspects: counted.pending,
     activeConversations: counted.active,

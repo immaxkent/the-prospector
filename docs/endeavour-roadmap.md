@@ -179,6 +179,30 @@ carries something a person could act on.
 
 ---
 
+## What is built
+
+As of 2026-10-08, on branches stacked toward main:
+
+| WP | State | Where |
+|---|---|---|
+| WP-22 | merged | the endeavour page in work order, the rail, unbuilt stages marked |
+| WP-23 | PR #20 | research says what it looked at; T2 still needs a live run |
+| WP-24 | PR #21 | the prospects list opens on what needs you |
+| WP-25 | PR #22 | one screen per prospect — and the outreach recipient bug it exposed |
+| WP-26 | in progress | the draft beside its evidence, the outbound queue, failed sends on the prospect |
+| WP-27 | in progress | attribution by thread, address and company domain, with the reason recorded |
+
+Two tasks were found already built while working through their work packages, and are marked
+as such in the tables below rather than rewritten: editing a draft before approving it
+(WP-26 T2) and a reply stopping the follow-up sequence (WP-27 T3).
+
+**WP-29 cannot be started.** It is the living view, and its own entry says it is to be
+designed with the operator rather than by me — the design I proposed was not what they had in
+mind, and they said so plainly. It needs a description of what it should show before any of
+it is worth writing. Everything before it does not depend on it.
+
+---
+
 ## WP-24 — Prospects, finished
 
 ### Why
@@ -251,7 +275,7 @@ decision and the draft an afterthought. It should be the other way round.
 | # | Task | Deliverable |
 |---|---|---|
 | T1 | The draft shown beside the evidence it was written from. | component + e2e |
-| T2 | Edit before approving, not only approve or reject. | command + e2e |
+| T2 | Edit before approving, not only approve or reject. | **already built** — `ApprovalActions` edit panel, proved by `approvals.spec.ts` |
 | T3 | What is queued, when it will go, and from which address — on the endeavour. | route + e2e |
 | T4 | A send that failed says so where the prospect is, not only in the digest. | wiring + test |
 
@@ -276,7 +300,7 @@ Absorbs WP-19, which specified the matching and was never built.
 |---|---|---|
 | T1 | Attribute by mailbox, then by thread, then by address, and record which it was. | module + integration tests |
 | T2 | What cannot be attributed is shown as such rather than silently dropped. | route + e2e |
-| T3 | A reply stops the follow-up sequence for that prospect. | command + test |
+| T3 | A reply stops the follow-up sequence for that prospect. | **already built** — `decideFollowUp` returns `replied`, covered in `followup.test.ts` |
 | T4 | The conversation on the prospect's own page, in order, whichever channel it came through. | component + e2e |
 
 ### Done when

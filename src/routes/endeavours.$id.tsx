@@ -26,6 +26,7 @@ import { AgentOrb } from "@/components/os/AgentOrb";
 import { RunNowControl } from "@/components/os/RunNowControl";
 import { SectionRail, useSectionSpy } from "@/components/os/SectionRail";
 import { Unbuilt } from "@/components/os/Unbuilt";
+import { OutboundQueuePanel } from "@/components/os/OutboundQueuePanel";
 import { ENDEAVOUR_SECTIONS, SECTION_IDS } from "@/data/endeavour-sections";
 import { ActivityChart, FunnelChart } from "@/components/os/charts";
 import { dailyActivity, isQuiet } from "@/data/chart-series";
@@ -42,10 +43,14 @@ export const Route = createFileRoute("/endeavours/$id")({
       { title: "Endeavour detail — CBO OS" },
       {
         name: "description",
-        content: "Objective progress, funnel, quota, strategy, learning and agent runs for a single endeavour.",
+        content:
+          "Objective progress, funnel, quota, strategy, learning and agent runs for a single endeavour.",
       },
       { property: "og:title", content: "Endeavour detail — CBO OS" },
-      { property: "og:description", content: "Open an endeavour like a trading book: state, strategy and runs." },
+      {
+        property: "og:description",
+        content: "Open an endeavour like a trading book: state, strategy and runs.",
+      },
     ],
   }),
   component: EndeavourDetail,
@@ -57,11 +62,20 @@ export const Route = createFileRoute("/endeavours/$id")({
  * click, which is why approvals and runs were hard to find — you had to already know they
  * were there to go looking.
  */
-const STAGES: PipelineStage[] = ["researched", "qualified", "contacted", "replied", "meeting", "proposal", "won"];
+const STAGES: PipelineStage[] = [
+  "researched",
+  "qualified",
+  "contacted",
+  "replied",
+  "meeting",
+  "proposal",
+  "won",
+];
 
 function EndeavourDetail() {
   const { id } = Route.useParams();
-  const { endeavours, prospects, opportunities, insights, approvals, runs, threads, status } = useDataset();
+  const { endeavours, prospects, opportunities, insights, approvals, runs, threads, status } =
+    useDataset();
   const statTiles = useStatTiles();
   const active = useSectionSpy(SECTION_IDS);
   const e = endeavours.find((x) => x.id === id);
@@ -101,10 +115,14 @@ function EndeavourDetail() {
    * the only one who answers it.
    */
   /** The newest finished run, which is what RESEARCH reports on. */
-  const lastRun = [...mine.runs].sort((a, b) => b.startedAt.localeCompare(a.startedAt)).find((r) => r.state !== "RUNNING");
+  const lastRun = [...mine.runs]
+    .sort((a, b) => b.startedAt.localeCompare(a.startedAt))
+    .find((r) => r.state !== "RUNNING");
 
   /** Found by research and not yet scored: the queue the RESEARCH section is about. */
-  const found = mine.prospects.filter((p) => p.score === null && !["won", "lost", "nurture"].includes(p.stage));
+  const found = mine.prospects.filter(
+    (p) => p.score === null && !["won", "lost", "nurture"].includes(p.stage),
+  );
 
   const quiet = mine.prospects.filter((p) => {
     if (["won", "lost", "nurture"].includes(p.stage)) return false;
@@ -152,16 +170,25 @@ function EndeavourDetail() {
                   value={e.unit === "GBP" ? gbp(e.actualValue) : num(e.actualValue)}
                   tone="signal"
                 />
-                <MetricCell label="TARGET" value={e.unit === "GBP" ? gbp(e.targetValue) : num(e.targetValue)} />
-                <MetricCell label="REMAINING GAP" value={e.unit === "GBP" ? gbp(gap) : num(gap)} tone="warn" />
-                <MetricCell label="PIPELINE" value={e.unit === "GBP" ? gbp(e.pipelineValue) : num(e.pipelineValue)} />
+                <MetricCell
+                  label="TARGET"
+                  value={e.unit === "GBP" ? gbp(e.targetValue) : num(e.targetValue)}
+                />
+                <MetricCell
+                  label="REMAINING GAP"
+                  value={e.unit === "GBP" ? gbp(gap) : num(gap)}
+                  tone="warn"
+                />
+                <MetricCell
+                  label="PIPELINE"
+                  value={e.unit === "GBP" ? gbp(e.pipelineValue) : num(e.pipelineValue)}
+                />
                 <MetricCell label="COVERAGE" value={pct(e.pipelineValue / e.targetValue)} />
               </div>
               <div className="mt-4">
                 <Meter value={e.actualValue / e.targetValue} />
               </div>
             </Panel>
-
           </div>
 
           <div className="space-y-5">
@@ -171,8 +198,16 @@ function EndeavourDetail() {
                 value={`${e.quotaDone.newProspects}/${e.quota.newProspects}`}
                 size="sm"
               />
-              <MetricCell label="NEW OUTREACH" value={`${e.quotaDone.outreach}/${e.quota.outreach}`} size="sm" />
-              <MetricCell label="FOLLOW-UPS" value={`${e.quotaDone.followups}/${e.quota.followups}`} size="sm" />
+              <MetricCell
+                label="NEW OUTREACH"
+                value={`${e.quotaDone.outreach}/${e.quota.outreach}`}
+                size="sm"
+              />
+              <MetricCell
+                label="FOLLOW-UPS"
+                value={`${e.quotaDone.followups}/${e.quota.followups}`}
+                size="sm"
+              />
             </Panel>
 
             <Panel title="NEXT ACTIONS & APPROVALS" bodyClassName="max-h-[560px] overflow-y-auto">
@@ -189,11 +224,18 @@ function EndeavourDetail() {
       </Section>
 
       <Section id="research" label="RESEARCH">
-        <Panel title="THE LAST LOOK" bodyClassName="grid grid-cols-2 gap-3 px-4 py-4 md:grid-cols-4">
+        <Panel
+          title="THE LAST LOOK"
+          bodyClassName="grid grid-cols-2 gap-3 px-4 py-4 md:grid-cols-4"
+        >
           {lastRun ? (
             <>
               <MetricCell label="FOUND" value={num(lastRun.discovered)} />
-              <MetricCell label="QUALIFIED" value={num(lastRun.qualified)} tone={lastRun.qualified === 0 ? "warn" : "signal"} />
+              <MetricCell
+                label="QUALIFIED"
+                value={num(lastRun.qualified)}
+                tone={lastRun.qualified === 0 ? "warn" : "signal"}
+              />
               <MetricCell label="SEARCHES PAID FOR" value={num(lastRun.searches)} />
               <MetricCell label="BUFFER" value={`${lastRun.pending}/${lastRun.pendingCap}`} />
             </>
@@ -207,9 +249,9 @@ function EndeavourDetail() {
         {lastRun && lastRun.discovered > 0 && lastRun.qualified === 0 && (
           <Panel title="FOUND, BUT NONE KEPT" bodyClassName="px-4 py-4">
             <p className="text-[13px] text-muted-foreground">
-              The last look found {lastRun.discovered} and qualified none of them. That is either the
-              segments matching the wrong companies, or qualification never getting paid for — the run
-              log says which, and it is on the research screen.
+              The last look found {lastRun.discovered} and qualified none of them. That is either
+              the segments matching the wrong companies, or qualification never getting paid for —
+              the run log says which, and it is on the research screen.
             </p>
           </Panel>
         )}
@@ -299,18 +341,20 @@ function EndeavourDetail() {
       </Section>
 
       <Section id="outreach" label="OUTREACH">
+        <OutboundQueuePanel queue={e.queue} now={statContext.now} />
+
         <Panel
-        title="ACTIVITY"
-        meta={<MachineLabel>LAST 14 DAYS</MachineLabel>}
-        bodyClassName="px-4 py-4"
+          title="ACTIVITY"
+          meta={<MachineLabel>LAST 14 DAYS</MachineLabel>}
+          bodyClassName="px-4 py-4"
         >
-        {isQuiet(activity) ? (
-        <p className="py-6 text-center text-[13px] text-muted-foreground">
-        Nothing has gone out in the last fortnight.
-        </p>
-        ) : (
-        <ActivityChart days={activity} />
-        )}
+          {isQuiet(activity) ? (
+            <p className="py-6 text-center text-[13px] text-muted-foreground">
+              Nothing has gone out in the last fortnight.
+            </p>
+          ) : (
+            <ActivityChart days={activity} />
+          )}
         </Panel>
 
         <Panel title="THREADS" bodyClassName="divide-y divide-border">
@@ -339,8 +383,12 @@ function EndeavourDetail() {
       </Section>
 
       <Section id="deals" label="DEALS">
-        <Panel title="FUNNEL" meta={<MachineLabel>WHERE IT LEAKS</MachineLabel>} bodyClassName="px-4 py-4">
-        <FunnelChart stages={STAGES.map((s) => ({ label: s, value: e.funnel[s] }))} />
+        <Panel
+          title="FUNNEL"
+          meta={<MachineLabel>WHERE IT LEAKS</MachineLabel>}
+          bodyClassName="px-4 py-4"
+        >
+          <FunnelChart stages={STAGES.map((s) => ({ label: s, value: e.funnel[s] }))} />
         </Panel>
 
         <Panel title="OPPORTUNITY LEDGER">
@@ -380,28 +428,32 @@ function EndeavourDetail() {
 
       <Section id="strategy" label="STRATEGY">
         <Panel title="CURRENT STRATEGY" bodyClassName="divide-y divide-border">
-        <Row label="ACTIVE ICP" value={e.strategy.icp} />
-        <Row label="OFFER" value={e.strategy.offer} />
-        <Row label="MESSAGE HYPOTHESIS" value={e.strategy.hypothesis} />
+          <Row label="ACTIVE ICP" value={e.strategy.icp} />
+          <Row label="OFFER" value={e.strategy.offer} />
+          <Row label="MESSAGE HYPOTHESIS" value={e.strategy.hypothesis} />
         </Panel>
 
         <Panel title="RECENT LEARNING" bodyClassName="divide-y divide-border">
-        {mine.insights.length === 0 ? (
-        <div className="px-4 py-8 text-center">
-        <MachineLabel>NO LEARNING RECORDED</MachineLabel>
-        </div>
-        ) : (
-        mine.insights.map((i) => (
-        <div key={i.id} className="px-4 py-3">
-        <Tag tone={i.type === "RECOMMENDATION" ? "signal" : "neutral"}>{i.type}</Tag>
-        <p className="mt-1.5 text-[14px]">{i.statement}</p>
-        <p className="machine mt-1">EVIDENCE: {i.evidence}</p>
-        </div>
-        ))
-        )}
+          {mine.insights.length === 0 ? (
+            <div className="px-4 py-8 text-center">
+              <MachineLabel>NO LEARNING RECORDED</MachineLabel>
+            </div>
+          ) : (
+            mine.insights.map((i) => (
+              <div key={i.id} className="px-4 py-3">
+                <Tag tone={i.type === "RECOMMENDATION" ? "signal" : "neutral"}>{i.type}</Tag>
+                <p className="mt-1.5 text-[14px]">{i.statement}</p>
+                <p className="machine mt-1">EVIDENCE: {i.evidence}</p>
+              </div>
+            ))
+          )}
         </Panel>
 
-        <Panel title="STRATEGY" meta={<MachineLabel>EVERY CHANGE IS A NEW VERSION WITH A REASON</MachineLabel>} bodyClassName="p-0">
+        <Panel
+          title="STRATEGY"
+          meta={<MachineLabel>EVERY CHANGE IS A NEW VERSION WITH A REASON</MachineLabel>}
+          bodyClassName="p-0"
+        >
           <StrategyEditor endeavourId={e.id} />
         </Panel>
       </Section>
@@ -419,7 +471,8 @@ function EndeavourDetail() {
           title="SEGMENT SHARES"
           meta={
             <MachineLabel>
-              {e.pendingProspects}/{e.settings.prospecting.maximumPending} PENDING · {e.activeConversations} LIVE
+              {e.pendingProspects}/{e.settings.prospecting.maximumPending} PENDING ·{" "}
+              {e.activeConversations} LIVE
             </MachineLabel>
           }
           bodyClassName="p-0"
@@ -491,7 +544,12 @@ function Section({ id, label, children }: { id: string; label: string; children:
     // The id is on the section, not the heading: it is both what an anchor jumps to and
     // what the spy watches, and scroll-mt clears the sticky header so a jump does not land
     // underneath it.
-    <section id={id} data-section={id} aria-labelledby={`${id}-heading`} className="scroll-mt-24 space-y-5 pt-6">
+    <section
+      id={id}
+      data-section={id}
+      aria-labelledby={`${id}-heading`}
+      className="scroll-mt-24 space-y-5 pt-6"
+    >
       <h2 id={`${id}-heading`} className="machine text-foreground/45">
         {label}
       </h2>

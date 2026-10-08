@@ -95,6 +95,26 @@ export function prospectTimeline(input: {
 
   for (const m of input.lookups.messages) {
     if (m.prospectId !== input.prospect.id) continue;
+    /*
+     * A send that failed belongs here, not only in the digest.
+     *
+     * It has no sent time — it never went — so the rule below would have dropped it, and the
+     * only place it showed was a line in a daily report nobody re-reads. A prospect who
+     * looks contacted and was not is the worst state this app can be in: the operator stops
+     * chasing and the agent stops trying.
+     */
+    if (m.sendState === "failed") {
+      out.push({
+        id: m.id,
+        kind: "failed",
+        at: iso(m.updatedAt),
+        title: `Could not send: ${m.subject}`,
+        detail:
+          m.lastError ??
+          `Tried ${m.sendAttempts} time${m.sendAttempts === 1 ? "" : "s"}, no reason recorded`,
+      });
+      continue;
+    }
     const at = m.sentAt ?? m.receivedAt;
     if (!at) continue;
     out.push({
@@ -102,7 +122,18 @@ export function prospectTimeline(input: {
       kind: m.direction === "outbound" ? "sent" : "received",
       at: iso(at),
       title: m.subject,
-      detail: m.body.slice(0, 280),
+      /*
+       * A reply says how it was attributed when that was anything short of certain.
+       *
+       * A reply matched on the company's domain is a colleague answering, which is usually
+       * right and occasionally the wrong company entirely. Reading the thread without
+       * knowing that is how a reply gets answered as though it came from the person we
+       * wrote to.
+       */
+      detail:
+        m.direction === "inbound" && m.attributedBy && m.attributedBy !== "thread"
+          ? `Matched by ${m.attributedBy} — ${m.body.slice(0, 240)}`
+          : m.body.slice(0, 280),
     });
   }
 

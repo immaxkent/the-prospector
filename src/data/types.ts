@@ -31,6 +31,8 @@ export interface Endeavour {
   mailboxId: string | null;
   /** Alias of that mailbox this endeavour sends under, or null for the account's own address. */
   fromAlias: string | null;
+  /** What is about to go out, and from where. Empty rather than absent when nothing is. */
+  queue: OutboundQueue;
   /** How this endeavour paces itself. Every default is filled in before it reaches the screen. */
   settings: {
     pacing: {
@@ -134,6 +136,29 @@ export interface Prospect {
   releasedAt: string | null;
 }
 
+/** One message on its way out, and what it is waiting on. */
+export interface QueuedMessage {
+  id: string;
+  prospectId: string | null;
+  who: string;
+  subject: string;
+  state: OutboundState;
+  /** When it is due to go. Null when nothing has given it a slot yet. */
+  goesAt: string | null;
+  attempts: number;
+  lastError: string | null;
+}
+
+/** What is about to go out for one endeavour, and from where. */
+export interface OutboundQueue {
+  from: string | null;
+  messages: QueuedMessage[];
+  waitingOnYou: number;
+  readyToGo: number;
+  failed: number;
+  nextAt: string | null;
+}
+
 export interface Message {
   id: string;
   threadId: string;
@@ -157,6 +182,26 @@ export interface Thread {
   objections: string[];
   suggestedResponse: string;
   messages: Message[];
+}
+
+/**
+ * A reply that could not be attributed to a prospect.
+ *
+ * These were dropped from the read model: the thread exists, the mail is stored, an approval
+ * is raised — and the inbox showed nothing at all, because only mapped threads were built.
+ * So "nothing came in today" and "four things came in that we could not place" looked
+ * identical, which is the worse of the two to get wrong.
+ */
+export interface UnattributedReply {
+  id: string;
+  subject: string;
+  from: string;
+  preview: string;
+  receivedAt: string;
+  /** The prospect the domain pointed at, when something did. Null when nothing matched. */
+  guessedProspectId: string | null;
+  /** How it was guessed, when it was. Null when nothing matched at all. */
+  guessedBy: string | null;
 }
 
 export type ActivityKind =
@@ -420,6 +465,7 @@ export interface ContactRoute {
 
 export type TimelineKind =
   | "research"
+  | "failed"
   | "trigger"
   | "qualified"
   | "released"

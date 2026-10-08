@@ -237,3 +237,105 @@ describe("buildProspectDetail", () => {
     expect(detail.routes).toEqual([]);
   });
 });
+
+describe("a send that failed", () => {
+  const base = {
+    prospect: prospectRow({ qualificationScore: null }),
+    lookups: { evidence: [], triggers: [], messages: [] },
+    interactions: [],
+    events: [],
+    entityIds: new Set(["pro_1", "com_1", "per_1"]),
+  };
+
+  it("is on the tape, even though it never went", () => {
+    // It has no sent time, so the ordinary rule dropped it and the only place it showed was
+    // a line in a daily report. A prospect who looks contacted and was not is the worst
+    // state this app can be in.
+    const tape = prospectTimeline({
+      ...base,
+      lookups: {
+        evidence: [],
+        triggers: [],
+        messages: [
+          messageRow({
+            sendState: "failed",
+            sentAt: null,
+            receivedAt: null,
+            subject: "Bridge review",
+            lastError: "the mailbox refused the token",
+          }),
+        ],
+      },
+    });
+    expect(tape[0]).toMatchObject({ kind: "failed", title: "Could not send: Bridge review" });
+    expect(tape[0]?.detail).toBe("the mailbox refused the token");
+  });
+
+  it("says how many times it was tried when no reason was recorded", () => {
+    const tape = prospectTimeline({
+      ...base,
+      lookups: {
+        evidence: [],
+        triggers: [],
+        messages: [messageRow({ sendState: "failed", sentAt: null, lastError: null, sendAttempts: 3 })],
+      },
+    });
+    expect(tape[0]?.detail).toBe("Tried 3 times, no reason recorded");
+  });
+
+  it("is not counted as sent, which is the whole point", () => {
+    const tape = prospectTimeline({
+      ...base,
+      lookups: {
+        evidence: [],
+        triggers: [],
+        messages: [messageRow({ sendState: "failed", sentAt: new Date("2026-10-07T09:00:00Z") })],
+      },
+    });
+    expect(tape.map((e) => e.kind)).toEqual(["failed"]);
+  });
+});
+
+describe("how a reply says it was attributed", () => {
+  const base = {
+    prospect: prospectRow({ qualificationScore: null }),
+    lookups: { evidence: [], triggers: [], messages: [] },
+    interactions: [],
+    events: [],
+    entityIds: new Set(["pro_1", "com_1", "per_1"]),
+  };
+  const inbound = (over: Parameters<typeof messageRow>[0]) =>
+    prospectTimeline({
+      ...base,
+      lookups: {
+        evidence: [],
+        triggers: [],
+        messages: [messageRow({ direction: "inbound", sentAt: null, receivedAt: at("2026-10-07T09:00:00Z"), body: "Yes, Friday works.", ...over })],
+      },
+    });
+
+  it("says so when the match was the company's domain, not the person", () => {
+    // A colleague answering is usually right and occasionally the wrong company entirely.
+    expect(inbound({ attributedBy: "domain" })[0]?.detail).toBe("Matched by domain — Yes, Friday works.");
+  });
+
+  it("stays quiet when the match was the thread we sent on, which cannot be coincidence", () => {
+    expect(inbound({ attributedBy: "thread" })[0]?.detail).toBe("Yes, Friday works.");
+  });
+
+  it("stays quiet for rows written before any of this was recorded", () => {
+    expect(inbound({ attributedBy: null })[0]?.detail).toBe("Yes, Friday works.");
+  });
+
+  it("says nothing of the kind about what we sent", () => {
+    const tape = prospectTimeline({
+      ...base,
+      lookups: {
+        evidence: [],
+        triggers: [],
+        messages: [messageRow({ direction: "outbound", sentAt: at("2026-10-07T09:00:00Z"), body: "Hello", attributedBy: "domain" })],
+      },
+    });
+    expect(tape[0]?.detail).toBe("Hello");
+  });
+});

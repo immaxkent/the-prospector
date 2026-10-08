@@ -19,13 +19,17 @@ const LABEL: Record<TimelineKind, string> = {
   qualified: "QUALIFIED",
   released: "RELEASED",
   sent: "SENT",
+  failed: "COULD NOT SEND",
   received: "REPLY",
   elsewhere: "ELSEWHERE",
   decision: "DECISION",
 };
 
 /** The three that mean a person did something, which is what a reader scans for. */
-const EMPHATIC = new Set<TimelineKind>(["received", "released", "decision"]);
+const EMPHATIC = new Set<TimelineKind>(["received", "released", "decision", "failed"]);
+
+/** A failure is not an event to note, it is one to act on, so it is coloured as a fault. */
+const FAULT = new Set<TimelineKind>(["failed"]);
 
 export function Timeline({ entries }: { entries: readonly TimelineEntry[] }) {
   if (entries.length === 0) {
@@ -45,10 +49,16 @@ export function Timeline({ entries }: { entries: readonly TimelineEntry[] }) {
           data-kind={e.kind}
           className={cn(
             "border-l-2 pl-3",
-            EMPHATIC.has(e.kind) ? "border-signal bg-surface-2 py-2 pr-2" : "border-border",
+            FAULT.has(e.kind)
+              ? "border-danger bg-surface-2 py-2 pr-2"
+              : EMPHATIC.has(e.kind)
+                ? "border-signal bg-surface-2 py-2 pr-2"
+                : "border-border",
           )}
         >
-          <MachineLabel tone={EMPHATIC.has(e.kind) ? "signal" : "muted"}>
+          <MachineLabel
+            tone={FAULT.has(e.kind) ? "danger" : EMPHATIC.has(e.kind) ? "signal" : "muted"}
+          >
             {LABEL[e.kind]} · {stamp(e.at)}
           </MachineLabel>
           <p className="mt-1 text-[13px]">{e.title}</p>

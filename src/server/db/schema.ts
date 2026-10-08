@@ -394,6 +394,14 @@ export const messages = pgTable(
     body: text("body").notNull(),
     /** Only set for inbound replies whose objections were extracted; body is never rewritten. */
     classification: jsonb("classification").$type<Record<string, unknown>>(),
+    /**
+     * How an inbound reply was attributed: the thread we sent on, the exact address, or the
+     * company's domain. Null for outbound messages and for rows written before this existed.
+     *
+     * Recorded rather than inferred later, because a domain match is a guess and a thread
+     * match is a fact, and a conversion rate that cannot tell them apart is not a rate.
+     */
+    attributedBy: text("attributed_by", { enum: ["thread", "address", "domain"] }),
     templateVersion: text("template_version"),
     /** The offer this email pitched, so performance can be read by offer. */
     offerId: text("offer_id").references(() => offers.id, { onDelete: "set null" }),
