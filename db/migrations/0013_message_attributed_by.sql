@@ -1,0 +1,1 @@
+ALTER TABLE "messages" ADD COLUMN "attributed_by" text;
