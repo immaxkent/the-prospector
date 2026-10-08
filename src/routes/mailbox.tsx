@@ -10,7 +10,15 @@ import {
 } from "@/data/mailbox-filters";
 import { useMarkThreadRead } from "@/data/mutations";
 import { ApprovalActions } from "@/components/os/ApprovalActions";
-import { EmptyState, MachineLabel, PageHeader, Panel, StatusDot, Tag } from "@/components/os/primitives";
+import {
+  EmptyState,
+  MachineLabel,
+  PageHeader,
+  Panel,
+  StatusDot,
+  Tag,
+} from "@/components/os/primitives";
+import { UnplacedReplies } from "@/components/os/UnplacedReplies";
 import { gbp, relative, stamp } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
@@ -20,17 +28,21 @@ export const Route = createFileRoute("/mailbox")({
       { title: "Mailbox — CBO OS" },
       {
         name: "description",
-        content: "Conversations with detected intent, objections, opportunity value and the agent's suggested response.",
+        content:
+          "Conversations with detected intent, objections, opportunity value and the agent's suggested response.",
       },
       { property: "og:title", content: "Inbox — CBO OS" },
-      { property: "og:description", content: "Thread list, conversation and an intelligence rail for every reply." },
+      {
+        property: "og:description",
+        content: "Thread list, conversation and an intelligence rail for every reply.",
+      },
     ],
   }),
   component: MailboxScreen,
 });
 
 function MailboxScreen() {
-  const { threads: allThreads, prospects, approvals, isEmpty } = useDataset();
+  const { threads: allThreads, prospects, approvals, unattributed, isEmpty } = useDataset();
   const appMode = useAppMode();
   const markRead = useMarkThreadRead();
   const counts = mailboxCounts(allThreads);
@@ -71,7 +83,10 @@ function MailboxScreen() {
   if (isEmpty || !thread) {
     return (
       <div className="space-y-5">
-        <PageHeader title="MAILBOX" summary="Drafts waiting on you, what has gone out, and what came back." />
+        <PageHeader
+          title="MAILBOX"
+          summary="Drafts waiting on you, what has gone out, and what came back."
+        />
         {!isEmpty && tabs}
         <EmptyState
           title="NOTHING HERE"
@@ -93,6 +108,8 @@ function MailboxScreen() {
       />
       {tabs}
 
+      <UnplacedReplies replies={unattributed} />
+
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-[280px_minmax(0,1fr)_320px]">
         {/* Thread list */}
         <Panel title="THREADS" bodyClassName="max-h-[70vh] overflow-y-auto">
@@ -112,7 +129,9 @@ function MailboxScreen() {
                     )}
                   >
                     <div className="flex items-center justify-between gap-2">
-                      <span className="truncate text-[13px] font-medium">{p?.company ?? "Unknown"}</span>
+                      <span className="truncate text-[13px] font-medium">
+                        {p?.company ?? "Unknown"}
+                      </span>
                       {t.unread && <StatusDot tone="ok" live />}
                     </div>
                     <div className="truncate text-[12px] text-muted-foreground">{t.subject}</div>
@@ -129,7 +148,11 @@ function MailboxScreen() {
         {/* Conversation */}
         <Panel
           title={thread.subject}
-          meta={<MachineLabel>{prospect ? `${prospect.person} · ${prospect.company}` : ""}</MachineLabel>}
+          meta={
+            <MachineLabel>
+              {prospect ? `${prospect.person} · ${prospect.company}` : ""}
+            </MachineLabel>
+          }
           bodyClassName="flex max-h-[70vh] flex-col"
         >
           <div className="flex-1 space-y-4 overflow-y-auto px-4 py-4">
@@ -159,7 +182,9 @@ function MailboxScreen() {
                 </div>
                 <p className="mt-1.5">{m.body}</p>
                 {(() => {
-                  const draftApproval = approvals.find((a) => a.subjectType === "message" && a.subjectId === m.id);
+                  const draftApproval = approvals.find(
+                    (a) => a.subjectType === "message" && a.subjectId === m.id,
+                  );
                   return m.draft && draftApproval ? (
                     <div className="mt-2.5">
                       <ApprovalActions approval={draftApproval} />
@@ -206,7 +231,10 @@ function MailboxScreen() {
             </p>
             {(() => {
               const reply = approvals.find(
-                (a) => a.kind === "REPLY_APPROVAL" && a.subjectType === "thread" && a.subjectId === thread.id,
+                (a) =>
+                  a.kind === "REPLY_APPROVAL" &&
+                  a.subjectType === "thread" &&
+                  a.subjectId === thread.id,
               );
               return reply ? (
                 <div className="mt-2" data-testid="reply-approval">

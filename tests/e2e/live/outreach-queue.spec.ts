@@ -65,3 +65,35 @@ test.describe("the outbound queue", () => {
     await expect(page.getByTestId("queue-empty")).toBeVisible();
   });
 });
+
+/**
+ * WP-27 T2 against the database: a thread flagged for review has to appear, including the
+ * case that had no approval to be read off — a reply with no endeavour to attribute it to.
+ */
+test.describe("a reply that could not be placed", () => {
+  test.beforeEach(async () => {
+    await resetDatabase();
+    dbScript("seed-fixtures");
+  });
+  test.afterAll(() => resetDatabase());
+
+  test("appears on the mailbox with its sender and preview", async ({ page }) => {
+    await query(
+      `insert into threads (id, mailbox_id, endeavour_id, prospect_id, subject, mapping_state, unread, last_activity_at)
+       values ('thr_unplaced', 'mbx_fixture_consulting', null, null, 'quick question', 'needs_review', true, now())`,
+    );
+    await query(
+      `insert into messages (id, thread_id, direction, subject, body, received_at)
+       values ('msg_unplaced', 'thr_unplaced', 'inbound', 'quick question', 'Do you audit L2s?', now())`,
+    );
+
+    await signIn(page, "/mailbox");
+    await expect(page.getByText("1 WAITING TO BE ATTRIBUTED")).toBeVisible();
+    await expect(page.getByTestId("unplaced-reply").first()).toContainText("Do you audit L2s?");
+  });
+
+  test("says nothing at all when every reply was placed", async ({ page }) => {
+    await signIn(page, "/mailbox");
+    await expect(page.getByText("COULD NOT BE PLACED")).toHaveCount(0);
+  });
+});
