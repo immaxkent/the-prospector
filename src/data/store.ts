@@ -29,6 +29,7 @@ import type {
   SystemInterface,
   SystemStatus,
   Thread,
+  UnattributedReply,
 } from "./types";
 import {
   emptyStatus,
@@ -48,6 +49,7 @@ import {
   fixturePerformance,
   fixtureStatus,
   fixtureThreads,
+  fixtureUnattributed,
 } from "./fixtures";
 
 export type DataMode = "fixtures" | "empty";
@@ -105,6 +107,8 @@ export interface Dataset {
   /** The full detail. ProspectDetail extends Prospect, so a list screen reads it unchanged. */
   prospects: ProspectDetail[];
   threads: Thread[];
+  /** Replies that could not be placed. Empty rather than absent when there are none. */
+  unattributed: UnattributedReply[];
   activity: ActivityEvent[];
   approvals: Approval[];
   brief: DailyBrief | null;
@@ -128,6 +132,7 @@ const LIVE_EMPTY: Dataset = {
   mailboxes: [],
   prospects: [],
   threads: [],
+  unattributed: [],
   activity: [],
   approvals: [],
   brief: null,
@@ -176,6 +181,7 @@ function useDemoDataset(): Dataset {
     mailboxes: on ? fixtureMailboxes : [],
     prospects: on ? fixtureProspects : [],
     threads: on ? fixtureThreads : [],
+    unattributed: on ? fixtureUnattributed : [],
     activity: on ? fixtureActivity : [],
     approvals: on ? fixtureApprovals : [],
     brief: on ? fixtureBrief : null,

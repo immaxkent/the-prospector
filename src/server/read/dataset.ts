@@ -10,7 +10,7 @@ import type { Database } from "../db/client";
 import * as t from "../db/schema";
 import { agentState, buildActivity, buildInsight, buildRun, buildRunLog } from "./activity";
 import { buildApproval } from "./approvals";
-import { buildThread } from "./conversations";
+import { buildThread, buildUnattributed } from "./conversations";
 import { buildEndeavour } from "./endeavours";
 import { buildMailbox } from "./mailboxes";
 import { buildOpportunity } from "./pipeline";
@@ -161,6 +161,8 @@ export async function loadDataset(db: Database, opts: DatasetOptions): Promise<D
       ),
     ),
     threads: threads.map((th) => buildThread(th, messages, approvals)).filter((x) => x !== null),
+    // Only mapped threads become an inbox, so these were dropped from the read entirely.
+    unattributed: buildUnattributed(threads, messages, approvals),
     activity: buildActivity(events),
     approvals: pendingApprovals.map((a) => buildApproval(a, { ...maps, opportunities })),
     brief: isBrief(latestBrief) ? latestBrief : null,

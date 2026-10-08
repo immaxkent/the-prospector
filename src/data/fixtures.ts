@@ -27,6 +27,7 @@ import type {
   ProspectDetail,
   QueuedMessage,
   TimelineEntry,
+  UnattributedReply,
 } from "./types";
 
 export const fixtureStatus: SystemStatus = {
@@ -1484,3 +1485,32 @@ export const fixtureEndeavours: Endeavour[] = endeavourRecords.map((e) => ({
   ...e,
   queue: fixtureQueue(e.id, fixtureMailboxes.find((m) => m.id === e.mailboxId)?.address ?? null),
 }));
+
+/**
+ * Two replies the demo cannot place, because the panel exists to be seen.
+ *
+ * One is a stranger — nothing to go on. The other is a colleague on a company we are already
+ * talking to, which is the case the attribution rules were written for: attributed to the
+ * prospect, and still asking a person, because a domain is a guess.
+ */
+export const fixtureUnattributed: UnattributedReply[] = [
+  {
+    id: "thr_unplaced_1",
+    subject: "Re: Bridge contract review before mainnet",
+    from: "tomas@northbridge.example",
+    preview:
+      "Ilse forwarded this to me — I run the contracts side. What would the five days actually cover?",
+    receivedAt: shiftFixtureDate("2026-09-16T11:20:00Z"),
+    guessedProspectId: "pro_001",
+    guessedBy: "domain",
+  },
+  {
+    id: "thr_unplaced_2",
+    subject: "quick question",
+    from: "hello@unknown.example",
+    preview: "Saw your note somewhere. Do you do audits for L2s?",
+    receivedAt: shiftFixtureDate("2026-09-15T08:05:00Z"),
+    guessedProspectId: null,
+    guessedBy: null,
+  },
+];
