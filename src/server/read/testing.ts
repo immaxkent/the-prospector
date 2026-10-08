@@ -195,6 +195,7 @@ export function messageRow(o: Partial<MessageRow> = {}): MessageRow {
     subject: "Bridge review",
     body: "Hello",
     classification: null,
+    attributedBy: null,
     templateVersion: null,
     offerId: null,
     evidenceIds: [],

@@ -158,3 +158,74 @@ describe("ingestReplies", () => {
     expect(stored!.body).toBe("Costs look fine.");
   });
 });
+
+describe("attributing a reply, and recording how", () => {
+  const attributedBy = async (externalMessageId: string) =>
+    (await db.select({ by: t.messages.attributedBy }).from(t.messages).where(eq(t.messages.externalMessageId, externalMessageId)))[0]
+      ?.by ?? null;
+
+  it("records the thread when that is how it matched", async () => {
+    await ingest(fakeGmail([gmailMessage({ id: "gm_thread" })]));
+    expect(await attributedBy("gm_thread")).toBe("thread");
+  });
+
+  it("records the address when the thread is new", async () => {
+    await ingest(fakeGmail([gmailMessage({ id: "gm_addr", threadId: "gthread_addr" })]));
+    expect(await attributedBy("gm_addr")).toBe("address");
+  });
+
+  /*
+   * The case this work package exists for: a colleague answering from the same company. It
+   * matched nothing and sat in the review queue, which is most of what a reply to a generic
+   * inbox looks like.
+   */
+  it("attributes a colleague on the company's own domain, and still asks a person", async () => {
+    const result = await ingest(
+      fakeGmail([
+        gmailMessage({ id: "gm_colleague", threadId: "gthread_colleague", from: "Tomas <tomas@northbridge.example>" }),
+      ]),
+    );
+    expect(await attributedBy("gm_colleague")).toBe("domain");
+
+    const [thread] = await db.select().from(t.threads).where(eq(t.threads.externalThreadId, "gthread_colleague"));
+    // Attributed, so the reply is on the right prospect — and flagged, because it is a guess.
+    expect(thread).toMatchObject({ prospectId: FIXTURE_IDS.prospect, mappingState: "needs_review" });
+    expect(result).toMatchObject({ matched: 1, needsReview: 1 });
+
+    const [approval] = await db.select().from(t.approvals).where(eq(t.approvals.kind, "thread_mapping"));
+    expect(approval!.payload).toMatchObject({ guessedBy: "domain", guessedProspectId: FIXTURE_IDS.prospect });
+  });
+
+  it("will not guess between two prospects at the same company", async () => {
+    await db.insert(t.prospects).values({
+      id: "pro_second_at_company",
+      endeavourId: FIXTURE_IDS.endeavour,
+      companyId: FIXTURE_IDS.company,
+      segmentId: FIXTURE_IDS.segment,
+      stage: "contacted",
+      reviewStatus: "qualified",
+      source: "test",
+    });
+    const result = await ingest(
+      fakeGmail([gmailMessage({ id: "gm_two", threadId: "gthread_two", from: "tomas@northbridge.example" })]),
+    );
+    expect(await attributedBy("gm_two")).toBeNull();
+    expect(result).toMatchObject({ matched: 0, needsReview: 1 });
+  });
+
+  it("ignores a rejected prospect when looking at the domain", async () => {
+    // Rejected means nothing will be sent to them; it must not catch replies either.
+    await db.update(t.prospects).set({ reviewStatus: "rejected" }).where(eq(t.prospects.id, FIXTURE_IDS.prospect));
+    const result = await ingest(
+      fakeGmail([gmailMessage({ id: "gm_rejected", threadId: "gthread_rejected", from: "tomas@northbridge.example" })]),
+    );
+    expect(result).toMatchObject({ matched: 0, needsReview: 1 });
+  });
+
+  it("records nothing when nothing matched, because that is a different fact", async () => {
+    await ingest(
+      fakeGmail([gmailMessage({ id: "gm_none", threadId: "gthread_none", from: "stranger@nowhere.example" })]),
+    );
+    expect(await attributedBy("gm_none")).toBeNull();
+  });
+});

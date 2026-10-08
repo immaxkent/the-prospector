@@ -3,10 +3,11 @@
  * reconstruct the conversation. A reply we cannot confidently match goes to a review queue
  * rather than being attached to the wrong prospect (handoff §10).
  */
-import { and, eq } from "drizzle-orm";
+import { and, eq, ne } from "drizzle-orm";
 import type { Database } from "../db/client";
-import { approvals, endeavours, mailboxes, messages, people, prospects, threads } from "../db/schema";
+import { approvals, companies, endeavours, mailboxes, messages, people, prospects, threads } from "../db/schema";
 import { assertTransition } from "../domain/pipeline";
+import { attributeReply, domainOf, isPublicDomain, replyAddress } from "../domain/attribution";
 import { sealJson, unsealJson } from "../crypto/tokens";
 import { newId } from "../ids";
 import { conflict, notFound } from "../commands/errors";
@@ -98,7 +99,13 @@ export async function ingestReplies(
     const subject = headerOf(message, "subject") ?? "(no subject)";
     const body = plainTextOf(message);
 
-    // Match by the thread we sent on first, then by the address that replied.
+    /*
+     * Thread, then address, then the company's domain — and the reason is recorded.
+     *
+     * The domain step is new and is why the rest moved into `attributeReply`: a colleague
+     * answering from the same company used to match nothing and sit in the review queue,
+     * which is most of what a reply to a generic inbox looks like.
+     */
     const [byThread] = await db
       .select()
       .from(threads)
@@ -106,13 +113,33 @@ export async function ingestReplies(
     const [person] = from ? await db.select().from(people).where(eq(people.email, from)) : [];
     const [byPerson] = !byThread && person ? await db.select().from(prospects).where(eq(prospects.personId, person.id)) : [];
 
-    let threadId = byThread?.id ?? null;
-    let prospectId = byThread?.prospectId ?? byPerson?.id ?? null;
-    let endeavourId = byThread?.endeavourId ?? byPerson?.endeavourId ?? null;
+    const domain = byThread || byPerson ? null : domainOf(replyAddress(from));
+    const atDomain =
+      domain && !isPublicDomain(domain)
+        ? await db
+            .select({ id: prospects.id, endeavourId: prospects.endeavourId })
+            .from(prospects)
+            .innerJoin(companies, eq(prospects.companyId, companies.id))
+            .where(and(eq(companies.domain, domain), ne(prospects.reviewStatus, "rejected")))
+        : [];
+
+    const attribution = attributeReply({
+      from,
+      candidate: {
+        ...(byThread ? { thread: { id: byThread.id, prospectId: byThread.prospectId, endeavourId: byThread.endeavourId } } : {}),
+        ...(byPerson ? { byAddress: { id: byPerson.id, endeavourId: byPerson.endeavourId } } : {}),
+        byDomain: atDomain,
+      },
+    });
+
+    let threadId = attribution.threadId;
+    let prospectId = attribution.prospectId;
+    let endeavourId = attribution.endeavourId;
 
     if (!threadId) {
       threadId = newId("thread");
-      const mapped = !!prospectId;
+      // A domain match is attributed but still asks a person: it is a guess, not a fact.
+      const mapped = !!prospectId && !attribution.needsReview;
       await db.insert(threads).values({
         id: threadId,
         mailboxId: mailbox.id,
@@ -142,7 +169,13 @@ export async function ingestReplies(
             kind: "thread_mapping",
             subjectType: "thread",
             subjectId: threadId,
-            payload: { from: from ?? "unknown sender", subject, preview: body.slice(0, 400) },
+            payload: {
+              from: from ?? "unknown sender",
+              subject,
+              preview: body.slice(0, 400),
+              // Says what the guess was, so confirming it is one click rather than a search.
+              ...(attribution.reason === "domain" ? { guessedBy: "domain", guessedProspectId: attribution.prospectId } : {}),
+            },
           });
         } else {
           result.unattributed += 1;
@@ -161,6 +194,8 @@ export async function ingestReplies(
       externalMessageId: id,
       subject,
       body,
+      // Null when nothing matched: "we do not know" is a different fact from "by thread".
+      ...(attribution.reason === "none" ? {} : { attributedBy: attribution.reason }),
       receivedAt: receivedAt(message),
     });
     result.stored += 1;
