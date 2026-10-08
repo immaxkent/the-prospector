@@ -5,6 +5,16 @@ import { useAppMode } from "@/data/store";
 import { useUpdateOpportunity } from "@/data/mutations";
 import { Button } from "./primitives";
 
+/** Won and lost are not here: closing needs a reason, so it has its own buttons. */
+const OPEN_STAGES = [
+  "qualified",
+  "contacted",
+  "replied",
+  "meeting",
+  "proposal",
+  "nurture",
+] as const;
+
 const inputCls =
   "w-full rounded-[3px] border border-border bg-card px-2 py-1 text-[12px] outline-none focus:border-signal";
 
@@ -91,7 +101,36 @@ export function OpportunityActions({ opportunity }: { opportunity: Opportunity }
   }
 
   return (
-    <div className="flex gap-1" data-testid="opportunity-actions">
+    <div className="flex items-center gap-1" data-testid="opportunity-actions">
+      {!closed && (
+        <select
+          aria-label={`Stage for ${opportunity.name}`}
+          className={`${inputCls} w-[108px]`}
+          value={
+            OPEN_STAGES.includes(opportunity.stage as (typeof OPEN_STAGES)[number])
+              ? opportunity.stage
+              : ""
+          }
+          disabled={busy}
+          onChange={(e) =>
+            submit({
+              opportunityId: opportunity.id,
+              stage: e.target.value as (typeof OPEN_STAGES)[number],
+            })
+          }
+        >
+          {/* A deal at a stage this cannot move to — discovered, say — shows it rather than
+              silently reading as the first option. */}
+          {!OPEN_STAGES.includes(opportunity.stage as (typeof OPEN_STAGES)[number]) && (
+            <option value="">{opportunity.stage}</option>
+          )}
+          {OPEN_STAGES.map((stage) => (
+            <option key={stage} value={stage}>
+              {stage}
+            </option>
+          ))}
+        </select>
+      )}
       <Button size="sm" disabled={busy} onClick={() => setPanel("edit")}>
         Edit
       </Button>
