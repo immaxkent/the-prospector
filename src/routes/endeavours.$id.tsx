@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import type { ReactNode } from "react";
+import { useRef, type ReactNode } from "react";
 import { useDataset, useStatTiles } from "@/data/store";
 import {
   Button,
@@ -34,7 +34,7 @@ import { EndeavourConfig } from "@/components/os/EndeavourConfig";
 import { SegmentShares } from "@/components/os/SegmentShares";
 import { StrategyEditor } from "@/components/os/StrategyEditor";
 import { daysUntil, gbp, num, pct, scoreText, shortDate, stamp } from "@/lib/format";
-import type { PipelineStage } from "@/data/types";
+import type { Endeavour, PipelineStage } from "@/data/types";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/endeavours/$id")({
@@ -78,7 +78,23 @@ function EndeavourDetail() {
     useDataset();
   const statTiles = useStatTiles();
   const active = useSectionSpy(SECTION_IDS);
-  const e = endeavours.find((x) => x.id === id);
+  /*
+   * The last endeavour we saw, held so a momentary empty dataset cannot blank the page.
+   *
+   * `useDataset` falls back to an empty set whenever the live read has nothing to hand — a
+   * router invalidation rebuilding the root context is enough — and for that render this
+   * could not find its own id and returned "no such endeavour". The page component stays
+   * mounted, but everything under it does not: a half-filled configuration form remounting
+   * is a half-filled form thrown away, and it showed up as a save storing the old value
+   * while the screen had shown the new one.
+   *
+   * A genuinely missing endeavour still reports as missing; this only covers the gap between
+   * having had one and having one again.
+   */
+  const current = endeavours.find((x) => x.id === id);
+  const lastSeen = useRef<Endeavour | null>(null);
+  if (current) lastSeen.current = current;
+  const e = current ?? (lastSeen.current?.id === id ? lastSeen.current : undefined);
 
   if (!e) {
     return (
