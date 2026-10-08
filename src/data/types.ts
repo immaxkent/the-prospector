@@ -31,6 +31,8 @@ export interface Endeavour {
   mailboxId: string | null;
   /** Alias of that mailbox this endeavour sends under, or null for the account's own address. */
   fromAlias: string | null;
+  /** What is about to go out, and from where. Empty rather than absent when nothing is. */
+  queue: OutboundQueue;
   /** How this endeavour paces itself. Every default is filled in before it reaches the screen. */
   settings: {
     pacing: {
@@ -443,6 +445,7 @@ export interface ContactRoute {
 
 export type TimelineKind =
   | "research"
+  | "failed"
   | "trigger"
   | "qualified"
   | "released"
