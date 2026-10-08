@@ -189,14 +189,17 @@ As of 2026-10-08, on branches stacked toward main:
 | WP-23 | PR #20 | research says what it looked at; T2 still needs a live run |
 | WP-24 | PR #21 | the prospects list opens on what needs you |
 | WP-25 | PR #22 | one screen per prospect — and the outreach recipient bug it exposed |
-| WP-26 | in progress | the draft beside its evidence, the outbound queue, failed sends on the prospect |
-| WP-27 | in progress | attribution by thread, address and company domain, with the reason recorded |
+| WP-26 | PR #23 | the draft beside its evidence, the outbound queue, failed sends on the prospect |
+| WP-27 | PR #23 | attribution by thread, address and company domain, with the reason recorded |
+| WP-28 | PR #24 | the stage as a control on the deal, and a weighted forecast that says what it rests on |
+| WP-29 | **blocked** | needs five answers — see `docs/living-view-questions.md` |
 
 Two tasks were found already built while working through their work packages, and are marked
 as such in the tables below rather than rewritten: editing a draft before approving it
 (WP-26 T2) and a reply stopping the follow-up sequence (WP-27 T3).
 
-**WP-29 cannot be started.** It is the living view, and its own entry says it is to be
+**WP-29 cannot be started.** The five decisions it needs are written out in
+`docs/living-view-questions.md`. It is the living view, and its own entry says it is to be
 designed with the operator rather than by me — the design I proposed was not what they had in
 mind, and they said so plainly. It needs a description of what it should show before any of
 it is worth writing. Everything before it does not depend on it.
