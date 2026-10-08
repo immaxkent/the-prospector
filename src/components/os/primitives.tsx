@@ -9,7 +9,7 @@ export function MachineLabel({
 }: {
   children: ReactNode;
   className?: string | undefined;
-  tone?: "muted" | "ink" | "signal" | undefined;
+  tone?: "muted" | "ink" | "signal" | "danger" | undefined;
 }) {
   return (
     <span
@@ -17,6 +17,7 @@ export function MachineLabel({
         "machine",
         tone === "ink" && "text-foreground",
         tone === "signal" && "text-signal",
+        tone === "danger" && "text-danger",
         className,
       )}
     >

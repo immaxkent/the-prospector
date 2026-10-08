@@ -95,6 +95,26 @@ export function prospectTimeline(input: {
 
   for (const m of input.lookups.messages) {
     if (m.prospectId !== input.prospect.id) continue;
+    /*
+     * A send that failed belongs here, not only in the digest.
+     *
+     * It has no sent time — it never went — so the rule below would have dropped it, and the
+     * only place it showed was a line in a daily report nobody re-reads. A prospect who
+     * looks contacted and was not is the worst state this app can be in: the operator stops
+     * chasing and the agent stops trying.
+     */
+    if (m.sendState === "failed") {
+      out.push({
+        id: m.id,
+        kind: "failed",
+        at: iso(m.updatedAt),
+        title: `Could not send: ${m.subject}`,
+        detail:
+          m.lastError ??
+          `Tried ${m.sendAttempts} time${m.sendAttempts === 1 ? "" : "s"}, no reason recorded`,
+      });
+      continue;
+    }
     const at = m.sentAt ?? m.receivedAt;
     if (!at) continue;
     out.push({
