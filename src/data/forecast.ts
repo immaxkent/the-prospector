@@ -9,8 +9,12 @@
  * not, the stage's default stands in — and the share of the forecast resting on those
  * defaults is reported, because a forecast built entirely out of assumed rates is a
  * restatement of the stage counts rather than a forecast.
+ *
+ * Shared rather than server-side: the design fixtures have to produce the same numbers the
+ * database read does, and a demo whose forecast disagrees with its own deals is a demo that
+ * lies about the thing it is demonstrating.
  */
-import type { PipelineStage } from "./pipeline";
+import type { PipelineStage } from "./types";
 
 /** Stood in where the operator has not said. A prioritisation aid, not a claim. */
 export const DEFAULT_STAGE_PROBABILITY: Record<PipelineStage, number> = {

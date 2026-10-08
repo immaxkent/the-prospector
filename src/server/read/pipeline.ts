@@ -2,19 +2,9 @@ import type { Opportunity } from "@/data/types";
 import type { PipelineStage } from "../domain/pipeline";
 import { iso, type CompanyRow, type MessageRow, type OpportunityRow, type ProspectRow, type SegmentRow } from "./rows";
 
-/** Shown only when the user has not set a probability. A prioritisation aid, not a forecast. */
-export const DEFAULT_STAGE_PROBABILITY: Record<PipelineStage, number> = {
-  discovered: 0.02,
-  researched: 0.03,
-  qualified: 0.05,
-  contacted: 0.1,
-  replied: 0.2,
-  meeting: 0.35,
-  proposal: 0.6,
-  won: 1,
-  lost: 0,
-  nurture: 0.05,
-};
+/** One table of stage defaults, shared with the forecast that weights deals by them. */
+export { DEFAULT_STAGE_PROBABILITY } from "@/data/forecast";
+import { DEFAULT_STAGE_PROBABILITY } from "@/data/forecast";
 
 export function buildOpportunity(
   o: OpportunityRow,
