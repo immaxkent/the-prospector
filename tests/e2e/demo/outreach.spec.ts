@@ -36,12 +36,21 @@ test.describe("what is about to go out", () => {
   test("a queued row links to the prospect it is for", async ({ page }) => {
     const row = page.getByTestId("queue-row").first();
     await expect(row).toBeVisible();
-    await row.getByRole("link").click();
+    await row.getByRole("link", { name: /·/ }).click();
     await expect(page).toHaveURL(/\/prospects\/pro_/);
   });
 
   test("a row waiting on a person says it has no slot rather than inventing a time", async ({ page }) => {
     const waiting = page.getByTestId("queue-row").filter({ hasText: "WAITING ON YOU" }).first();
     await expect(waiting).toContainText("NO SLOT YET");
+  });
+
+  test("and points at the one place it can be approved, rather than being a second one", async ({ page }) => {
+    const waiting = page.getByTestId("queue-row").filter({ hasText: "WAITING ON YOU" }).first();
+    await expect(waiting.getByRole("link", { name: "REVIEW IT" })).toHaveAttribute("href", "#overview");
+    // The tickets themselves stay in one panel; two places to approve the same draft is worse
+    // than one place to walk to.
+    await expect(page.locator("#outreach").getByTestId("draft-copy")).toHaveCount(0);
+    await expect(page.locator("#overview").getByTestId("draft-copy").first()).toBeVisible();
   });
 });

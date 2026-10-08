@@ -77,6 +77,17 @@ export function OutboundQueuePanel({ queue, now }: { queue: OutboundQueue; now: 
                 <span className="min-w-0 flex-1 truncate text-[13px] text-muted-foreground">
                   {m.subject}
                 </span>
+                {m.state === "pending_approval" && (
+                  /*
+                   * The drafts are read and approved in NEXT ACTIONS & APPROVALS on this same
+                   * page — WP-22 put "what needs you" on the overview on purpose, and showing
+                   * the same tickets twice would give two places to approve the same thing.
+                   * So this points at the one place rather than becoming a second one.
+                   */
+                  <a href="#overview" className="machine text-signal underline">
+                    REVIEW IT
+                  </a>
+                )}
                 <MachineLabel>
                   {m.state === "failed"
                     ? `${m.attempts} ATTEMPT${m.attempts === 1 ? "" : "S"}`
