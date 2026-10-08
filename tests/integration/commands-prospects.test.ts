@@ -114,6 +114,47 @@ describe("stages and opportunities", () => {
   });
 });
 
+describe("moving a deal along", () => {
+  it("moves the stage, and the prospect follows it", async () => {
+    // They were two records saying different things about the same conversation, and the
+    // funnel is what the objective's pacing reads.
+    await opportunity();
+    await updateOpportunity(db, { opportunityId: "opp_1", stage: "proposal" });
+    const [opp] = await db.select().from(t.opportunities);
+    expect(opp!.stage).toBe("proposal");
+    expect((await prospect()).stage).toBe("proposal");
+  });
+
+  it("records the move as its own event, not as an anonymous update", async () => {
+    await opportunity();
+    await updateOpportunity(db, { opportunityId: "opp_1", stage: "meeting" });
+    const [event] = (await db.select().from(t.events)).filter((e) => e.eventType === "opportunity.updated");
+    expect(event!.payload).toMatchObject({ detail: "Moved to meeting" });
+  });
+
+  it("refuses to move and close in one go, because one of them needs a reason", async () => {
+    await opportunity();
+    await expect(
+      updateOpportunity(db, { opportunityId: "opp_1", stage: "meeting", outcome: { stage: "won", reason: "signed" } }),
+    ).rejects.toMatchObject({ code: "invalid" });
+  });
+
+  it("will not reopen a closed deal, which would take value back out of the objective", async () => {
+    await opportunity();
+    await updateOpportunity(db, { opportunityId: "opp_1", outcome: { stage: "won", reason: "signed" } });
+    await expect(updateOpportunity(db, { opportunityId: "opp_1", stage: "proposal" })).rejects.toMatchObject({
+      code: "conflict",
+    });
+  });
+
+  it("records a lost deal under its own event type, so the two can be counted apart", async () => {
+    await opportunity();
+    await updateOpportunity(db, { opportunityId: "opp_1", outcome: { stage: "lost", reason: "Went with a firm" } });
+    const types = (await db.select().from(t.events)).map((e) => e.eventType);
+    expect(types).toContain("opportunity.lost");
+  });
+});
+
 describe("endeavours and threads", () => {
   it("pauses, resumes and archives, and never reopens an archive", async () => {
     const status = async () => (await db.select().from(t.endeavours))[0]!.status;
