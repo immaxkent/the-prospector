@@ -24,6 +24,8 @@ import {
   updateSettingsFn,
   purgeEndeavourFn,
   releaseProspectsFn,
+  removeCompanyContactFn,
+  setPreferredContactFn,
   holdProspectFn,
   addCompanyContactFn,
   updateStatTilesFn,
@@ -101,6 +103,13 @@ export const useReleaseProspects = () =>
   useAction(releaseProspectsFn, (input) => `${input.prospectIds.length} prospect(s) released for outreach`);
 export const useHoldProspect = () => useAction(holdProspectFn, "Held: nothing will be drafted for this one");
 export const useAddCompanyContact = () => useAction(addCompanyContactFn, (input) => `Added ${input.value}`);
+export const useSetPreferredContact = () =>
+  useAction(setPreferredContactFn, (input, output) =>
+    (output as { chosen: string | null }).chosen === null
+      ? "Back to whichever route ranks first"
+      : `${input.value} is the one that will be used`,
+  );
+export const useRemoveCompanyContact = () => useAction(removeCompanyContactFn, (input) => `Removed ${input.value}`);
 export const useUpdateStatTiles = () => useAction(updateStatTilesFn, "Headline numbers updated");
 export const useSetEndeavourFromAlias = () =>
   useAction(setEndeavourFromAliasFn, (input) =>

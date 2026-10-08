@@ -1,7 +1,11 @@
 import { useState } from "react";
 import { toast } from "sonner";
 import type { ContactRoute } from "@/data/types";
-import { useAddCompanyContact } from "@/data/mutations";
+import {
+  useAddCompanyContact,
+  useRemoveCompanyContact,
+  useSetPreferredContact,
+} from "@/data/mutations";
 import { useAppMode } from "@/data/store";
 import { Button, MachineLabel, Tag } from "./primitives";
 import { cn } from "@/lib/utils";
@@ -34,15 +38,21 @@ export function ContactRoutes({
 }) {
   const mode = useAppMode();
   const add = useAddCompanyContact();
+  const choose = useSetPreferredContact();
+  const remove = useRemoveCompanyContact();
+  const busy = add.isPending || choose.isPending || remove.isPending;
+
+  /** Demo mode has no database: say so rather than appearing to save. */
+  const inDemo = () => {
+    if (mode === "demo") toast("Demo mode: nothing was saved");
+    return mode === "demo";
+  };
   const [channel, setChannel] = useState<(typeof CHANNELS)[number]>("email");
   const [value, setValue] = useState("");
   const [sourceRef, setSourceRef] = useState("");
 
   const submit = () => {
-    if (mode === "demo") {
-      toast("Demo mode: nothing was saved");
-      return;
-    }
+    if (inDemo()) return;
     if (!companyId) return;
     add.mutate(
       {
@@ -96,6 +106,32 @@ export function ContactRoutes({
                   SOURCE
                 </a>
               )}
+              {companyId && (
+                <>
+                  <button
+                    type="button"
+                    aria-label={`${r.preferred ? "Stop using" : "Use"} ${r.value}`}
+                    className="machine text-muted-foreground hover:text-foreground"
+                    disabled={busy}
+                    onClick={() =>
+                      inDemo() || choose.mutate({ companyId, channel: r.channel, value: r.value })
+                    }
+                  >
+                    {r.preferred ? "UNSET" : "USE THIS"}
+                  </button>
+                  <button
+                    type="button"
+                    aria-label={`Remove ${r.value}`}
+                    className="machine text-muted-foreground hover:text-danger"
+                    disabled={busy}
+                    onClick={() =>
+                      inDemo() || remove.mutate({ companyId, channel: r.channel, value: r.value })
+                    }
+                  >
+                    REMOVE
+                  </button>
+                </>
+              )}
             </li>
           ))}
         </ul>
@@ -131,7 +167,7 @@ export function ContactRoutes({
               value={sourceRef}
               onChange={(e) => setSourceRef(e.target.value)}
             />
-            <Button size="sm" disabled={!value.trim() || add.isPending} onClick={submit}>
+            <Button size="sm" disabled={!value.trim() || busy} onClick={submit}>
               {add.isPending ? "Saving…" : "Add"}
             </Button>
           </div>

@@ -85,4 +85,26 @@ test.describe("one prospect, one screen", () => {
     await expect(entry).toContainText("They answered on discord");
     await expect(entry).toContainText("Answered in their server");
   });
+
+  test("the operator can say which address to use, and take a wrong one out", async ({ page }) => {
+    await open(page);
+    const panel = page.getByTestId("contact-routes");
+    await panel.getByLabel("Contact channel for Northbridge Protocol").selectOption("email");
+    await panel.getByLabel("New contact for Northbridge Protocol").fill("mira@northbridge.example");
+    await panel.getByRole("button", { name: "Add" }).click();
+    await expect(page.getByTestId("contact-route")).toHaveCount(2);
+
+    // Research ranks the person's own address first; the operator knows better.
+    await page.getByRole("button", { name: "Use mira@northbridge.example" }).click();
+    await expect(page.locator("[data-sonner-toast]").first()).toContainText("will be used");
+    const chosen = page.getByTestId("contact-route").first();
+    await expect(chosen).toContainText("mira@northbridge.example");
+    await expect(chosen).toContainText("WOULD BE USED");
+
+    await page.getByRole("button", { name: "Remove mira@northbridge.example" }).click();
+    await expect(page.getByTestId("contact-route")).toHaveCount(1);
+    expect(await query("select contacts from companies where name = 'Northbridge Protocol'")).toEqual([
+      { contacts: [] },
+    ]);
+  });
 });

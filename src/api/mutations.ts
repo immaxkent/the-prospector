@@ -255,6 +255,28 @@ export const addCompanyContactFn = createServerFn({ method: "POST" })
     return addCompanyContact(await live(), data);
   });
 
+const contactRef = z.object({
+  companyId: id,
+  channel: z.enum(["email", "form", "discord", "telegram", "x", "linkedin", "other"]),
+  value: z.string().trim().min(1).max(300),
+});
+
+export const setPreferredContactFn = createServerFn({ method: "POST" })
+  .middleware([requireSession])
+  .validator(contactRef)
+  .handler(async ({ data }) => {
+    const { setPreferredContact } = await import("../server/commands/release");
+    return setPreferredContact(await live(), data);
+  });
+
+export const removeCompanyContactFn = createServerFn({ method: "POST" })
+  .middleware([requireSession])
+  .validator(contactRef)
+  .handler(async ({ data }) => {
+    const { removeCompanyContact } = await import("../server/commands/release");
+    return removeCompanyContact(await live(), data);
+  });
+
 export const updateStatTilesFn = createServerFn({ method: "POST" })
   .middleware([requireSession])
   // The ids themselves are checked by the command, which is the one place that knows
