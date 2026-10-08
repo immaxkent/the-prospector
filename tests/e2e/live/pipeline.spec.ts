@@ -39,3 +39,52 @@ test.describe("pipeline ledger", () => {
     expect(await query("select stage from prospects")).toEqual([{ stage: "won" }]);
   });
 });
+
+/**
+ * WP-28: the stage is a control on the deal, and closing it moves the objective.
+ */
+test.describe("moving and closing a deal", () => {
+  test.beforeEach(async () => {
+    await resetDatabase();
+    dbScript("seed-fixtures");
+    await query(
+      `insert into opportunities (id, endeavour_id, prospect_id, name, value, currency, stage)
+       values ('opp_live', 'end_fixture_solidity', 'pro_fixture_northbridge', 'Pre-audit review', 1200, 'GBP', 'proposal')`,
+    );
+  });
+  test.afterAll(() => resetDatabase());
+
+  test("moves the stage, and the prospect follows it", async ({ page }) => {
+    await signIn(page, "/pipeline");
+    const actions = page.getByTestId("opportunity-actions").first();
+    await actions.getByLabel("Stage for Pre-audit review").selectOption("meeting");
+
+    await expect(page.locator("[data-sonner-toast]").first()).toContainText("Opportunity updated");
+    expect(await query("select stage from opportunities where id = 'opp_live'")).toEqual([{ stage: "meeting" }]);
+    // They were two records saying different things about the same conversation.
+    expect(await query("select stage from prospects where id = 'pro_fixture_northbridge'")).toEqual([{ stage: "meeting" }]);
+  });
+
+  test("closing it as won records the reason and moves the objective", async ({ page }) => {
+    await signIn(page, "/pipeline");
+    const actions = page.getByTestId("opportunity-actions").first();
+    await actions.getByRole("button", { name: "Won" }).click();
+    await actions.getByLabel("Why it was won").fill("Signed the fixed-scope review");
+    await actions.getByRole("button", { name: /Confirm won/ }).click();
+
+    expect(await query("select stage, outcome_reason from opportunities where id = 'opp_live'")).toEqual([
+      { stage: "won", outcome_reason: "Signed the fixed-scope review" },
+    ]);
+
+    // And the objective reads it: £1,200 won against a £3,000 target.
+    await page.goto("/endeavours/end_fixture_solidity");
+    await expect(page.locator("#overview")).toContainText("£1,200");
+  });
+
+  test("the weighted number is on the objective, with what it rests on", async ({ page }) => {
+    await signIn(page, "/endeavours/end_fixture_solidity");
+    const overview = page.locator("#overview");
+    await expect(overview).toContainText("WEIGHTED");
+    await expect(overview).toContainText(/\d+ judged · \d+ assumed|not a forecast yet/);
+  });
+});

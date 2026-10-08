@@ -5,6 +5,7 @@
  */
 import { FIXTURE_ANCHOR, shiftFixtureDate } from "./fixture-dates";
 import { contactRoutes } from "./contact-routes";
+import { forecast, forecastIsThin } from "./forecast";
 import type {
   ActivityEvent,
   AgentRun,
@@ -56,7 +57,7 @@ export const fixtureStatus: SystemStatus = {
   statTiles: ["revenue", "replies", "awaiting", "reply_rate"],
 };
 
-const endeavourRecords: Omit<Endeavour, "queue">[] = [
+const endeavourRecords: Omit<Endeavour, "queue" | "forecast">[] = [
   {
     id: "end_solidity",
     name: "£3K Solidity Sprint",
@@ -1481,10 +1482,28 @@ export const emptyStatus: SystemStatus = {
 };
 
 // Last, because the queue says which address it goes from and the mailboxes are defined below.
-export const fixtureEndeavours: Endeavour[] = endeavourRecords.map((e) => ({
-  ...e,
-  queue: fixtureQueue(e.id, fixtureMailboxes.find((m) => m.id === e.mailboxId)?.address ?? null),
-}));
+export const fixtureEndeavours: Endeavour[] = endeavourRecords.map((e) => {
+  // Derived from the fixture deals, not written beside them: a demo whose forecast disagrees
+  // with its own pipeline lies about the thing it is demonstrating.
+  const deals = fixtureOpportunities
+    .filter((o) => o.endeavourId === e.id)
+    .map((o) => ({ stage: o.stage, value: o.value, probabilityUserDefined: o.probability }));
+  const f = forecast(deals);
+  return {
+    ...e,
+    queue: fixtureQueue(e.id, fixtureMailboxes.find((m) => m.id === e.mailboxId)?.address ?? null),
+    forecast:
+      e.unit === "GBP"
+        ? {
+            weightedValue: f.weightedValue,
+            judged: f.judged,
+            assumed: f.assumed,
+            assumedShare: f.assumedShare,
+            thin: forecastIsThin(f),
+          }
+        : null,
+  };
+});
 
 /**
  * Two replies the demo cannot place, because the panel exists to be seen.

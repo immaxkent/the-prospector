@@ -133,3 +133,45 @@ describe("buildEndeavour", () => {
     expect(e).toMatchObject({ period: "week", horizonDays: 7, deadline: "2026-10-01" });
   });
 });
+
+describe("the objective read against real deals", () => {
+  const deal = (over: Partial<Parameters<typeof opportunityRow>[0]> = {}) =>
+    opportunityRow({ stage: "proposal", value: 1000, probabilityUserDefined: null, ...over });
+
+  it("weights the open deals rather than taking their face value", () => {
+    // Face value says a £6,000 proposal and a £6,000 prospect who has not replied are equal.
+    const e = buildEndeavour(
+      inputs({
+        opportunities: [
+          deal({ id: "o1", value: 6000, stage: "proposal" }),
+          deal({ id: "o2", value: 6000, stage: "contacted" }),
+        ],
+      }),
+    );
+    expect(e.pipelineValue).toBe(12_000);
+    expect(e.forecast).toMatchObject({ weightedValue: 4200 });
+  });
+
+  it("says how much of it rests on stage defaults", () => {
+    const e = buildEndeavour(
+      inputs({
+        opportunities: [deal({ id: "o1", probabilityUserDefined: 0.5 }), deal({ id: "o2" }), deal({ id: "o3" })],
+      }),
+    );
+    expect(e.forecast).toMatchObject({ judged: 1, assumed: 2 });
+    expect(e.forecast!.assumedShare).toBeGreaterThan(0.6);
+  });
+
+  it("calls a forecast of two unjudged deals what it is", () => {
+    const e = buildEndeavour(inputs({ opportunities: [deal({ id: "o1" }), deal({ id: "o2" })] }));
+    expect(e.forecast!.thin).toBe(true);
+  });
+
+  it("gives no forecast at all for an objective that is not counted in money", () => {
+    // A count of meetings has no probability to weight.
+    const spec = fixtureSpec("m");
+    spec.objective = { state: "confirmed", value: { metric: "users", target: 1500, unit: "signups" } };
+    const e = buildEndeavour(inputs({ endeavour: endeavourRow({ spec }), opportunities: [deal()] }));
+    expect(e.forecast).toBeNull();
+  });
+});

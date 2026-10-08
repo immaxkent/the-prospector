@@ -76,6 +76,8 @@ export const updateOpportunityFn = createServerFn({ method: "POST" })
       value: z.number().int().min(0).optional(),
       probability: z.number().min(0).max(1).nullable().optional(),
       expectedClose: z.iso.date().nullable().optional(),
+      // Won and lost are not here: closing needs a reason, so it goes through `outcome`.
+      stage: z.enum(["qualified", "contacted", "replied", "meeting", "proposal", "nurture"]).optional(),
       outcome: z.object({ stage: z.enum(["won", "lost"]), reason: z.string().trim().min(1).max(500) }).optional(),
     }),
   )

@@ -4,6 +4,7 @@ import type { EndeavourSpec, FieldState } from "../domain/endeavour-spec";
 import { PROGRESSION } from "../domain/pipeline";
 import { allocate } from "../domain/allocation";
 import { countProspecting } from "../domain/prospecting";
+import { forecast, forecastIsThin } from "@/data/forecast";
 import { buildOutboundQueue, type QueueLookups } from "./outbound";
 import {
   daysBetween,
@@ -89,6 +90,20 @@ export function buildEndeavour(input: EndeavourInputs): Endeavour {
   const pipelineValue = isRevenue
     ? input.opportunities.filter((o) => OPEN_STAGES.has(o.stage)).reduce((s, o) => s + o.value, 0)
     : active.filter((p) => p.stage === "meeting" || p.stage === "proposal").length;
+  /*
+   * Face value and weighted value are both reported, because they answer different questions:
+   * what is on the table, and what it is reasonable to expect off it. Only money objectives
+   * get a forecast — a count of meetings has no probability to weight.
+   */
+  const deals = isRevenue
+    ? forecast(
+        input.opportunities.map((o) => ({
+          stage: o.stage,
+          value: o.value,
+          probabilityUserDefined: o.probabilityUserDefined,
+        })),
+      )
+    : null;
 
   let deadline: Date;
   let horizonDays: number;
@@ -184,6 +199,15 @@ export function buildEndeavour(input: EndeavourInputs): Endeavour {
     targetValue: target,
     actualValue,
     pipelineValue,
+    forecast: deals
+      ? {
+          weightedValue: deals.weightedValue,
+          judged: deals.judged,
+          assumed: deals.assumed,
+          assumedShare: deals.assumedShare,
+          thin: forecastIsThin(deals),
+        }
+      : null,
     deadline: iso(deadline).slice(0, 10),
     horizonDays,
     period,

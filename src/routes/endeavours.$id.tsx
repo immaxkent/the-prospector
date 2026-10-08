@@ -184,6 +184,22 @@ function EndeavourDetail() {
                   value={e.unit === "GBP" ? gbp(e.pipelineValue) : num(e.pipelineValue)}
                 />
                 <MetricCell label="COVERAGE" value={pct(e.pipelineValue / e.targetValue)} />
+                {e.forecast && (
+                  /*
+                   * Face value answers "what is on the table"; this answers "what is it
+                   * reasonable to expect off it". Both are shown because a reader asked only
+                   * the first will read it as the second.
+                   */
+                  <MetricCell
+                    label="WEIGHTED"
+                    value={gbp(e.forecast.weightedValue)}
+                    sub={
+                      e.forecast.thin
+                        ? "mostly stage defaults — not a forecast yet"
+                        : `${e.forecast.judged} judged · ${e.forecast.assumed} assumed`
+                    }
+                  />
+                )}
               </div>
               <div className="mt-4">
                 <Meter value={e.actualValue / e.targetValue} />
