@@ -70,6 +70,20 @@ export interface Endeavour {
   targetValue: number;
   actualValue: number;
   pipelineValue: number;
+  /**
+   * The open deals weighted by their probability, and how much of that is a guess.
+   *
+   * `pipelineValue` is face value, which says a £6,000 proposal and a £6,000 prospect who has
+   * not replied are the same thing. Null for an objective that is not counted in money.
+   */
+  forecast: {
+    weightedValue: number;
+    judged: number;
+    assumed: number;
+    assumedShare: number;
+    /** True when the number is the stage counts in money's clothing rather than a forecast. */
+    thin: boolean;
+  } | null;
   /** Sprint: the end date. Ongoing: the end of the current period. */
   deadline: string; // ISO date
   horizonDays: number;
