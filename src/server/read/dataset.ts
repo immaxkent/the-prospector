@@ -16,7 +16,7 @@ import { buildMailbox } from "./mailboxes";
 import { buildOpportunity } from "./pipeline";
 import { buildObjectionClusters, buildPerformance } from "./performance";
 import { buildInterfaces } from "./interfaces";
-import { buildProspect } from "./prospects";
+import { buildProspectDetail } from "./prospect-detail";
 import { iso } from "./rows";
 
 export interface DatasetOptions {
@@ -69,13 +69,14 @@ export async function loadDataset(db: Database, opts: DatasetOptions): Promise<D
   const personIds = [...new Set(prospects.map((p) => p.personId).filter((x): x is string => !!x))];
   const prospectIds = prospects.map((p) => p.id);
   const entityIds = [...companyIds, ...personIds, ...prospectIds];
-  const [companies, people, evidence, triggers, offers, runLog] = await Promise.all([
+  const [companies, people, evidence, triggers, offers, runLog, interactions] = await Promise.all([
     companyIds.length ? db.select().from(t.companies).where(inArray(t.companies.id, companyIds)) : [],
     personIds.length ? db.select().from(t.people).where(inArray(t.people.id, personIds)) : [],
     entityIds.length ? db.select().from(t.evidence).where(inArray(t.evidence.entityId, entityIds)) : [],
     prospectIds.length ? db.select().from(t.triggers).where(inArray(t.triggers.prospectId, prospectIds)) : [],
     db.select().from(t.offers).where(inEndeavours(t.offers.endeavourId)),
     runs[0] ? db.select().from(t.runLog).where(inArray(t.runLog.runId, [runs[0].id])) : [],
+    prospectIds.length ? db.select().from(t.interactions).where(inArray(t.interactions.prospectId, prospectIds)) : [],
   ]);
 
   const maps = {
@@ -141,8 +142,21 @@ export async function loadDataset(db: Database, opts: DatasetOptions): Promise<D
         !!m.tokenCiphertext && !!opts.aliasConsent?.(m.tokenCiphertext),
       ),
     ),
+    /*
+     * The detail, not just the list row.
+     *
+     * ProspectDetail extends Prospect, so every screen that reads a prospect keeps working
+     * unchanged, and the prospect screen reads the same object the list does rather than
+     * asking the server a second question about a record it already holds. Everything it
+     * needs — evidence, messages, triggers, interactions, the event log — was already read
+     * for the other panels, so this costs one query, not one per prospect.
+     */
     prospects: prospects.map((p) =>
-      buildProspect(p, { ...maps, evidence, triggers, messages, opportunities }),
+      buildProspectDetail(
+        p,
+        { ...maps, evidence, triggers, messages, opportunities },
+        { interactions, events: events.filter((e) => e.entityId === p.id) },
+      ),
     ),
     threads: threads.map((th) => buildThread(th, messages, approvals)).filter((x) => x !== null),
     activity: buildActivity(events),

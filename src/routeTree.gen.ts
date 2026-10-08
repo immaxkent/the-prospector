@@ -28,6 +28,8 @@ import { Route as AuthTestLoginRouteImport } from './routes/auth.test-login'
 import { Route as EndeavoursIndexRouteImport } from './routes/endeavours.index'
 import { Route as EndeavoursIdRouteImport } from './routes/endeavours.$id'
 import { Route as EndeavoursNewRouteImport } from './routes/endeavours.new'
+import { Route as ProspectsIndexRouteImport } from './routes/prospects.index'
+import { Route as ProspectsIdRouteImport } from './routes/prospects.$id'
 import { Route as ApiV1SplatRouteImport } from './routes/api.v1.$'
 import { Route as AuthGoogleCallbackRouteImport } from './routes/auth.google.callback'
 import { Route as MailboxesGoogleCallbackRouteImport } from './routes/mailboxes.google.callback'
@@ -128,6 +130,16 @@ const EndeavoursNewRoute = EndeavoursNewRouteImport.update({
   path: '/new',
   getParentRoute: () => EndeavoursRoute,
 } as any)
+const ProspectsIndexRoute = ProspectsIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => ProspectsRoute,
+} as any)
+const ProspectsIdRoute = ProspectsIdRouteImport.update({
+  id: '/$id',
+  path: '/$id',
+  getParentRoute: () => ProspectsRoute,
+} as any)
 const ApiV1SplatRoute = ApiV1SplatRouteImport.update({
   id: '/api/v1/$',
   path: '/api/v1/$',
@@ -159,7 +171,7 @@ export interface FileRoutesByFullPath {
   '/login': typeof LoginRoute
   '/mailbox': typeof MailboxRoute
   '/pipeline': typeof PipelineRoute
-  '/prospects': typeof ProspectsRoute
+  '/prospects': typeof ProspectsRouteWithChildren
   '/research': typeof ResearchRoute
   '/settings': typeof SettingsRoute
   '/walkthroughs': typeof WalkthroughsRoute
@@ -168,7 +180,9 @@ export interface FileRoutesByFullPath {
   '/auth/test-login': typeof AuthTestLoginRoute
   '/endeavours/$id': typeof EndeavoursIdRoute
   '/endeavours/new': typeof EndeavoursNewRoute
+  '/prospects/$id': typeof ProspectsIdRoute
   '/endeavours/': typeof EndeavoursIndexRoute
+  '/prospects/': typeof ProspectsIndexRoute
   '/api/v1/$': typeof ApiV1SplatRoute
   '/auth/google/callback': typeof AuthGoogleCallbackRoute
   '/mailboxes/google/callback': typeof MailboxesGoogleCallbackRoute
@@ -183,7 +197,6 @@ export interface FileRoutesByTo {
   '/login': typeof LoginRoute
   '/mailbox': typeof MailboxRoute
   '/pipeline': typeof PipelineRoute
-  '/prospects': typeof ProspectsRoute
   '/research': typeof ResearchRoute
   '/settings': typeof SettingsRoute
   '/walkthroughs': typeof WalkthroughsRoute
@@ -192,7 +205,9 @@ export interface FileRoutesByTo {
   '/auth/test-login': typeof AuthTestLoginRoute
   '/endeavours/$id': typeof EndeavoursIdRoute
   '/endeavours/new': typeof EndeavoursNewRoute
+  '/prospects/$id': typeof ProspectsIdRoute
   '/endeavours': typeof EndeavoursIndexRoute
+  '/prospects': typeof ProspectsIndexRoute
   '/api/v1/$': typeof ApiV1SplatRoute
   '/auth/google/callback': typeof AuthGoogleCallbackRoute
   '/mailboxes/google/callback': typeof MailboxesGoogleCallbackRoute
@@ -209,7 +224,7 @@ export interface FileRoutesById {
   '/login': typeof LoginRoute
   '/mailbox': typeof MailboxRoute
   '/pipeline': typeof PipelineRoute
-  '/prospects': typeof ProspectsRoute
+  '/prospects': typeof ProspectsRouteWithChildren
   '/research': typeof ResearchRoute
   '/settings': typeof SettingsRoute
   '/walkthroughs': typeof WalkthroughsRoute
@@ -218,7 +233,9 @@ export interface FileRoutesById {
   '/auth/test-login': typeof AuthTestLoginRoute
   '/endeavours/$id': typeof EndeavoursIdRoute
   '/endeavours/new': typeof EndeavoursNewRoute
+  '/prospects/$id': typeof ProspectsIdRoute
   '/endeavours/': typeof EndeavoursIndexRoute
+  '/prospects/': typeof ProspectsIndexRoute
   '/api/v1/$': typeof ApiV1SplatRoute
   '/auth/google/callback': typeof AuthGoogleCallbackRoute
   '/mailboxes/google/callback': typeof MailboxesGoogleCallbackRoute
@@ -245,7 +262,9 @@ export interface FileRouteTypes {
     | '/auth/test-login'
     | '/endeavours/$id'
     | '/endeavours/new'
+    | '/prospects/$id'
     | '/endeavours/'
+    | '/prospects/'
     | '/api/v1/$'
     | '/auth/google/callback'
     | '/mailboxes/google/callback'
@@ -260,7 +279,6 @@ export interface FileRouteTypes {
     | '/login'
     | '/mailbox'
     | '/pipeline'
-    | '/prospects'
     | '/research'
     | '/settings'
     | '/walkthroughs'
@@ -269,7 +287,9 @@ export interface FileRouteTypes {
     | '/auth/test-login'
     | '/endeavours/$id'
     | '/endeavours/new'
+    | '/prospects/$id'
     | '/endeavours'
+    | '/prospects'
     | '/api/v1/$'
     | '/auth/google/callback'
     | '/mailboxes/google/callback'
@@ -294,7 +314,9 @@ export interface FileRouteTypes {
     | '/auth/test-login'
     | '/endeavours/$id'
     | '/endeavours/new'
+    | '/prospects/$id'
     | '/endeavours/'
+    | '/prospects/'
     | '/api/v1/$'
     | '/auth/google/callback'
     | '/mailboxes/google/callback'
@@ -311,7 +333,7 @@ export interface RootRouteChildren {
   LoginRoute: typeof LoginRoute
   MailboxRoute: typeof MailboxRoute
   PipelineRoute: typeof PipelineRoute
-  ProspectsRoute: typeof ProspectsRoute
+  ProspectsRoute: typeof ProspectsRouteWithChildren
   ResearchRoute: typeof ResearchRoute
   SettingsRoute: typeof SettingsRoute
   WalkthroughsRoute: typeof WalkthroughsRoute
@@ -458,6 +480,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof EndeavoursNewRouteImport
       parentRoute: typeof EndeavoursRoute
     }
+    '/prospects/': {
+      id: '/prospects/'
+      path: '/'
+      fullPath: '/prospects/'
+      preLoaderRoute: typeof ProspectsIndexRouteImport
+      parentRoute: typeof ProspectsRoute
+    }
+    '/prospects/$id': {
+      id: '/prospects/$id'
+      path: '/$id'
+      fullPath: '/prospects/$id'
+      preLoaderRoute: typeof ProspectsIdRouteImport
+      parentRoute: typeof ProspectsRoute
+    }
     '/api/v1/$': {
       id: '/api/v1/$'
       path: '/api/v1/$'
@@ -505,6 +541,20 @@ const EndeavoursRouteWithChildren = EndeavoursRoute._addFileChildren(
   EndeavoursRouteChildren,
 )
 
+interface ProspectsRouteChildren {
+  ProspectsIdRoute: typeof ProspectsIdRoute
+  ProspectsIndexRoute: typeof ProspectsIndexRoute
+}
+
+const ProspectsRouteChildren: ProspectsRouteChildren = {
+  ProspectsIdRoute: ProspectsIdRoute,
+  ProspectsIndexRoute: ProspectsIndexRoute,
+}
+
+const ProspectsRouteWithChildren = ProspectsRoute._addFileChildren(
+  ProspectsRouteChildren,
+)
+
 interface AuthGoogleRouteChildren {
   AuthGoogleCallbackRoute: typeof AuthGoogleCallbackRoute
 }
@@ -527,7 +577,7 @@ const rootRouteChildren: RootRouteChildren = {
   LoginRoute: LoginRoute,
   MailboxRoute: MailboxRoute,
   PipelineRoute: PipelineRoute,
-  ProspectsRoute: ProspectsRoute,
+  ProspectsRoute: ProspectsRouteWithChildren,
   ResearchRoute: ResearchRoute,
   SettingsRoute: SettingsRoute,
   WalkthroughsRoute: WalkthroughsRoute,

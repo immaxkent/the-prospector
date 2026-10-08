@@ -5,7 +5,9 @@ import type {
   ApprovalRow,
   CompanyRow,
   EndeavourRow,
+  EventRow,
   EvidenceRow,
+  InteractionRow,
   MailboxRow,
   MessageRow,
   OfferRow,
@@ -15,6 +17,7 @@ import type {
   RunRow,
   SegmentRow,
   ThreadRow,
+  TriggerRow,
 } from "./rows";
 
 export const T0 = new Date("2026-09-17T08:00:00Z");
@@ -256,6 +259,49 @@ export function runRow(o: Partial<RunRow> = {}): RunRow {
     brief: null,
     startedAt: T0,
     finishedAt: new Date(T0.getTime() + 90_000),
+    ...o,
+  };
+}
+
+export function triggerRow(o: Partial<TriggerRow> = {}): TriggerRow {
+  return {
+    id: "trg_1",
+    prospectId: "pro_1",
+    type: "funding",
+    description: "Seed round announced",
+    evidenceId: null,
+    occurredOn: "2026-09-10",
+    detectedAt: T0,
+    ...o,
+  };
+}
+
+export function interactionRow(o: Partial<InteractionRow> = {}): InteractionRow {
+  return {
+    id: "int_1",
+    endeavourId: "end_1",
+    prospectId: "pro_1",
+    channel: "discord",
+    direction: "inbound",
+    occurredAt: T0,
+    note: null,
+    createdAt: T0,
+    updatedAt: T0,
+    ...o,
+  };
+}
+
+export function eventRow(o: Partial<EventRow> = {}): EventRow {
+  return {
+    id: "evt_1",
+    sourceSystem: "prospector",
+    eventType: "prospect.released",
+    entityType: "prospect",
+    entityId: "pro_1",
+    payload: {},
+    schemaVersion: 1,
+    occurredAt: T0,
+    seq: 1,
     ...o,
   };
 }

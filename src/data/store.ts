@@ -23,7 +23,7 @@ import type {
   Mailbox,
   ObjectionCluster,
   Opportunity,
-  Prospect,
+  ProspectDetail,
   RunLogLine,
   PerformanceSlice,
   SystemInterface,
@@ -102,7 +102,8 @@ export interface Dataset {
   status: SystemStatus;
   endeavours: Endeavour[];
   mailboxes: Mailbox[];
-  prospects: Prospect[];
+  /** The full detail. ProspectDetail extends Prospect, so a list screen reads it unchanged. */
+  prospects: ProspectDetail[];
   threads: Thread[];
   activity: ActivityEvent[];
   approvals: Approval[];

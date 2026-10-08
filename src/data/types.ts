@@ -42,7 +42,12 @@ export interface Endeavour {
     };
     followUpDays: number[];
     /** How much unanswered work may sit in front of the operator, and when to stop looking. */
-    prospecting: { maximumPending: number; activeGoal: number; paused: boolean; allocation: "even" | "automatic" };
+    prospecting: {
+      maximumPending: number;
+      activeGoal: number;
+      paused: boolean;
+      allocation: "even" | "automatic";
+    };
     /** When the digest and the weekly review arrive, where the operator is. */
     reporting: { digestHour: number; reviewWeekday: number; reviewHour: number; timezone: string };
   };
@@ -50,7 +55,14 @@ export interface Endeavour {
   pendingProspects: number;
   activeConversations: number;
   /** Active segments with how the pending buffer is split between them. */
-  segments: { id: string; name: string; priority: number; pinnedShare: number | null; pending: number; share: number }[];
+  segments: {
+    id: string;
+    name: string;
+    priority: number;
+    pinnedShare: number | null;
+    pending: number;
+    share: number;
+  }[];
   objective: string;
   unit: "GBP" | "COUNT";
   targetValue: number;
@@ -109,7 +121,13 @@ export interface Prospect {
   /** Why qualification landed where it did, in the model's own words. */
   scoreReason: string;
   /** Every route to the company, researched or entered by hand. */
-  contacts: { channel: string; value: string; sourceRef?: string | undefined }[];
+  contacts: {
+    channel: ContactChannelName;
+    value: string;
+    sourceRef?: string | undefined;
+    addedBy?: "agent" | "operator" | undefined;
+    preferred?: boolean | undefined;
+  }[];
   /** The company these contacts belong to, so one can be added against it. */
   companyId: string | null;
   /** When the operator cleared this one for outreach. Null until they do. */
@@ -372,4 +390,62 @@ export interface DailyBrief {
   learned: string[];
   today: string[];
   risks: string[];
+}
+
+/**
+ * The channels a contact can be on.
+ *
+ * Declared here rather than beside the contact rules because both sides read it and
+ * src/server is server-only by build rule. The runtime list in the domain is typed against
+ * this, so the two cannot drift apart silently.
+ */
+export type ContactChannelName =
+  "email" | "form" | "discord" | "telegram" | "x" | "linkedin" | "other";
+
+/** One route to a company or person, and where it came from. */
+export interface ContactRoute {
+  channel: ContactChannelName;
+  value: string;
+  /** Who found it. Research cites a URL; the operator cites themselves. */
+  foundBy: "agent" | "operator";
+  /** Where it was read, when there is somewhere to point at. */
+  sourceRef: string | null;
+  /** The one this app would try first. Exactly one route is preferred, unless there are none. */
+  preferred: boolean;
+  /** Whether this app can send to it. Only email, today. */
+  sendable: boolean;
+  /** A person rather than a generic inbox. Only meaningful for email. */
+  named: boolean;
+}
+
+export type TimelineKind =
+  | "research"
+  | "trigger"
+  | "qualified"
+  | "released"
+  | "sent"
+  | "received"
+  | "elsewhere"
+  | "decision";
+
+/** One thing that happened to a prospect, from whichever table recorded it. */
+export interface TimelineEntry {
+  id: string;
+  kind: TimelineKind;
+  at: string;
+  title: string;
+  detail: string;
+  /** Where to read it for yourself, when the source is a page. */
+  url?: string | undefined;
+}
+
+/** Everything known about one prospect, on one screen. */
+export interface ProspectDetail extends Prospect {
+  personEmail: string | null;
+  linkedinUrl: string | null;
+  companyName: string;
+  companyDomain: string | null;
+  companyTimezone: string | null;
+  routes: ContactRoute[];
+  timeline: TimelineEntry[];
 }

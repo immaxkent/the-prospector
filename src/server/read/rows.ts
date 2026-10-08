@@ -19,6 +19,7 @@ export type InsightRow = InferSelectModel<typeof t.insights>;
 export type RunRow = InferSelectModel<typeof t.dailyRuns>;
 export type RunLogRow = InferSelectModel<typeof t.runLog>;
 export type EventRow = InferSelectModel<typeof t.events>;
+export type InteractionRow = InferSelectModel<typeof t.interactions>;
 
 export const OPERATOR_TIMEZONE = "Europe/London";
 

@@ -118,7 +118,7 @@ export async function addCompanyContact(
     const [company] = await tx.select().from(companies).where(eq(companies.id, input.companyId));
     if (!company) throw notFound("company");
 
-    const contact: CompanyContact = { channel: input.channel, value };
+    const contact: CompanyContact = { channel: input.channel, value, addedBy: "operator" };
     if (input.sourceRef?.trim()) contact.sourceRef = input.sourceRef.trim();
 
     const merged = dedupeContacts([...company.contacts, contact]);
@@ -126,5 +126,52 @@ export async function addCompanyContact(
 
     await tx.update(companies).set({ contacts: merged }).where(eq(companies.id, company.id));
     return { contacts: merged };
+  });
+}
+
+/**
+ * Says which contact to use, overriding the ranking.
+ *
+ * Research can only rank addresses by what they look like, and it is often wrong about which
+ * inbox a company reads. At most one contact carries the mark, so choosing one clears the
+ * previous choice; choosing the one already chosen clears it and hands the decision back to
+ * the ranking.
+ */
+export async function setPreferredContact(db: Database, input: { companyId: string; channel: ContactChannel; value: string }) {
+  return db.transaction(async (tx: Executor) => {
+    const [company] = await tx.select().from(companies).where(eq(companies.id, input.companyId));
+    if (!company) throw notFound("company");
+
+    const match = (c: CompanyContact) => c.channel === input.channel && c.value === input.value;
+    const target = company.contacts.find(match);
+    if (!target) throw notFound("contact");
+
+    const clearing = target.preferred === true;
+    const contacts = company.contacts.map((c) => {
+      const { preferred: _was, ...rest } = c;
+      return match(c) && !clearing ? { ...rest, preferred: true } : rest;
+    });
+    await tx.update(companies).set({ contacts }).where(eq(companies.id, company.id));
+    return { contacts, chosen: clearing ? null : input.value };
+  });
+}
+
+/**
+ * Removes a contact.
+ *
+ * Research gets addresses wrong — a support inbox read off the wrong page, a handle for a
+ * different company of the same name — and a wrong address that cannot be taken out is worse
+ * than no address, because the ranking will keep choosing it.
+ */
+export async function removeCompanyContact(db: Database, input: { companyId: string; channel: ContactChannel; value: string }) {
+  return db.transaction(async (tx: Executor) => {
+    const [company] = await tx.select().from(companies).where(eq(companies.id, input.companyId));
+    if (!company) throw notFound("company");
+
+    const contacts = company.contacts.filter((c) => !(c.channel === input.channel && c.value === input.value));
+    if (contacts.length === company.contacts.length) throw notFound("contact");
+
+    await tx.update(companies).set({ contacts }).where(eq(companies.id, company.id));
+    return { contacts };
   });
 }
