@@ -134,6 +134,29 @@ export interface Prospect {
   releasedAt: string | null;
 }
 
+/** One message on its way out, and what it is waiting on. */
+export interface QueuedMessage {
+  id: string;
+  prospectId: string | null;
+  who: string;
+  subject: string;
+  state: OutboundState;
+  /** When it is due to go. Null when nothing has given it a slot yet. */
+  goesAt: string | null;
+  attempts: number;
+  lastError: string | null;
+}
+
+/** What is about to go out for one endeavour, and from where. */
+export interface OutboundQueue {
+  from: string | null;
+  messages: QueuedMessage[];
+  waitingOnYou: number;
+  readyToGo: number;
+  failed: number;
+  nextAt: string | null;
+}
+
 export interface Message {
   id: string;
   threadId: string;
