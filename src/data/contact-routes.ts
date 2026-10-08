@@ -7,7 +7,7 @@
  * both sides can see.
  */
 import { isGenericInbox } from "@/lib/inbox";
-import type { ContactRoute } from "./types";
+import type { ContactChannelName, ContactRoute } from "./types";
 
 /**
  * Who found a contact.
@@ -35,10 +35,11 @@ export function contactRoutes(input: {
   personEmail: string | null;
   linkedinUrl: string | null;
   contacts: readonly {
-    channel: string;
+    channel: ContactChannelName;
     value: string;
     sourceRef?: string | undefined;
     addedBy?: "agent" | "operator" | undefined;
+    preferred?: boolean | undefined;
   }[];
 }): ContactRoute[] {
   const routes: ContactRoute[] = [];
@@ -76,11 +77,20 @@ export function contactRoutes(input: {
     });
   }
 
-  // Named address, then any address, then whatever a person can open. Same order of
-  // preference the sender uses, so the screen cannot disagree with what would happen.
-  const rank = (r: ContactRoute) => (r.sendable && r.named ? 0 : r.sendable ? 1 : 2);
+  /*
+   * The operator's choice, then a named address, then any address, then whatever a person
+   * can open. The same order of preference the sender resolves with, so the screen cannot
+   * disagree with what would actually happen.
+   *
+   * A chosen route this app cannot send on is still marked: that is what the sender would
+   * resolve to, and it would then refuse. Showing it beside "YOU OPEN THIS" surfaces the
+   * mistake, where quietly preferring something else would hide it.
+   */
+  const chosen = input.contacts.find((c) => c.preferred)?.value ?? null;
+  const rank = (r: ContactRoute) =>
+    r.value === chosen ? -1 : r.sendable && r.named ? 0 : r.sendable ? 1 : 2;
   routes.sort((a, b) => rank(a) - rank(b));
-  const first = routes.find((r) => r.sendable);
-  if (first) first.preferred = true;
+  const picked = routes.find((r) => r.value === chosen) ?? routes.find((r) => r.sendable);
+  if (picked) picked.preferred = true;
   return routes;
 }

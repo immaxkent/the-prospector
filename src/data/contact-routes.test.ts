@@ -90,3 +90,39 @@ describe("contactRoutes", () => {
     expect(contactRoutes({ personEmail: null, linkedinUrl: null, contacts: [] })).toEqual([]);
   });
 });
+
+describe("a route the operator chose", () => {
+  it("is marked and sorted first, over a named address", () => {
+    const routes = contactRoutes({
+      personEmail: "ada@co.com",
+      linkedinUrl: null,
+      contacts: [{ channel: "email", value: "mira@co.com", preferred: true }],
+    });
+    expect(routes[0]).toMatchObject({ value: "mira@co.com", preferred: true });
+    expect(routes.filter((r) => r.preferred)).toHaveLength(1);
+  });
+
+  it("is marked even when this app cannot send on it, because that is what the sender would resolve to", () => {
+    // Quietly preferring something else would hide the mistake; showing it beside "you open
+    // this" is what surfaces it.
+    const routes = contactRoutes({
+      personEmail: "ada@co.com",
+      linkedinUrl: null,
+      contacts: [{ channel: "discord", value: "co#1", preferred: true }],
+    });
+    expect(routes[0]).toMatchObject({ value: "co#1", preferred: true, sendable: false });
+    expect(routes.find((r) => r.value === "ada@co.com")?.preferred).toBe(false);
+  });
+
+  it("falls back to the ranking when nothing was chosen", () => {
+    const routes = contactRoutes({
+      personEmail: null,
+      linkedinUrl: null,
+      contacts: [
+        { channel: "email", value: "hello@co.com" },
+        { channel: "email", value: "mira@co.com" },
+      ],
+    });
+    expect(routes[0]).toMatchObject({ value: "mira@co.com", preferred: true });
+  });
+});
