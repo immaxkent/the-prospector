@@ -184,6 +184,26 @@ export interface Thread {
   messages: Message[];
 }
 
+/**
+ * A reply that could not be attributed to a prospect.
+ *
+ * These were dropped from the read model: the thread exists, the mail is stored, an approval
+ * is raised — and the inbox showed nothing at all, because only mapped threads were built.
+ * So "nothing came in today" and "four things came in that we could not place" looked
+ * identical, which is the worse of the two to get wrong.
+ */
+export interface UnattributedReply {
+  id: string;
+  subject: string;
+  from: string;
+  preview: string;
+  receivedAt: string;
+  /** The prospect the domain pointed at, when something did. Null when nothing matched. */
+  guessedProspectId: string | null;
+  /** How it was guessed, when it was. Null when nothing matched at all. */
+  guessedBy: string | null;
+}
+
 export type ActivityKind =
   | "RESEARCHED"
   | "QUALIFIED"
